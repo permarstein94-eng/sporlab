@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell(\\(Get-Content app.js | Measure-Object -Line\\).Lines; \\(Get-Content content.js | Measure-Object -Line\\).Lines; \\(Get-Content styles.css | Measure-Object -Line\\).Lines; \\(Get-Content service-worker.js | Measure-Object -Line\\).Lines)",
-      "PowerShell(node --version)"
+      "PowerShell(node --version)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

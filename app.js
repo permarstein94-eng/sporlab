@@ -182,13 +182,36 @@ function emptyState(text = "Legg inn en økt eller plan, så dukker den opp her.
   return `<div class="empty-state"><p class="eyebrow">Tomt foreløpig</p><p>${escapeHtml(text)}</p></div>`;
 }
 
+/* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
+
+const OVERLAY_SELECTOR = "#welcomeOverlay, #tourOverlay, #fieldOverlay, #qrOverlay";
+
+function openOverlay(overlay) {
+  if (!overlay) return;
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("overlay-open");
+  requestAnimationFrame(() => overlay.classList.add("is-open"));
+}
+
+function closeOverlay(overlay) {
+  if (!overlay) return;
+  overlay.classList.remove("is-open");
+  const anyOpen = $all(OVERLAY_SELECTOR).some((el) => el.classList.contains("is-open"));
+  if (!anyOpen) document.body.classList.remove("overlay-open");
+  setTimeout(() => {
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+  }, 200);
+}
+
 function setView(view) {
   state.view = view;
   saveState();
   $all(".view").forEach((item) => item.classList.remove("is-visible"));
   const target = $(`#${view}View`);
   if (target) target.classList.add("is-visible");
-  $all(".nav-item, .mobile-menu-item, .bottom-nav-item").forEach((item) => {
+  $all(".nav-item, .bottom-nav-item").forEach((item) => {
     if (!item.dataset.view) return;
     const isActive = item.dataset.view === view;
     item.classList.toggle("is-active", isActive);
@@ -205,35 +228,9 @@ function setView(view) {
     document.body.classList.toggle(`view-${v}`, view === v);
   });
   renderView(view);
-  closeMobileMenu();
   if (typeof window !== "undefined") {
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   }
-}
-
-function openMobileMenu() {
-  const menu = $("#mobileMenu");
-  if (!menu) return;
-  menu.hidden = false;
-  menu.setAttribute("aria-hidden", "false");
-  document.body.classList.add("menu-open");
-  const toggle = $("#mobileMenuToggle");
-  if (toggle) toggle.setAttribute("aria-expanded", "true");
-  requestAnimationFrame(() => menu.classList.add("is-open"));
-}
-
-function closeMobileMenu() {
-  const menu = $("#mobileMenu");
-  if (!menu) return;
-  if (!menu.classList.contains("is-open") && menu.hidden) return;
-  menu.classList.remove("is-open");
-  document.body.classList.remove("menu-open");
-  const toggle = $("#mobileMenuToggle");
-  if (toggle) toggle.setAttribute("aria-expanded", "false");
-  setTimeout(() => {
-    menu.hidden = true;
-    menu.setAttribute("aria-hidden", "true");
-  }, 200);
 }
 
 function renderView(view = state.view) {
@@ -259,7 +256,7 @@ function renderDashboard() {
   $("#logNumber").textContent = state.logs.length;
   $("#planNumber").textContent = state.plans.length;
   $("#nextPlan").innerHTML = state.plans[0] ? planCard(state.plans[0], true) : emptyState("Lag en øktplan, så ligger neste økt klar her.");
-  const recent = [...state.logs].sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
+  const recent = [...state.logs].sort((a, b) => logTimestamp(b) - logTimestamp(a)).slice(0, 3);
   $("#recentLogs").innerHTML = recent.length ? recent.map(logCard).join("") : emptyState("Ingen logg ennå. Start med én enkel observasjon fra neste økt.");
 
   const hero = $("#nextStepHero");
@@ -646,8 +643,10 @@ function computeNextStep() {
   const plans = state.plans || [];
   const logs = state.logs || [];
   const firstUnreadModule = modules.find((m) => !completed.includes(m.id));
-  const newestLog = logs.length ? [...logs].sort((a, b) => b.createdAt - a.createdAt)[0] : null;
-  const daysSinceLog = newestLog ? Math.floor((Date.now() - newestLog.createdAt) / (1000 * 60 * 60 * 24)) : null;
+  const newestLog = logs.length ? [...logs].sort((a, b) => logTimestamp(b) - logTimestamp(a))[0] : null;
+  const daysSinceLog = newestLog && logTimestamp(newestLog)
+    ? Math.floor((Date.now() - logTimestamp(newestLog)) / (1000 * 60 * 60 * 24))
+    : null;
 
   // Resume: aktiv modul som ikke er fullført — kun hvis ikke ny bruker
   const activeMod = state.activeModule ? modules.find((m) => m.id === state.activeModule) : null;
@@ -941,9 +940,13 @@ function renderLearnModule(moduleId) {
 }
 
 function renderSettings() {
-  const status = $("#settingsThemeStatus");
+  syncThemeUI();
+}
+
+function syncThemeUI() {
   const theme = state.theme || "auto";
   const labels = { auto: "Auto", light: "Lys", dark: "Mørk" };
+  const status = $("#settingsThemeStatus");
   if (status) status.textContent = `Nåværende: ${labels[theme] || "Auto"}.`;
   ["Auto", "Light", "Dark"].forEach((variant) => {
     const btn = $(`#settingsTheme${variant}`);
@@ -1004,7 +1007,7 @@ function renderWizardFocus() {
 
   // Forrige økt-hint: vis "neste steg"-notat fra siste logg
   const newestLog = state.logs.length
-    ? [...state.logs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0]
+    ? [...state.logs].sort((a, b) => logTimestamp(b) - logTimestamp(a))[0]
     : null;
   const nextStepHint = newestLog?.next?.trim()
     ? `<div class="callout wizard-nextstep-hint">
@@ -1417,9 +1420,9 @@ function renderPlanQr(plan, container, pxSize = 132) {
     container.innerHTML = '<p class="small">QR utilgjengelig</p>';
     return false;
   }
-  const { url, length } = buildPlanShareUrl(plan);
-  // QR-kapasitet på nivå M ~ 2300 tegn. Planer er små, men vi sikrer oss.
-  if (length > 2200) {
+  const { url } = buildPlanShareUrl(plan);
+  // QR-kapasitet på nivå M ~ 2300 tegn. Hele URL-en telles (origin + payload).
+  if (url.length > 2200) {
     container.innerHTML = '<p class="small">Planen er for stor for QR — bruk delingslenke.</p>';
     return false;
   }
@@ -1451,23 +1454,11 @@ function openPlanQr(planId) {
   if (titleEl) titleEl.textContent = plan.title || "";
   const status = $("#qrStatus");
   if (status) status.textContent = "";
-  overlay.hidden = false;
-  overlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("overlay-open");
-  requestAnimationFrame(() => overlay.classList.add("is-open"));
+  openOverlay(overlay);
 }
 
 function closeQr() {
-  const overlay = $("#qrOverlay");
-  if (!overlay) return;
-  overlay.classList.remove("is-open");
-  if (!$("#welcomeOverlay")?.classList.contains("is-open") && !$("#fieldOverlay")?.classList.contains("is-open")) {
-    document.body.classList.remove("overlay-open");
-  }
-  setTimeout(() => {
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-  }, 200);
+  closeOverlay($("#qrOverlay"));
 }
 
 function initShare() {
@@ -1565,27 +1556,13 @@ function openFieldMode(planId) {
   renderFieldMode();
   const overlay = $("#fieldOverlay");
   if (!overlay) return;
-  overlay.hidden = false;
-  overlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("overlay-open");
-  requestAnimationFrame(() => {
-    overlay.classList.add("is-open");
-    requestFieldWakeLock();
-  });
+  openOverlay(overlay);
+  requestAnimationFrame(() => requestFieldWakeLock());
 }
 
 function closeFieldMode() {
-  const overlay = $("#fieldOverlay");
-  if (!overlay) return;
   releaseFieldWakeLock();
-  overlay.classList.remove("is-open");
-  if (!$("#qrOverlay")?.classList.contains("is-open")) {
-    document.body.classList.remove("overlay-open");
-  }
-  setTimeout(() => {
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-  }, 200);
+  closeOverlay($("#fieldOverlay"));
 }
 
 function initFieldMode() {
@@ -1706,9 +1683,7 @@ function buildOktkortHtml(plan, options = {}) {
 function findPlanById(planId) {
   return (
     state.plans.find((p) => p.id === planId) ||
-    (state.currentPlan && state.currentPlan.id === planId ? state.currentPlan : null) ||
-    state.currentPlan ||
-    null
+    (state.currentPlan && state.currentPlan.id === planId ? state.currentPlan : null)
   );
 }
 
@@ -1934,8 +1909,10 @@ function logsToCsv(logs) {
     };
     return fields
       .map((f) => {
-        const value = String(flat[f] ?? "");
-        if (value.includes(",") || value.includes("\"") || value.includes("\n")) {
+        let value = String(flat[f] ?? "");
+        // Vern mot formelinjeksjon når CSV-en åpnes i Excel/Sheets.
+        if (/^[=+\-@\t]/.test(value)) value = `'${value}`;
+        if (value.includes(",") || value.includes("\"") || value.includes("\n") || value.includes("\r")) {
           return `"${value.replaceAll("\"", "\"\"")}"`;
         }
         return value;
@@ -2422,28 +2399,6 @@ function initEvents() {
   $("#bottomNav")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-view]");
     if (button) setView(button.dataset.view);
-  });
-
-  $("#mobileMenuToggle")?.addEventListener("click", () => {
-    const menu = $("#mobileMenu");
-    if (menu && menu.classList.contains("is-open")) closeMobileMenu();
-    else openMobileMenu();
-  });
-
-  $("#mobileMenu")?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-close-menu]")) {
-      closeMobileMenu();
-      return;
-    }
-    const item = event.target.closest(".mobile-menu-item[data-view]");
-    if (item) {
-      setView(item.dataset.view);
-      closeMobileMenu();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeMobileMenu();
   });
 
   document.addEventListener("click", (event) => {
@@ -2992,7 +2947,7 @@ function initEvents() {
 }
 
 function makeTeamSummary() {
-  const latest = [...state.logs].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
+  const latest = [...state.logs].sort((a, b) => logTimestamp(b) - logTimestamp(a)).slice(0, 5);
   if (!latest.length) return "Ingen økter er loggført ennå.";
   return latest
     .map((log) => {
@@ -3039,18 +2994,8 @@ function resetLogForm() {
 }
 
 function applyTheme() {
-  const root = document.documentElement;
-  const theme = state.theme || "auto";
-  root.dataset.theme = theme;
-  const labels = { auto: "Auto", light: "Lys", dark: "Mørk" };
-  const status = $("#settingsThemeStatus");
-  if (status) status.textContent = `Nåværende: ${labels[theme] || "Auto"}.`;
-  ["Auto", "Light", "Dark"].forEach((variant) => {
-    const btn = $(`#settingsTheme${variant}`);
-    if (!btn) return;
-    btn.classList.toggle("theme-button-active", theme === variant.toLowerCase());
-    btn.setAttribute("aria-pressed", theme === variant.toLowerCase() ? "true" : "false");
-  });
+  document.documentElement.dataset.theme = state.theme || "auto";
+  syncThemeUI();
 }
 
 function handleSharedImport() {
@@ -3143,29 +3088,15 @@ const tourSteps = [
 let tourStep = 0;
 
 function openWelcome() {
-  const overlay = $("#welcomeOverlay");
-  if (!overlay) return;
-  overlay.hidden = false;
-  overlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("overlay-open");
-  requestAnimationFrame(() => overlay.classList.add("is-open"));
+  openOverlay($("#welcomeOverlay"));
 }
 
 function closeWelcome() {
-  const overlay = $("#welcomeOverlay");
-  if (!overlay) return;
   if (!state.hasSeenWelcome) {
     state.hasSeenWelcome = true;
     saveState();
   }
-  overlay.classList.remove("is-open");
-  if (!$("#tourOverlay")?.classList.contains("is-open")) {
-    document.body.classList.remove("overlay-open");
-  }
-  setTimeout(() => {
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-  }, 200);
+  closeOverlay($("#welcomeOverlay"));
 }
 
 function renderTourStep() {
@@ -3199,26 +3130,12 @@ function startTour() {
   if (!overlay) return;
   tourStep = 0;
   renderTourStep();
-  overlay.hidden = false;
-  overlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("overlay-open");
-  requestAnimationFrame(() => {
-    overlay.classList.add("is-open");
-    $("#tourOverlay [data-tour-next]")?.focus();
-  });
+  openOverlay(overlay);
+  requestAnimationFrame(() => $("#tourOverlay [data-tour-next]")?.focus());
 }
 
 function endTour() {
-  const overlay = $("#tourOverlay");
-  if (!overlay) return;
-  overlay.classList.remove("is-open");
-  if (!$("#welcomeOverlay")?.classList.contains("is-open")) {
-    document.body.classList.remove("overlay-open");
-  }
-  setTimeout(() => {
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-  }, 200);
+  closeOverlay($("#tourOverlay"));
 }
 
 function nextTourStep() {
