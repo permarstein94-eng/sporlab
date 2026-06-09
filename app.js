@@ -48,6 +48,7 @@ const defaultState = () => ({
   quiz: defaultQuizState(),
   hasSeenWelcome: false,
   activeGuide: null,
+  lastExportLogCount: 0,
 });
 
 let state = loadState();
@@ -277,9 +278,26 @@ function renderDashboard() {
     `;
   }
 
+  renderBackupNudge();
   renderProgressCharts();
   renderExamReadiness();
   renderMiniQuiz();
+}
+
+// Diskret påminnelse om sikkerhetskopi: all data bor i localStorage, som kan
+// ryke ved nettleser-opprydding. Vises når mange økter mangler i siste eksport.
+const BACKUP_NUDGE_THRESHOLD = 15;
+
+function renderBackupNudge() {
+  const nudge = $("#backupNudge");
+  if (!nudge) return;
+  const unsaved = state.logs.length - (state.lastExportLogCount || 0);
+  if (unsaved < BACKUP_NUDGE_THRESHOLD) {
+    nudge.hidden = true;
+    return;
+  }
+  nudge.hidden = false;
+  nudge.innerHTML = `${unsaved} økter er ikke sikkerhetskopiert. <button class="text-button" type="button" data-view-jump="settings">Eksporter nå</button>`;
 }
 
 function renderExamReadiness() {
@@ -1472,6 +1490,29 @@ function initShare() {
 
 let fieldPlanId = null;
 let fieldChecks = [false, false, false];
+let fieldWakeLock = null;
+
+// Holder skjermen våken i feltmodus — i felt med hansker er gjenopplåsing
+// reell friksjon. Wake Lock slippes av nettleseren ved fanebytte, derfor
+// re-aktiveres den på visibilitychange så lenge feltmodus er åpen.
+async function requestFieldWakeLock() {
+  try {
+    if (!navigator.wakeLock) return;
+    if (!$("#fieldOverlay")?.classList.contains("is-open")) return;
+    fieldWakeLock = await navigator.wakeLock.request("screen");
+  } catch {
+    fieldWakeLock = null;
+  }
+}
+
+function releaseFieldWakeLock() {
+  try {
+    fieldWakeLock?.release();
+  } catch {
+    // Allerede sluppet — uproblematisk.
+  }
+  fieldWakeLock = null;
+}
 
 function renderFieldMode() {
   const plan = findPlanById(fieldPlanId);
@@ -1527,12 +1568,16 @@ function openFieldMode(planId) {
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden", "false");
   document.body.classList.add("overlay-open");
-  requestAnimationFrame(() => overlay.classList.add("is-open"));
+  requestAnimationFrame(() => {
+    overlay.classList.add("is-open");
+    requestFieldWakeLock();
+  });
 }
 
 function closeFieldMode() {
   const overlay = $("#fieldOverlay");
   if (!overlay) return;
+  releaseFieldWakeLock();
   overlay.classList.remove("is-open");
   if (!$("#qrOverlay")?.classList.contains("is-open")) {
     document.body.classList.remove("overlay-open");
@@ -1544,6 +1589,10 @@ function closeFieldMode() {
 }
 
 function initFieldMode() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") requestFieldWakeLock();
+  });
+
   $("#fieldOverlay")?.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-field]")) {
       closeFieldMode();
@@ -1803,6 +1852,15 @@ function renderLogList() {
     .join("");
 }
 
+// Felles tolkning av stjernene, så mestringsscore betyr det samme for hele laget.
+const RATING_LABELS = {
+  1: "1 — Fikk ikke løst oppgaven",
+  2: "2 — Løste med mye hjelp",
+  3: "3 — Løste med noe støtte",
+  4: "4 — Selvstendig, med små avvik",
+  5: "5 — Selvstendig og presis",
+};
+
 function syncLogFormUI() {
   const form = $("#logForm");
   if (!form) return;
@@ -1812,6 +1870,8 @@ function syncLogFormUI() {
     star.classList.toggle("is-on", value <= Number(ratingValue));
     star.setAttribute("aria-checked", value === Number(ratingValue) ? "true" : "false");
   });
+  const ratingLabel = $("#ratingLabel");
+  if (ratingLabel) ratingLabel.textContent = RATING_LABELS[Number(ratingValue)] || "";
   const weatherValue = form.querySelector('input[name="weather"]')?.value || "";
   form.querySelectorAll("[data-weather]").forEach((chip) => {
     const isOn = chip.dataset.weather === weatherValue;
@@ -1851,7 +1911,7 @@ function logCard(log) {
       <time>${escapeHtml(log.date || "Uten dato")}</time>
       <h4>${escapeHtml(log.type || "Økt")}${log.dog ? ` · ${escapeHtml(log.dog)}` : ""}</h4>
       ${stars ? `<p class="rating-row" aria-label="Mestring ${rating} av 5">${stars}</p>` : ""}
-      <p>${escapeHtml([log.handler, log.age, log.length].filter(Boolean).join(" · "))}</p>
+      <p>${escapeHtml([log.handler, log.age ? readableAge(log.age) : "", log.length].filter(Boolean).join(" · "))}</p>
       ${conditions ? `<p class="small">${escapeHtml(conditions)}</p>` : ""}
       ${planRef}
       ${obsHtml}
@@ -1867,6 +1927,7 @@ function logsToCsv(logs) {
     const obs = Array.isArray(log.observations) ? log.observations : [];
     const flat = {
       ...log,
+      age: log.age ? readableAge(log.age) : "",
       obs1: obs[0] ? `${obs[0].prompt || ""} → ${obs[0].answer || ""}`.trim() : log.observation || "",
       obs2: obs[1] ? `${obs[1].prompt || ""} → ${obs[1].answer || ""}`.trim() : "",
       obs3: obs[2] ? `${obs[2].prompt || ""} → ${obs[2].answer || ""}`.trim() : "",
@@ -1927,7 +1988,7 @@ function prefillLogFromPlan(plan) {
   }
   if (get("handler")) get("handler").value = findMeta("Fører") || get("handler").value;
   if (get("dog")) get("dog").value = findMeta("Hund") || get("dog").value;
-  if (get("age")) get("age").value = findMeta("Liggetid") || get("age").value;
+  if (get("age") && plan.age) get("age").value = plan.age;
   const terrainReverse = { "Skog/vegetasjon": "skog", "Vei/sti": "vei", "Hardt underlag": "hardt", "Blandet": "blandet" };
   const terrainReadable = findMeta("Underlag");
   if (get("terrain") && terrainReadable) get("terrain").value = terrainReverse[terrainReadable] || "";
@@ -2682,6 +2743,7 @@ function initEvents() {
     if (event.target.id === "nextQuestion") nextQuestion();
     if (event.target.id === "resetQuiz") resetQuiz();
     if (event.target.id === "quizRestartSame") resetQuiz(state.quiz?.mode || "all");
+    if (event.target.closest("#logClearForm")) resetLogForm();
 
     if (event.target.id === "settingsResetData") {
       const counts = `${state.logs.length} logger, ${state.plans.length} planer, ${state.completed.length} fullførte moduler`;
@@ -2745,19 +2807,17 @@ function initEvents() {
     };
     state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
     saveState();
-    form.reset();
-    form.removeAttribute("data-plan-id");
-    form.removeAttribute("data-plan-title");
-    form.removeAttribute("data-plan-pages");
-    [0, 1, 2].forEach((i) => {
-      const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
-      if (promptEl) promptEl.textContent = "";
+    // Behold dato, type, fører, forhold og plan-kobling — lagstrening logger
+    // gjerne flere hunder etter hverandre i samme økt. Nullstill bare det som
+    // er per hund: hund, stjerner og fritekstsvar.
+    ["dog", "next", "obs0", "obs1", "obs2"].forEach((name) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (field) field.value = "";
     });
-    const hint = $("#logObservationHint");
-    if (hint) hint.textContent = "Når du loggfører fra en plan, prefylles disse fra observasjonspunktene i planen.";
-    setDefaults();
+    const ratingInput = form.querySelector('input[name="rating"]');
+    if (ratingInput) ratingInput.value = "0";
     syncLogFormUI();
-    $("#logStatus").textContent = "Loggen er lagret.";
+    $("#logStatus").textContent = "Loggen er lagret. Dato og forhold står igjen — bytt hund for neste logg, eller trykk «Tøm skjemaet».";
     renderLog();
     renderDashboard();
   });
@@ -2794,6 +2854,9 @@ function initEvents() {
   $("#settingsExportJson")?.addEventListener("click", () => {
     const today = localIsoDate();
     downloadBlob(JSON.stringify(shareSnapshot(), null, 2), `sporlab-eksport-${today}.json`, "application/json");
+    state.lastExportLogCount = state.logs.length;
+    saveState();
+    renderBackupNudge();
     const status = $("#settingsDataStatus");
     if (status) status.textContent = "Eksport JSON er lastet ned.";
   });
@@ -2806,6 +2869,9 @@ function initEvents() {
     }
     const today = localIsoDate();
     downloadBlob(logsToCsv(state.logs), `sporlab-logg-${today}.csv`, "text/csv;charset=utf-8");
+    state.lastExportLogCount = state.logs.length;
+    saveState();
+    renderBackupNudge();
     if (status) status.textContent = "Eksport CSV er lastet ned.";
   });
 
@@ -2931,7 +2997,7 @@ function makeTeamSummary() {
   return latest
     .map((log) => {
       const heading = `${log.date || "Uten dato"} - ${log.dog || "hund"} / ${log.handler || "fører"} (${log.type || "økt"})`;
-      const facts = [log.age, log.length].filter(Boolean).join(", ");
+      const facts = [log.age ? readableAge(log.age) : "", log.length].filter(Boolean).join(", ");
       const obs = Array.isArray(log.observations) ? log.observations : [];
       const obsText = obs.length
         ? obs
@@ -2950,6 +3016,26 @@ function setDefaults() {
   if (ratingInput) ratingInput.value = "0";
   const weatherInput = $('#logForm input[name="weather"]');
   if (weatherInput) weatherInput.value = "";
+}
+
+function resetLogForm() {
+  const form = $("#logForm");
+  if (!form) return;
+  form.reset();
+  form.removeAttribute("data-plan-id");
+  form.removeAttribute("data-plan-title");
+  form.removeAttribute("data-plan-pages");
+  [0, 1, 2].forEach((i) => {
+    const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
+    if (promptEl) promptEl.textContent = "";
+  });
+  const hint = $("#logObservationHint");
+  if (hint) hint.textContent = "Når du loggfører fra en plan, prefylles disse fra observasjonspunktene i planen.";
+  setDefaults();
+  syncLogFormUI();
+  renderLog();
+  const status = $("#logStatus");
+  if (status) status.textContent = "Skjemaet er tømt.";
 }
 
 function applyTheme() {
