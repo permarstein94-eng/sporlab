@@ -294,17 +294,24 @@ function renderExamReadiness() {
   }
   panel.hidden = false;
 
-  const loggedTypes = new Set(state.logs.map((l) => l.planId || l.planTitle || "").filter(Boolean));
-  const logsByFocus = {};
+  // Logger krediteres en modul via planen de kom fra, eller via økt-type for
+  // manuelle logger. «Momenttrening» er tvetydig (fire mulige moduler) og
+  // krediteres derfor bare via plan. Grunnlaget trenes i enhver loggført økt.
+  const typeToModules = {
+    Spor: ["spor"],
+    "Sporoppsøk": ["oppsok"],
+    "Frisøk med sporopptak": ["oppsok"],
+  };
+  const logsByModule = {};
+  const credit = (mod) => {
+    logsByModule[mod] = (logsByModule[mod] || 0) + 1;
+  };
   state.logs.forEach((l) => {
-    if (l.planTitle) {
-      const bp = Object.values(planBlueprints).find((b) => b.title === l.planTitle);
-      if (bp) {
-        const mod = bp.module;
-        logsByFocus[mod] = (logsByFocus[mod] || 0) + 1;
-      }
-    }
+    const bp = l.planTitle ? Object.values(planBlueprints).find((b) => b.title === l.planTitle) : null;
+    if (bp) credit(bp.module);
+    else (typeToModules[l.type] || []).forEach(credit);
   });
+  if (state.logs.length && !logsByModule.grunnlag) logsByModule.grunnlag = 1;
 
   const rows = modules.map((module) => {
     const isRead = state.completed.includes(module.id);
@@ -315,7 +322,7 @@ function renderExamReadiness() {
       return m && m.correct > m.wrong;
     }).length;
     const quizOk = totalQs > 0 && masteredQs >= Math.ceil(totalQs * 0.6);
-    const hasLog = (logsByFocus[module.id] || 0) > 0;
+    const hasLog = (logsByModule[module.id] || 0) > 0;
 
     const checks = [
       { ok: isRead, label: "Lest" },
@@ -338,21 +345,19 @@ function renderExamReadiness() {
     const moduleQs = quizQuestions.filter((q) => q.module === m.id);
     const masteredQs = moduleQs.filter((q) => { const mm = state.mastery[q.id]; return mm && mm.correct > mm.wrong; }).length;
     const quizOk = moduleQs.length > 0 && masteredQs >= Math.ceil(moduleQs.length * 0.6);
-    return isRead && quizOk;
+    const hasLog = (logsByModule[m.id] || 0) > 0;
+    return isRead && quizOk && hasLog;
   }).length;
 
   body.innerHTML = `
-    <p class="small exam-legend">Lest + 60 % quiz mestret = klar for prøve per modul.</p>
+    <p class="small exam-legend">Lest + 60 % quiz mestret + loggført økt = prøveklar modul.</p>
     <div class="exam-rows">${rows}</div>
     <p class="small exam-summary">${totalReady} av ${modules.length} moduler prøveklare.</p>`;
 }
 
 function logDayKey(log) {
   if (log && typeof log.date === "string" && log.date) return log.date.slice(0, 10);
-  const ts = log?.createdAt || 0;
-  const d = new Date(ts);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return localIsoDate(new Date(log?.createdAt || 0));
 }
 
 function renderProgressCharts() {
@@ -1149,7 +1154,7 @@ function renderWizardPlan() {
       <button class="ghost-button" type="button" data-wizard-apply-details>Bruk tilpasningene</button>
     </form>`;
 
-  const metaHtml = plan.meta && plan.meta.length
+  const metaHtml = Array.isArray(plan.meta) && plan.meta.length
     ? `<p class="small plan-meta">${plan.meta.map(escapeHtml).join(" · ")}</p>`
     : "";
 
@@ -1340,7 +1345,7 @@ function planCard(plan, compact = false) {
         <ol class="observation-list">${observations.map((o) => `<li>${escapeHtml(o)}</li>`).join("")}</ol>
       </div>`
     : "";
-  const metaHtml = plan.meta && plan.meta.length
+  const metaHtml = Array.isArray(plan.meta) && plan.meta.length
     ? `<p class="small plan-meta">${plan.meta.map(escapeHtml).join(" · ")}</p>`
     : "";
   return `
@@ -1477,7 +1482,7 @@ function renderFieldMode() {
 
   const steps = Array.isArray(plan.steps) ? plan.steps : [];
   const obs = (Array.isArray(plan.observations) ? plan.observations : []).filter(Boolean);
-  const metaHtml = plan.meta && plan.meta.length
+  const metaHtml = Array.isArray(plan.meta) && plan.meta.length
     ? `<p class="field-meta">${plan.meta.map(escapeHtml).join(" · ")}</p>`
     : "";
 
@@ -1698,7 +1703,7 @@ function refreshAutocomplete() {
 function renderLog() {
   const form = $("#logForm");
   const dateInput = $('#logForm input[name="date"]');
-  if (dateInput && !dateInput.value) dateInput.valueAsDate = new Date();
+  if (dateInput && !dateInput.value) dateInput.value = localIsoDate();
   if (form && !form.dataset.planId) {
     defaultReflectionPrompts.forEach((prompt, i) => {
       const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
@@ -1891,8 +1896,11 @@ function downloadBlob(content, filename, mimeType) {
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+// Lokal dato (ikke UTC): toISOString/valueAsDate ville gitt gårsdagens dato
+// mellom midnatt og kl. 01/02 norsk tid.
+function localIsoDate(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function prefillLogFromPlan(plan) {
@@ -1900,10 +1908,10 @@ function prefillLogFromPlan(plan) {
   if (!form || !plan) return;
   const get = (name) => form.querySelector(`[name="${name}"]`);
   const findMeta = (label) => {
-    const item = (plan.meta || []).find((m) => m.startsWith(`${label}:`));
+    const item = (Array.isArray(plan.meta) ? plan.meta : []).find((m) => typeof m === "string" && m.startsWith(`${label}:`));
     return item ? item.split(":").slice(1).join(":").trim() : "";
   };
-  if (get("date") && !get("date").value) get("date").valueAsDate = new Date();
+  if (get("date") && !get("date").value) get("date").value = localIsoDate();
   if (get("type")) {
     const typeMap = {
       "gamle-spor": "Spor",
@@ -2192,6 +2200,30 @@ function renderQuiz() {
   ensureQuizSession();
   const quiz = state.quiz;
   const sessionLength = quiz.questionIds.length;
+
+  if (quiz.finished) {
+    const percent = sessionLength ? Math.round((quiz.score / sessionLength) * 100) : 0;
+    let message;
+    if (percent >= 90) message = "Sterkt — dette sitter.";
+    else if (percent >= 60) message = "Godt jobbet. Ta en runde til på de du bommet på, så sitter det.";
+    else message = "Bra start. Kjør «Repeter svake» og les modulene det gjelder på nytt.";
+    $("#quizPanel").innerHTML = `
+      <div class="quiz-meta">
+        <span class="tag">${escapeHtml(quiz.modeLabel || "Quiz")}</span>
+        <span class="tag">Runde fullført</span>
+      </div>
+      <h3 class="quiz-question">Resultat: ${quiz.score} av ${sessionLength} riktige</h3>
+      <div class="score-ring" style="--score:${percent}%"><span>${percent}%</span></div>
+      <p>${escapeHtml(message)}</p>
+      <div class="button-row">
+        <button class="primary-button" id="quizRestartSame" type="button">Ny runde (samme utvalg)</button>
+        <button class="ghost-button" id="resetQuiz" type="button">Alle moduler</button>
+        <button class="ghost-button" id="weakQuiz" type="button">Repeter svake</button>
+      </div>`;
+    renderQuizStats();
+    return;
+  }
+
   const safeIndex = Math.min(quiz.index, sessionLength - 1);
   const questionId = quiz.questionIds[safeIndex];
   const question = questionsById.get(questionId);
@@ -2237,6 +2269,12 @@ function renderQuiz() {
     </div>
   `;
 
+  renderQuizStats();
+}
+
+function renderQuizStats() {
+  const quiz = state.quiz;
+  const sessionLength = quiz.questionIds.length;
   const answeredCount = Object.keys(quiz.answered).length;
   const percent = sessionLength ? Math.round((quiz.score / sessionLength) * 100) : 0;
 
@@ -2300,13 +2338,9 @@ function resetQuiz(mode = "all") {
 function nextQuestion() {
   ensureQuizSession();
   if (state.quiz.index >= state.quiz.questionIds.length - 1) {
-    const finishedScore = state.quiz.score;
-    const finishedTotal = state.quiz.questionIds.length;
-    buildQuizSession(state.quiz.mode || "all");
+    state.quiz.finished = true;
+    saveState();
     renderQuiz();
-    if ($("#logStatus")) {
-      $("#logStatus").textContent = `Quiz fullført: ${finishedScore} av ${finishedTotal}. Ny runde startet.`;
-    }
     return;
   }
   state.quiz.index += 1;
@@ -2621,6 +2655,8 @@ function initEvents() {
 
     const deletePlan = event.target.closest("[data-delete-plan]");
     if (deletePlan) {
+      const plan = state.plans.find((p) => p.id === deletePlan.dataset.deletePlan);
+      if (plan && !window.confirm(`Slette planen «${plan.title || "Uten tittel"}»? Dette kan ikke angres.`)) return;
       state.plans = state.plans.filter((p) => p.id !== deletePlan.dataset.deletePlan);
       if (state.currentPlan?.id === deletePlan.dataset.deletePlan) state.currentPlan = null;
       saveState();
@@ -2631,7 +2667,10 @@ function initEvents() {
 
     const deleteLog = event.target.closest("[data-delete-log]");
     if (deleteLog) {
-      state.logs = state.logs.filter((log) => log.id !== deleteLog.dataset.deleteLog);
+      const log = state.logs.find((l) => l.id === deleteLog.dataset.deleteLog);
+      const label = log ? [log.date, log.type, log.dog].filter(Boolean).join(" · ") : "";
+      if (log && !window.confirm(`Slette loggen${label ? ` (${label})` : ""}? Dette kan ikke angres.`)) return;
+      state.logs = state.logs.filter((l) => l.id !== deleteLog.dataset.deleteLog);
       saveState();
       renderLog();
       renderDashboard();
@@ -2642,6 +2681,7 @@ function initEvents() {
 
     if (event.target.id === "nextQuestion") nextQuestion();
     if (event.target.id === "resetQuiz") resetQuiz();
+    if (event.target.id === "quizRestartSame") resetQuiz(state.quiz?.mode || "all");
 
     if (event.target.id === "settingsResetData") {
       const counts = `${state.logs.length} logger, ${state.plans.length} planer, ${state.completed.length} fullførte moduler`;
@@ -2752,7 +2792,7 @@ function initEvents() {
 
   // Settings: eksport/import/deling
   $("#settingsExportJson")?.addEventListener("click", () => {
-    const today = todayIso();
+    const today = localIsoDate();
     downloadBlob(JSON.stringify(shareSnapshot(), null, 2), `sporlab-eksport-${today}.json`, "application/json");
     const status = $("#settingsDataStatus");
     if (status) status.textContent = "Eksport JSON er lastet ned.";
@@ -2764,7 +2804,7 @@ function initEvents() {
       if (status) status.textContent = "Ingen logger å eksportere.";
       return;
     }
-    const today = todayIso();
+    const today = localIsoDate();
     downloadBlob(logsToCsv(state.logs), `sporlab-logg-${today}.csv`, "text/csv;charset=utf-8");
     if (status) status.textContent = "Eksport CSV er lastet ned.";
   });
@@ -2857,9 +2897,13 @@ function initEvents() {
       }
     }
 
-    if (event.target.id === "sourceBoxToggle") {
+    const sourceToggle = event.target.closest("#sourceBoxToggle");
+    if (sourceToggle) {
       const box = $(".source-box");
-      if (box) box.classList.toggle("is-open");
+      if (box) {
+        const isOpen = box.classList.toggle("is-open");
+        sourceToggle.setAttribute("aria-expanded", String(isOpen));
+      }
     }
   });
 
@@ -2901,7 +2945,7 @@ function makeTeamSummary() {
 
 function setDefaults() {
   const dateInput = $('#logForm input[name="date"]');
-  if (dateInput) dateInput.valueAsDate = new Date();
+  if (dateInput) dateInput.value = localIsoDate();
   const ratingInput = $('#logForm input[name="rating"]');
   if (ratingInput) ratingInput.value = "0";
   const weatherInput = $('#logForm input[name="weather"]');
