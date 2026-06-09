@@ -1,0 +1,33 @@
+{
+  "name": "SporLab E8/E9",
+  "short_name": "SporLab",
+  "description": "Interaktivt lese- og felthefte for E8 Sporoppsok og E9 Spor.",
+  "lang": "no",
+  "id": "/sporlab-e8-e9",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f9fd",
+  "theme_color": "#0a2850",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

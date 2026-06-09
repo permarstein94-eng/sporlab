@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Netlify Dev (matcher prod)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["netlify-cli", "dev", "--dir", ".", "--port", "8888"],
+      "port": 8888
+    },
+    {
+      "name": "npx serve (rask, ingen headers)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3000", "."],
+      "port": 3000
+    },
+    {
+      "name": "Python http.server (ingen Node)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8000"],
+      "port": 8000
+    }
+  ]
+}
