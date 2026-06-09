@@ -2,6 +2,14 @@
   publish = "."
 
 [[headers]]
+  for = "/*"
+  [headers.values]
+    # style-src trenger 'unsafe-inline' fordi appen setter style-attributter fra JS (progresjonsbarer, QR-størrelse).
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "no-cache"

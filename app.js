@@ -1,5 +1,11 @@
 const STORAGE_KEY = "sporlab-e8-e9-v1";
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
+
+// Tak for lagrede elementer. Romslige med vilje: localStorage tåler flere MB,
+// og å kaste brukerens treningshistorikk i stillhet er verre enn en full kvote
+// (kvotefeil fanges i saveState og varsles).
+const MAX_PLANS = 40;
+const MAX_LOGS = 2000;
 
 const viewMeta = {
   dashboard: ["Feltklar læring", "Dagens sporarbeid"],
@@ -11,6 +17,10 @@ const viewMeta = {
   settings: ["Konto og data", "Innstillinger"],
 };
 
+// Oppslag på stabil spørsmåls-id (definert i content.js). Mestring og quiz-økter
+// nøkles på id, ikke array-indeks, så innholdet kan endres uten å knekke historikken.
+const questionsById = new Map(quizQuestions.map((q) => [q.id, q]));
+
 const defaultQuizState = () => ({
   questionIds: [],
   optionMaps: [],
@@ -19,6 +29,7 @@ const defaultQuizState = () => ({
   answered: {},
   mode: "all",
   modeLabel: "Alle moduler",
+  finished: false,
 });
 
 const defaultState = () => ({
@@ -77,6 +88,26 @@ function migrateState(stored) {
       return rest;
     });
   }
+  if (fromVersion < 5) {
+    // Mestring og quiz-økter var nøklet på array-indeks i quizQuestions.
+    // Indeksene stemmer fortsatt på migreringstidspunktet, så vi kan oversette tapsfritt.
+    const oldMastery = base.mastery && typeof base.mastery === "object" ? base.mastery : {};
+    const remapped = {};
+    Object.entries(oldMastery).forEach(([key, value]) => {
+      const q = quizQuestions[Number(key)];
+      if (q && value && typeof value === "object") remapped[q.id] = value;
+    });
+    base.mastery = remapped;
+    const oldQuiz = base.quiz;
+    if (oldQuiz && Array.isArray(oldQuiz.questionIds) && oldQuiz.questionIds.every((n) => typeof n === "number")) {
+      const ids = oldQuiz.questionIds.map((n) => quizQuestions[n]?.id).filter(Boolean);
+      base.quiz = ids.length === oldQuiz.questionIds.length
+        ? { ...defaultQuizState(), ...oldQuiz, questionIds: ids }
+        : defaultQuizState();
+    } else {
+      base.quiz = defaultQuizState();
+    }
+  }
   if (!base.quiz || !Array.isArray(base.quiz.questionIds)) {
     base.quiz = defaultQuizState();
   }
@@ -101,6 +132,25 @@ function saveState() {
     storageAvailable = false;
     console.warn("SporLab kunne ikke lagre lokalt i denne nettleservisningen.", error);
   }
+  updateStorageWarning();
+}
+
+function updateStorageWarning() {
+  const existing = document.getElementById("storageWarning");
+  if (storageAvailable) {
+    existing?.remove();
+    return;
+  }
+  if (existing) return;
+  const banner = document.createElement("div");
+  banner.id = "storageWarning";
+  banner.className = "storage-warning";
+  banner.setAttribute("role", "alert");
+  banner.innerHTML = `
+    <strong>Lagring feilet.</strong>
+    <span>Endringene dine blir ikke husket i denne nettleseren (full kvote eller privat modus). Eksporter dataene dine nå.</span>
+    <button class="storage-warning-btn" type="button" data-view-jump="settings">Til eksport</button>`;
+  document.body.appendChild(banner);
 }
 
 function makeId() {
@@ -186,13 +236,20 @@ function closeMobileMenu() {
 }
 
 function renderView(view = state.view) {
-  if (view === "dashboard") renderDashboard();
-  if (view === "learn") renderLearn();
-  if (view === "planner") renderPlanner();
-  if (view === "log") renderLog();
-  if (view === "reference") renderReference();
-  if (view === "quiz") renderQuiz();
-  if (view === "settings") renderSettings();
+  try {
+    if (view === "dashboard") renderDashboard();
+    if (view === "learn") renderLearn();
+    if (view === "planner") renderPlanner();
+    if (view === "log") renderLog();
+    if (view === "reference") renderReference();
+    if (view === "quiz") renderQuiz();
+    if (view === "settings") renderSettings();
+  } catch (error) {
+    // Én ødelagt visning skal ikke ta med seg hele appen (f.eks. korrupt
+    // persistert tilstand). Fall tilbake til dashboardet og logg feilen.
+    console.error(`SporLab: klarte ikke å vise «${view}».`, error);
+    if (view !== "dashboard") setView("dashboard");
+  }
 }
 
 function renderDashboard() {
@@ -251,10 +308,10 @@ function renderExamReadiness() {
 
   const rows = modules.map((module) => {
     const isRead = state.completed.includes(module.id);
-    const moduleQs = quizQuestions.map((q, idx) => ({ q, idx })).filter(({ q }) => q.module === module.id);
+    const moduleQs = quizQuestions.filter((q) => q.module === module.id);
     const totalQs = moduleQs.length;
-    const masteredQs = moduleQs.filter(({ idx }) => {
-      const m = state.mastery[idx];
+    const masteredQs = moduleQs.filter((q) => {
+      const m = state.mastery[q.id];
       return m && m.correct > m.wrong;
     }).length;
     const quizOk = totalQs > 0 && masteredQs >= Math.ceil(totalQs * 0.6);
@@ -278,8 +335,8 @@ function renderExamReadiness() {
 
   const totalReady = modules.filter((m) => {
     const isRead = state.completed.includes(m.id);
-    const moduleQs = quizQuestions.map((q, idx) => ({ q, idx })).filter(({ q }) => q.module === m.id);
-    const masteredQs = moduleQs.filter(({ idx }) => { const mm = state.mastery[idx]; return mm && mm.correct > mm.wrong; }).length;
+    const moduleQs = quizQuestions.filter((q) => q.module === m.id);
+    const masteredQs = moduleQs.filter((q) => { const mm = state.mastery[q.id]; return mm && mm.correct > mm.wrong; }).length;
     const quizOk = moduleQs.length > 0 && masteredQs >= Math.ceil(moduleQs.length * 0.6);
     return isRead && quizOk;
   }).length;
@@ -433,22 +490,20 @@ function renderFrequencyHeatmap(container) {
     <div class="heat-legend"><span class="small">Mindre</span><span class="heat heat-0"></span><span class="heat heat-1"></span><span class="heat heat-2"></span><span class="heat heat-3"></span><span class="small">Mer</span><span class="small heat-total">· ${total} totalt</span></div>`;
 }
 
-function getWeakestQuestionIndex(skipIndices = new Set()) {
+function getWeakestQuestionId(skipIds = new Set()) {
   const completed = new Set(state.completed || []);
   if (completed.size === 0) return null;
-  const candidates = quizQuestions
-    .map((q, idx) => ({ q, idx }))
-    .filter(({ q, idx }) => completed.has(q.module) && !skipIndices.has(idx));
+  const candidates = quizQuestions.filter((q) => completed.has(q.module) && !skipIds.has(q.id));
   if (!candidates.length) return null;
   candidates.sort((a, b) => {
-    const ma = state.mastery[a.idx] || { correct: 0, wrong: 0, lastSeen: 0 };
-    const mb = state.mastery[b.idx] || { correct: 0, wrong: 0, lastSeen: 0 };
+    const ma = state.mastery[a.id] || { correct: 0, wrong: 0, lastSeen: 0 };
+    const mb = state.mastery[b.id] || { correct: 0, wrong: 0, lastSeen: 0 };
     const scoreA = (ma.correct || 0) - (ma.wrong || 0);
     const scoreB = (mb.correct || 0) - (mb.wrong || 0);
     if (scoreA !== scoreB) return scoreA - scoreB;
     return (ma.lastSeen || 0) - (mb.lastSeen || 0);
   });
-  return candidates[0].idx;
+  return candidates[0].id;
 }
 
 let miniQuizState = null;
@@ -463,25 +518,29 @@ function renderMiniQuiz() {
   }
 
   if (!miniQuizState) {
-    const idx = getWeakestQuestionIndex();
-    if (idx === null) {
+    const id = getWeakestQuestionId();
+    if (id === null) {
       card.hidden = true;
       return;
     }
-    const question = quizQuestions[idx];
+    const question = questionsById.get(id);
     miniQuizState = {
-      questionIndex: idx,
+      questionId: id,
       answered: false,
       lastCorrect: null,
       optionMap: shuffle(question.options.map((_, i) => i)),
-      seenIndices: new Set([idx]),
+      seenIds: new Set([id]),
       askedCount: 0,
     };
   }
 
+  const question = questionsById.get(miniQuizState.questionId);
+  if (!question) {
+    miniQuizState = null;
+    card.hidden = true;
+    return;
+  }
   card.hidden = false;
-  const idx = miniQuizState.questionIndex;
-  const question = quizQuestions[idx];
   const moduleDef = modules.find((m) => m.id === question.module);
   const moduleLabel = moduleDef ? moduleDef.title.replace(/^\d+\.\s*/, "") : question.module;
 
@@ -523,34 +582,34 @@ function renderMiniQuiz() {
 
 function answerMiniQuiz(displayChoice) {
   if (!miniQuizState || miniQuizState.answered) return;
-  const idx = miniQuizState.questionIndex;
-  const question = quizQuestions[idx];
+  const question = questionsById.get(miniQuizState.questionId);
+  if (!question) return;
   const originalIndex = miniQuizState.optionMap[displayChoice];
   const correct = originalIndex === question.answer;
   miniQuizState.answered = true;
   miniQuizState.lastChoice = displayChoice;
   miniQuizState.lastCorrect = correct;
-  const mastery = state.mastery[idx] || { correct: 0, wrong: 0, lastSeen: 0 };
+  const mastery = state.mastery[question.id] || { correct: 0, wrong: 0, lastSeen: 0 };
   if (correct) mastery.correct += 1;
   else mastery.wrong += 1;
   mastery.lastSeen = Date.now();
-  state.mastery[idx] = mastery;
+  state.mastery[question.id] = mastery;
   saveState();
   renderMiniQuiz();
 }
 
 function nextMiniQuiz() {
   if (!miniQuizState) return;
-  const nextIdx = getWeakestQuestionIndex(miniQuizState.seenIndices);
-  if (nextIdx === null) {
+  const nextId = getWeakestQuestionId(miniQuizState.seenIds);
+  if (nextId === null) {
     miniQuizState = null;
     const card = $("#miniQuizCard");
     if (card) card.hidden = true;
     return;
   }
-  const question = quizQuestions[nextIdx];
-  miniQuizState.seenIndices.add(nextIdx);
-  miniQuizState.questionIndex = nextIdx;
+  const question = questionsById.get(nextId);
+  miniQuizState.seenIds.add(nextId);
+  miniQuizState.questionId = nextId;
   miniQuizState.answered = false;
   miniQuizState.lastCorrect = null;
   miniQuizState.lastChoice = null;
@@ -688,12 +747,10 @@ function renderLearnIntro() {
   const cards = modules
     .map((module) => {
       const done = state.completed.includes(module.id);
-      const moduleQs = quizQuestions
-        .map((q, idx) => ({ q, idx }))
-        .filter(({ q }) => q.module === module.id);
+      const moduleQs = quizQuestions.filter((q) => q.module === module.id);
       const totalQs = moduleQs.length;
-      const masteredQs = moduleQs.filter(({ idx }) => {
-        const m = state.mastery[idx];
+      const masteredQs = moduleQs.filter((q) => {
+        const m = state.mastery[q.id];
         return m && m.correct > m.wrong;
       }).length;
       const quizTag = totalQs > 0
@@ -1296,9 +1353,9 @@ function planCard(plan, compact = false) {
       ${observationsHtml}
       ${plan.note ? `<p class="plan-note"><strong>Eget notat:</strong> ${escapeHtml(plan.note)}</p>` : ""}
       <div class="button-row plan-actions no-print">
-        ${plan.id ? `<button class="primary-button" data-field-mode="${plan.id}" type="button">Start feltmodus</button>` : ""}
-        ${plan.id ? `<button class="ghost-button" data-log-from-plan="${plan.id}" type="button">Loggfør gjennomført</button>` : ""}
-        <button class="ghost-button" data-print-plan="${plan.id || ""}" type="button">Skriv ut øktkort</button>
+        ${plan.id ? `<button class="primary-button" data-field-mode="${escapeHtml(plan.id)}" type="button">Start feltmodus</button>` : ""}
+        ${plan.id ? `<button class="ghost-button" data-log-from-plan="${escapeHtml(plan.id)}" type="button">Loggfør gjennomført</button>` : ""}
+        <button class="ghost-button" data-print-plan="${escapeHtml(plan.id || "")}" type="button">Skriv ut øktkort</button>
       </div>
     </article>`;
 }
@@ -1759,7 +1816,8 @@ function syncLogFormUI() {
 }
 
 function logCard(log) {
-  const stars = log.rating ? "★".repeat(Number(log.rating)) + "☆".repeat(Math.max(0, 5 - Number(log.rating))) : "";
+  const rating = Math.min(5, Math.max(0, Math.floor(Number(log.rating)) || 0));
+  const stars = rating ? "★".repeat(rating) + "☆".repeat(5 - rating) : "";
   const conditions = [
     log.weather,
     log.wind,
@@ -1787,13 +1845,13 @@ function logCard(log) {
     <article class="log-card">
       <time>${escapeHtml(log.date || "Uten dato")}</time>
       <h4>${escapeHtml(log.type || "Økt")}${log.dog ? ` · ${escapeHtml(log.dog)}` : ""}</h4>
-      ${stars ? `<p class="rating-row" aria-label="Mestring ${log.rating} av 5">${stars}</p>` : ""}
+      ${stars ? `<p class="rating-row" aria-label="Mestring ${rating} av 5">${stars}</p>` : ""}
       <p>${escapeHtml([log.handler, log.age, log.length].filter(Boolean).join(" · "))}</p>
       ${conditions ? `<p class="small">${escapeHtml(conditions)}</p>` : ""}
       ${planRef}
       ${obsHtml}
       ${log.next ? `<p><strong>Neste:</strong> ${escapeHtml(log.next)}</p>` : ""}
-      <button class="text-button" data-delete-log="${log.id}" type="button">Slett</button>
+      <button class="text-button" data-delete-log="${escapeHtml(log.id)}" type="button">Slett</button>
     </article>`;
 }
 
@@ -1895,6 +1953,7 @@ function shareSnapshot() {
     plans: state.plans,
     logs: state.logs.map(({ image, ...rest }) => rest),
     completed: state.completed,
+    mastery: state.mastery,
   };
   return snapshot;
 }
@@ -1908,16 +1967,112 @@ async function readFileAsText(file) {
   });
 }
 
+/* Sanitering av importerte data: ukjente felter droppes, typer tvinges,
+   og id-er som ikke er trygge for HTML-attributter regenereres. */
+const SAFE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+function asText(value, max = 2000) {
+  return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+function asStringArray(value, maxItems = 40, maxLen = 1000) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v) => typeof v === "string").slice(0, maxItems).map((v) => v.slice(0, maxLen));
+}
+
+function sanitizeId(value) {
+  return typeof value === "string" && SAFE_ID_PATTERN.test(value) ? value : makeId();
+}
+
+function sanitizePlan(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const obs = asStringArray(raw.observations, 3);
+  while (obs.length < 3) obs.push("");
+  return {
+    id: sanitizeId(raw.id),
+    createdAt: Number(raw.createdAt) || Date.now(),
+    title: asText(raw.title, 200),
+    pages: asText(raw.pages, 100),
+    focus: planBlueprints[raw.focus] ? raw.focus : "",
+    meta: asStringArray(raw.meta, 12, 200),
+    steps: asStringArray(raw.steps, 30),
+    success: asText(raw.success, 500),
+    note: asText(raw.note, 1000),
+    observations: obs,
+    handler: asText(raw.handler, 100),
+    dog: asText(raw.dog, 100),
+    experience: asText(raw.experience, 40),
+    intensity: asText(raw.intensity, 40),
+    age: asText(raw.age, 40),
+    terrain: asText(raw.terrain, 40),
+  };
+}
+
+function sanitizeLog(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const observations = Array.isArray(raw.observations)
+    ? raw.observations.slice(0, 3).map((o) => ({
+        prompt: asText(o?.prompt, 500),
+        answer: asText(o?.answer, 2000),
+      }))
+    : [];
+  return {
+    id: sanitizeId(raw.id),
+    createdAt: Number(raw.createdAt) || Date.parse(raw.date) || Date.now(),
+    date: asText(raw.date, 40),
+    type: asText(raw.type, 60),
+    handler: asText(raw.handler, 100),
+    dog: asText(raw.dog, 100),
+    age: asText(raw.age, 100),
+    length: asText(raw.length, 200),
+    terrain: asText(raw.terrain, 40),
+    wind: asText(raw.wind, 40),
+    weather: asText(raw.weather, 40),
+    rating: String(Math.min(5, Math.max(0, Math.floor(Number(raw.rating)) || 0))),
+    next: asText(raw.next, 2000),
+    observation: asText(raw.observation, 2000),
+    observations,
+    planId: asText(raw.planId, 64),
+    planTitle: asText(raw.planTitle, 200),
+    planPages: asText(raw.planPages, 100),
+  };
+}
+
 function importSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== "object") throw new Error("Ugyldig fil");
-  const incomingPlans = Array.isArray(snapshot.plans) ? snapshot.plans : [];
-  const incomingLogs = Array.isArray(snapshot.logs) ? snapshot.logs : [];
+  const incomingPlans = (Array.isArray(snapshot.plans) ? snapshot.plans : []).map(sanitizePlan).filter(Boolean);
+  const incomingLogs = (Array.isArray(snapshot.logs) ? snapshot.logs : []).map(sanitizeLog).filter(Boolean);
   const existingPlanIds = new Set(state.plans.map((p) => p.id));
   const existingLogIds = new Set(state.logs.map((l) => l.id));
-  const newPlans = incomingPlans.filter((p) => p && p.id && !existingPlanIds.has(p.id));
-  const newLogs = incomingLogs.filter((l) => l && l.id && !existingLogIds.has(l.id));
-  state.plans = [...newPlans, ...state.plans].slice(0, 24);
-  state.logs = [...newLogs, ...state.logs].slice(0, 160);
+  const newPlans = incomingPlans.filter((p) => !existingPlanIds.has(p.id));
+  const newLogs = incomingLogs.filter((l) => !existingLogIds.has(l.id));
+  state.plans = [...newPlans, ...state.plans].slice(0, MAX_PLANS);
+  state.logs = [...newLogs, ...state.logs].slice(0, MAX_LOGS);
+
+  // Læringsdata: fullførte moduler flettes som union, mestring per spørsmål
+  // beholder den oppføringen som har mest historikk (gjør re-import idempotent).
+  const validModuleIds = new Set(modules.map((m) => m.id));
+  if (Array.isArray(snapshot.completed)) {
+    const merged = new Set(state.completed);
+    snapshot.completed.forEach((id) => {
+      if (validModuleIds.has(id)) merged.add(id);
+    });
+    state.completed = [...merged];
+  }
+  if (snapshot.mastery && typeof snapshot.mastery === "object" && !Array.isArray(snapshot.mastery)) {
+    Object.entries(snapshot.mastery).forEach(([id, value]) => {
+      if (!questionsById.has(id) || !value || typeof value !== "object") return;
+      const incoming = {
+        correct: Math.max(0, Math.floor(Number(value.correct)) || 0),
+        wrong: Math.max(0, Math.floor(Number(value.wrong)) || 0),
+        lastSeen: Math.max(0, Number(value.lastSeen) || 0),
+      };
+      const current = state.mastery[id];
+      const currentTotal = current ? (current.correct || 0) + (current.wrong || 0) : -1;
+      if (incoming.correct + incoming.wrong > currentTotal) state.mastery[id] = incoming;
+    });
+  }
+
   saveState();
   return { plans: newPlans.length, logs: newLogs.length };
 }
@@ -1975,34 +2130,30 @@ function buildQuizSession(mode = "all") {
   let pool;
   let label;
   if (mode === "all") {
-    pool = quizQuestions.map((_, index) => index);
+    pool = quizQuestions.map((q) => q.id);
     label = "Alle moduler";
   } else if (mode === "weak") {
     const scored = quizQuestions
-      .map((_, index) => index)
-      .map((index) => {
-        const m = state.mastery[index] || { correct: 0, wrong: 0, lastSeen: 0 };
+      .map((q) => {
+        const m = state.mastery[q.id] || { correct: 0, wrong: 0, lastSeen: 0 };
         const masteryScore = (m.correct || 0) - (m.wrong || 0);
-        return { index, masteryScore, lastSeen: m.lastSeen || 0 };
+        return { id: q.id, masteryScore, lastSeen: m.lastSeen || 0 };
       })
       .sort((a, b) => a.masteryScore - b.masteryScore || a.lastSeen - b.lastSeen);
-    pool = scored.slice(0, Math.min(10, scored.length)).map((item) => item.index);
+    pool = scored.slice(0, Math.min(10, scored.length)).map((item) => item.id);
     label = "Repeter svake";
   } else {
     const moduleId = mode.replace(/^module:/, "");
-    pool = quizQuestions
-      .map((q, index) => ({ q, index }))
-      .filter(({ q }) => q.module === moduleId)
-      .map(({ index }) => index);
+    pool = quizQuestions.filter((q) => q.module === moduleId).map((q) => q.id);
     const moduleDef = modules.find((m) => m.id === moduleId);
     label = moduleDef ? `Modul: ${moduleDef.title.replace(/^\d+\.\s*/, "")}` : "Modul";
   }
 
-  if (pool.length === 0) pool = quizQuestions.map((_, index) => index);
+  if (pool.length === 0) pool = quizQuestions.map((q) => q.id);
 
   const questionIds = shuffle(pool);
-  const optionMaps = questionIds.map((questionIndex) => {
-    const question = quizQuestions[questionIndex];
+  const optionMaps = questionIds.map((id) => {
+    const question = questionsById.get(id);
     return shuffle(question.options.map((_, i) => i));
   });
 
@@ -2014,14 +2165,27 @@ function buildQuizSession(mode = "all") {
     answered: {},
     mode,
     modeLabel: label,
+    finished: false,
   };
   saveState();
 }
 
 function ensureQuizSession() {
-  if (!state.quiz || !Array.isArray(state.quiz.questionIds) || state.quiz.questionIds.length === 0) {
-    buildQuizSession("all");
-  }
+  // Validerer hele den persisterte økten: id-er som ikke lenger finnes i
+  // innholdet, eller optionMaps som ikke matcher antall svaralternativer,
+  // betyr at innholdet er oppdatert siden sist — da bygger vi ny runde.
+  const quiz = state.quiz;
+  const valid =
+    quiz &&
+    Array.isArray(quiz.questionIds) &&
+    quiz.questionIds.length > 0 &&
+    Array.isArray(quiz.optionMaps) &&
+    quiz.optionMaps.length === quiz.questionIds.length &&
+    quiz.questionIds.every((id, i) => {
+      const question = questionsById.get(id);
+      return question && Array.isArray(quiz.optionMaps[i]) && quiz.optionMaps[i].length === question.options.length;
+    });
+  if (!valid) buildQuizSession("all");
 }
 
 function renderQuiz() {
@@ -2030,7 +2194,7 @@ function renderQuiz() {
   const sessionLength = quiz.questionIds.length;
   const safeIndex = Math.min(quiz.index, sessionLength - 1);
   const questionId = quiz.questionIds[safeIndex];
-  const question = quizQuestions[questionId];
+  const question = questionsById.get(questionId);
   const optionMap = quiz.optionMaps[safeIndex] || question.options.map((_, i) => i);
   const answered = quiz.answered[safeIndex];
 
@@ -2077,12 +2241,10 @@ function renderQuiz() {
   const percent = sessionLength ? Math.round((quiz.score / sessionLength) * 100) : 0;
 
   const masteryRows = modules.map((module) => {
-    const moduleQuestions = quizQuestions
-      .map((_, idx) => idx)
-      .filter((idx) => quizQuestions[idx].module === module.id);
+    const moduleQuestions = quizQuestions.filter((q) => q.module === module.id);
     const sum = moduleQuestions.reduce(
-      (acc, idx) => {
-        const m = state.mastery[idx] || { correct: 0, wrong: 0 };
+      (acc, q) => {
+        const m = state.mastery[q.id] || { correct: 0, wrong: 0 };
         acc.correct += m.correct;
         acc.wrong += m.wrong;
         return acc;
@@ -2114,7 +2276,8 @@ function answerQuiz(displayChoice) {
   const position = state.quiz.index;
   if (state.quiz.answered[position]) return;
   const questionId = state.quiz.questionIds[position];
-  const question = quizQuestions[questionId];
+  const question = questionsById.get(questionId);
+  if (!question) return;
   const optionMap = state.quiz.optionMaps[position] || question.options.map((_, i) => i);
   const originalIndex = optionMap[displayChoice];
   const correct = originalIndex === question.answer;
@@ -2425,7 +2588,7 @@ function initEvents() {
         }
       } else {
         const saved = { ...state.currentPlan, id: makeId(), createdAt: Date.now() };
-        state.plans = [saved, ...state.plans].slice(0, 12);
+        state.plans = [saved, ...state.plans].slice(0, MAX_PLANS);
         state.currentPlan = saved;
       }
       saveState();
@@ -2540,7 +2703,7 @@ function initEvents() {
       observations,
       ...planMeta,
     };
-    state.logs = [log, ...state.logs].slice(0, 160);
+    state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
     saveState();
     form.reset();
     form.removeAttribute("data-plan-id");

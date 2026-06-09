@@ -1455,6 +1455,7 @@ function moduleForFocus(focus) {
 
 const quizQuestions = [
   {
+    id: "grunnlag-1",
     module: "grunnlag",
     examRelevant: true,
     question: "Hva er hovedpoenget når hunden går fort og unøyaktig i et enkelt spor?",
@@ -1468,6 +1469,7 @@ const quizQuestions = [
     pages: "s. 4",
   },
   {
+    id: "grunnlag-2",
     module: "grunnlag",
     examRelevant: true,
     question: "Når bør fører helst gi støtte til hunden?",
@@ -1481,6 +1483,7 @@ const quizQuestions = [
     pages: "s. 5",
   },
   {
+    id: "spor-1",
     module: "spor",
     examRelevant: true,
     question: "Hvorfor bør hunden trenes på spor med ulik alder?",
@@ -1494,6 +1497,7 @@ const quizQuestions = [
     pages: "s. 6",
   },
   {
+    id: "spor-2",
     module: "spor",
     question: "Hva er en risiko ved hardt underlag?",
     options: [
@@ -1506,6 +1510,7 @@ const quizQuestions = [
     pages: "s. 9",
   },
   {
+    id: "oppsok-1",
     module: "oppsok",
     examRelevant: true,
     question: "Hva er arbeidstegn i sporoppsøk?",
@@ -1519,6 +1524,7 @@ const quizQuestions = [
     pages: "s. 11",
   },
   {
+    id: "oppsok-2",
     module: "oppsok",
     examRelevant: true,
     question: "Hva er viktig ved sporoppsøk fra gjenstand?",
@@ -1532,6 +1538,7 @@ const quizQuestions = [
     pages: "s. 14",
   },
   {
+    id: "gamle-1",
     module: "gamle",
     examRelevant: true,
     question: "Hvorfor trene spor med liggetid over ett døgn?",
@@ -1545,6 +1552,7 @@ const quizQuestions = [
     pages: "s. 19-20",
   },
   {
+    id: "retning-1",
     module: "retning",
     examRelevant: true,
     question: "Hva kan høy intensitet gjøre med retningsbestemming?",
@@ -1558,6 +1566,7 @@ const quizQuestions = [
     pages: "s. 21",
   },
   {
+    id: "retning-2",
     module: "retning",
     examRelevant: true,
     question: "Hvor ligger løsningen ofte ved sportap?",
@@ -1571,6 +1580,7 @@ const quizQuestions = [
     pages: "s. 24",
   },
   {
+    id: "sirkel-1",
     module: "sirkel",
     question: "Hva trener sirkelspor særlig godt?",
     options: [
@@ -1583,6 +1593,7 @@ const quizQuestions = [
     pages: "s. 28",
   },
   {
+    id: "grunnlag-3",
     module: "grunnlag",
     question: "Hva er hovedrasjonalet i heftet for å trene spor med liggetid over ett døgn?",
     options: [
@@ -1595,6 +1606,7 @@ const quizQuestions = [
     pages: "s. 19",
   },
   {
+    id: "spor-3",
     module: "spor",
     question: "Hvilken pauselengde gir heftet som eksempel mellom kort læringsspor og hovedspor?",
     options: [
@@ -1607,6 +1619,7 @@ const quizQuestions = [
     pages: "s. 19",
   },
   {
+    id: "spor-4",
     module: "spor",
     question: "Hvorfor faser man ut godbiter i godbitspor?",
     options: [
@@ -1619,6 +1632,7 @@ const quizQuestions = [
     pages: "s. 7",
   },
   {
+    id: "oppsok-3",
     module: "oppsok",
     examRelevant: true,
     question: "Hvilken posisjon angir heftet som sannsynlig startpunkt for spor fra forlatt personbil?",
@@ -1632,6 +1646,7 @@ const quizQuestions = [
     pages: "s. 15",
   },
   {
+    id: "oppsok-4",
     module: "oppsok",
     question: "Hva er en anbefalt løsning hvis området ved gjenstanden er mye tråkket?",
     options: [
@@ -1644,6 +1659,7 @@ const quizQuestions = [
     pages: "s. 14",
   },
   {
+    id: "oppsok-5",
     module: "oppsok",
     question: "Hvorfor bør spor på flanken legges litt ut i terrenget under frisøk-trening?",
     options: [
@@ -1656,6 +1672,7 @@ const quizQuestions = [
     pages: "s. 15-17",
   },
   {
+    id: "oppsok-6",
     module: "oppsok",
     question: "Hvor gamle spor kan en godt trent redningshund typisk ta opp under frisøk når sporet er et tydelig avvik i miljøet?",
     options: [
@@ -1668,6 +1685,7 @@ const quizQuestions = [
     pages: "s. 17",
   },
   {
+    id: "oppsok-7",
     module: "oppsok",
     question: "Hvilken fremdrift kan to ekvipasjer holde langs vei iflg heftet?",
     options: [
@@ -1680,6 +1698,7 @@ const quizQuestions = [
     pages: "s. 17",
   },
   {
+    id: "gamle-2",
     module: "gamle",
     question: "Hvorfor legger heftet opp til to spor samme dag når man trener gamle spor?",
     options: [
@@ -1692,6 +1711,7 @@ const quizQuestions = [
     pages: "s. 19",
   },
   {
+    id: "gamle-3",
     module: "gamle",
     question: "Hva anbefaler heftet etter å ha trent ett-døgn spor en stund?",
     options: [
@@ -1704,6 +1724,7 @@ const quizQuestions = [
     pages: "s. 20",
   },
   {
+    id: "retning-3",
     module: "retning",
     question: "Hvor mange foravtrykk er nok for at en hund er sikker på retningen iflg forskningen heftet refererer?",
     options: [
@@ -1716,6 +1737,7 @@ const quizQuestions = [
     pages: "s. 21",
   },
   {
+    id: "retning-4",
     module: "retning",
     question: "Hva er alternativ 2 for retningstrening i heftet?",
     options: [
@@ -1728,6 +1750,7 @@ const quizQuestions = [
     pages: "s. 22-23",
   },
   {
+    id: "sportap-1",
     module: "sportap",
     examRelevant: true,
     question: "Hva bør fører gjøre når hunden stopper opp etter å ha mistet sporet?",
@@ -1741,6 +1764,7 @@ const quizQuestions = [
     pages: "s. 24",
   },
   {
+    id: "sportap-2",
     module: "sportap",
     question: "Hvor lange spor anbefaler heftet for sportap-momenttrening?",
     options: [
@@ -1753,6 +1777,7 @@ const quizQuestions = [
     pages: "s. 24",
   },
   {
+    id: "kryssende-1",
     module: "kryssende",
     examRelevant: true,
     question: "Hvilken rolle spiller merkebandet ved trening av kryssende spor?",
@@ -1766,6 +1791,7 @@ const quizQuestions = [
     pages: "s. 26-27",
   },
   {
+    id: "kryssende-2",
     module: "kryssende",
     question: "Hva oppnår man over tid ved gjentatte planlagte krysninger?",
     options: [
@@ -1778,6 +1804,7 @@ const quizQuestions = [
     pages: "s. 27",
   },
   {
+    id: "sirkel-2",
     module: "sirkel",
     question: "Hvilket utstyr er sentralt for å lage en presis sirkel i Olsrud-svingen?",
     options: [
@@ -1790,6 +1817,7 @@ const quizQuestions = [
     pages: "s. 28",
   },
   {
+    id: "sirkel-3",
     module: "sirkel",
     question: "Hva styrer vanskelighetsgraden i sirkelsporet?",
     options: [
@@ -1802,6 +1830,7 @@ const quizQuestions = [
     pages: "s. 28",
   },
   {
+    id: "grunnlag-4",
     module: "grunnlag",
     examRelevant: true,
     question: "Hvilket prinsipp ligger bak begrepet 'arbeidstegn'?",
