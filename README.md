@@ -23,12 +23,19 @@ og så åpne adressen som vises (typisk http://localhost:3000).
 
 ## Innhold
 
-- Læringsløype med fem moduler og quiz
-- Utvidet teoridel med faglige fordypninger fra heftet
-- Feltmodus med sjekklister og momentkort
-- Øktplanlegger for praktiske spor- og sporoppsøksøkter
-- Lokal treningslogg for hund/fører/lag
-- Søkbare fagkort med sidehenvisninger til heftet
+Appen har fire faner — Hjem, Trening, Lær og Oppslag — pluss en sentral
+«+»-knapp som åpner planlegging eller hurtiglogg:
+
+- **Hjem**: neste anbefalte steg, neste økt og progresjonskort (åpner full
+  progresjonsside med grafer, eksamensklarhet og instruktørdeling)
+- **Trening**: lagrede øktplaner (med feltmodus, utskrift og QR-deling) og
+  hele treningsloggen med filtre
+- **Lær**: læringsløype med åtte moduler, teoridykk, «Dagens spørsmål» og
+  quiz (alle moduler / svake spørsmål / per modul)
+- **Oppslag**: søkbare fagkort med sidehenvisninger til heftet, åpnes i
+  detaljark med snarvei til modulen
+- **Hurtiglogg**: stegvis loggføring bygget for felt (store treffflater,
+  ett tema per skjerm, «logg neste hund» for lagstrening)
 
 Data lagres lokalt i nettleseren.
 
