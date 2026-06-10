@@ -1891,6 +1891,7 @@ function logCard(log) {
       ${planRef}
       ${obsHtml}
       ${log.next ? `<p><strong>Neste:</strong> ${escapeHtml(log.next)}</p>` : ""}
+      <button class="text-button" data-edit-log="${escapeHtml(log.id)}" type="button">Rediger</button>
       <button class="text-button" data-delete-log="${escapeHtml(log.id)}" type="button">Slett</button>
     </article>`;
 }
@@ -1992,6 +1993,63 @@ function prefillLogFromPlan(plan) {
   $("#logStatus").textContent = "Skjemaet er forhåndsfylt fra planen. Svar på de tre observasjonspunktene og lagre.";
 }
 
+function setLogEditMode(editing) {
+  const form = $("#logForm");
+  if (!form) return;
+  form.classList.toggle("is-editing", editing);
+  const heading = $("#logFormHeading");
+  if (heading) heading.textContent = editing ? "Rediger økt" : "Registrer økt";
+  const submit = $("#logSubmitButton");
+  if (submit) submit.textContent = editing ? "Lagre endringer" : "Lagre logg";
+  const cancel = $("#logCancelEdit");
+  if (cancel) cancel.hidden = !editing;
+  const clear = $("#logClearForm");
+  if (clear) clear.hidden = editing;
+}
+
+function startEditLog(id) {
+  const log = state.logs.find((l) => l.id === id);
+  if (!log) return;
+  setView("log");
+  const form = $("#logForm");
+  if (!form) return;
+  const get = (name) => form.querySelector(`[name="${name}"]`);
+  ["date", "type", "handler", "dog", "age", "length", "terrain", "wind", "next"].forEach((name) => {
+    const field = get(name);
+    if (field) field.value = log[name] || "";
+  });
+  const weatherInput = get("weather");
+  if (weatherInput) weatherInput.value = log.weather || "";
+  const ratingInput = get("rating");
+  if (ratingInput) ratingInput.value = String(Math.min(5, Math.max(0, Math.floor(Number(log.rating)) || 0)));
+  const observations = Array.isArray(log.observations) ? log.observations : [];
+  [0, 1, 2].forEach((i) => {
+    const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
+    if (promptEl) promptEl.textContent = observations[i]?.prompt || "";
+    const input = get(`obs${i}`);
+    if (input) input.value = observations[i]?.answer || "";
+  });
+  // Eldre logger har én fritekst-observasjon — løft den inn i første felt.
+  if (!observations.length && log.observation) {
+    const first = get("obs0");
+    if (first) first.value = log.observation;
+  }
+  form.dataset.editId = log.id;
+  form.dataset.planId = log.planId || "";
+  form.dataset.planTitle = log.planTitle || "";
+  form.dataset.planPages = log.planPages || "";
+  const hint = $("#logObservationHint");
+  if (hint) {
+    hint.textContent = log.planTitle
+      ? `Fra planen «${log.planTitle}»${log.planPages ? ` (${log.planPages})` : ""}. Rett svarene og lagre.`
+      : "Du redigerer en lagret økt — rett feltene og trykk «Lagre endringer».";
+  }
+  setLogEditMode(true);
+  syncLogFormUI();
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#logStatus").textContent = `Du redigerer økten ${[log.date, log.type, log.dog].filter(Boolean).join(" · ")}. Trykk «Avbryt redigering» for å gå tilbake.`;
+}
+
 function shareSnapshot() {
   const snapshot = {
     schemaVersion: SCHEMA_VERSION,
@@ -2081,6 +2139,7 @@ function sanitizeLog(raw) {
     planId: asText(raw.planId, 64),
     planTitle: asText(raw.planTitle, 200),
     planPages: asText(raw.planPages, 100),
+    ...(Number(raw.updatedAt) ? { updatedAt: Number(raw.updatedAt) } : {}),
   };
 }
 
@@ -2681,6 +2740,12 @@ function initEvents() {
       return;
     }
 
+    const editLog = event.target.closest("[data-edit-log]");
+    if (editLog) {
+      startEditLog(editLog.dataset.editLog);
+      return;
+    }
+
     const deleteLog = event.target.closest("[data-delete-log]");
     if (deleteLog) {
       const log = state.logs.find((l) => l.id === deleteLog.dataset.deleteLog);
@@ -2699,6 +2764,10 @@ function initEvents() {
     if (event.target.id === "resetQuiz") resetQuiz();
     if (event.target.id === "quizRestartSame") resetQuiz(state.quiz?.mode || "all");
     if (event.target.closest("#logClearForm")) resetLogForm();
+    if (event.target.closest("#logCancelEdit")) {
+      resetLogForm();
+      $("#logStatus").textContent = "Redigeringen er avbrutt. Skjemaet er klart for ny økt.";
+    }
 
     if (event.target.id === "settingsResetData") {
       const counts = `${state.logs.length} logger, ${state.plans.length} planer, ${state.completed.length} fullførte moduler`;
@@ -2743,6 +2812,41 @@ function initEvents() {
       planTitle: form.dataset.planTitle || "",
       planPages: form.dataset.planPages || "",
     };
+
+    const editId = form.dataset.editId || "";
+    const editIndex = editId ? state.logs.findIndex((l) => l.id === editId) : -1;
+    if (editIndex !== -1) {
+      // Oppdater eksisterende oppføring — id, createdAt og plan-kobling beholdes.
+      state.logs[editIndex] = {
+        ...state.logs[editIndex],
+        date: data.date,
+        type: data.type,
+        handler: data.handler,
+        dog: data.dog,
+        age: data.age,
+        length: data.length,
+        terrain: data.terrain,
+        wind: data.wind,
+        weather: data.weather,
+        rating: data.rating,
+        next: data.next,
+        observations,
+        // Eventuell eldre fritekst-observasjon er løftet inn i observations.
+        observation: "",
+        updatedAt: Date.now(),
+      };
+      saveState();
+      resetLogForm();
+      $("#logStatus").textContent = "Endringene er lagret.";
+      renderDashboard();
+      return;
+    }
+    if (editId) {
+      // Loggen som ble redigert finnes ikke lenger — lagre som ny økt i stedet.
+      delete form.dataset.editId;
+      setLogEditMode(false);
+    }
+
     const log = {
       id: makeId(),
       createdAt: Date.now(),
@@ -2977,6 +3081,8 @@ function resetLogForm() {
   const form = $("#logForm");
   if (!form) return;
   form.reset();
+  form.removeAttribute("data-edit-id");
+  setLogEditMode(false);
   form.removeAttribute("data-plan-id");
   form.removeAttribute("data-plan-title");
   form.removeAttribute("data-plan-pages");

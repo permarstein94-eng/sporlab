@@ -231,7 +231,7 @@
               <div class="section-head">
                 <div>
                   <p class="eyebrow">Treningslogg</p>
-                  <h3>Registrer økt</h3>
+                  <h3 id="logFormHeading">Registrer økt</h3>
                 </div>
               </div>
 
@@ -361,8 +361,9 @@
               </label>
 
               <div class="button-row">
-                <button class="primary-button" type="submit">Lagre logg</button>
+                <button class="primary-button" type="submit" id="logSubmitButton">Lagre logg</button>
                 <button class="ghost-button" type="button" id="logClearForm">Tøm skjemaet</button>
+                <button class="ghost-button" type="button" id="logCancelEdit" hidden>Avbryt redigering</button>
               </div>
               <p class="small status-line" id="logStatus" role="status" aria-live="polite"></p>
             </form>
