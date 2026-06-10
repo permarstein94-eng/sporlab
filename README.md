@@ -28,6 +28,21 @@ Data lagres lokalt i nettleseren.
 Appen er klargjort som PWA med `manifest.webmanifest`, appikoner og
 `service-worker.js`. Etter første åpning kan mye av appen brukes offline.
 
+## Tester
+
+Kjernelogikken (migrering, import/eksport, CSV og quiz) er dekket av tester
+basert på Nodes innebygde testkjører — ingen avhengigheter eller byggesteg.
+Kjør dem fra prosjektmappen med:
+
+```
+node --test
+```
+
+Testene ligger i `tests/` og laster `content.js` + `app.js` i en `node:vm`-
+kontekst som etterligner nettleserens globale skop (se
+`tests/helpers/load-app.js`). Appfilene er uendret og lastes i nettleseren
+akkurat som før. `tests/`-mappen trengs ikke i deploy-zipen.
+
 ## Profil
 
 Visuelt uttrykk er tilpasset NRH-profilmanualen med NRH blå, mørkeblå og lyseblå,
