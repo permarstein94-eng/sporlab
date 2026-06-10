@@ -1588,20 +1588,308 @@ function initFieldMode() {
     if (fieldLog) {
       const plan = findPlanById(fieldLog.dataset.fieldLog);
       closeFieldMode();
-      if (plan) prefillLogFromPlan(plan);
+      if (plan) openQuickLog(plan);
     }
   });
 }
 
-/* ---------- Hurtiglogg ---------- */
+/* ---------- Hurtiglogg: stegvis loggføring for felt ----------
+   Ett tema per skjerm og store treffflater (hansker, regn, sol).
+   Skriver nøyaktig samme loggobjekt som det fulle skjemaet. */
 
-// Midlertidig: ruter til fullt skjema til den stegvise hurtigloggen er på plass.
+const QUICK_STEPS = [
+  { id: "okt", title: "Økta" },
+  { id: "mestring", title: "Hvordan gikk det?" },
+  { id: "obs", title: "Tre ting å se etter" },
+  { id: "forhold", title: "Forholdene" },
+  { id: "neste", title: "Neste steg" },
+];
+
+const QUICK_LOG_TYPES = ["Spor", "Sporoppsøk", "Frisøk med sporopptak", "Momenttrening"];
+const QUICK_AGE_OPTIONS = ["fersk", "6-12", "12-24", "24+"];
+const QUICK_TERRAIN_OPTIONS = ["skog", "vei", "hardt", "blandet"];
+const QUICK_WIND_OPTIONS = ["Stille", "Lett vind", "Moderat vind", "Kraftig vind"];
+const QUICK_WEATHER_OPTIONS = ["☀ Sol", "☁ Skyet", "🌧 Regn", "❄ Snø", "🌫 Tåke"];
+
+let quickLog = null;
+
 function openQuickLog(plan) {
-  if (plan) {
-    prefillLogFromPlan(plan);
+  const prefill = plan ? planPrefillValues(plan) : null;
+  const planObs = plan && Array.isArray(plan.observations) ? plan.observations.filter(Boolean) : [];
+  const obsPrompts = planObs.length ? [0, 1, 2].map((i) => planObs[i] || "") : [...defaultReflectionPrompts];
+  quickLog = {
+    plan: plan || null,
+    step: 0,
+    savedCount: 0,
+    data: {
+      date: localIsoDate(),
+      type: prefill?.type || "Spor",
+      handler: prefill?.handler || "",
+      dog: prefill?.dog || "",
+      rating: 0,
+      obsPrompts,
+      obs0: "",
+      obs1: "",
+      obs2: "",
+      age: prefill?.age || "",
+      terrain: prefill?.terrain || "",
+      wind: "",
+      weather: "",
+      length: "",
+      next: prefill?.next || "",
+    },
+  };
+  renderQuickLog();
+  openOverlay($("#quickLogOverlay"));
+}
+
+function quickLogDirty() {
+  if (!quickLog) return false;
+  const d = quickLog.data;
+  return Boolean(Number(d.rating) > 0 || d.dog.trim() || d.obs0.trim() || d.obs1.trim() || d.obs2.trim() || d.next.trim());
+}
+
+function closeQuickLog(skipConfirm = false) {
+  if (!quickLog) return;
+  const onReceipt = quickLog.step >= QUICK_STEPS.length;
+  if (!skipConfirm && !onReceipt && quickLogDirty()
+    && !window.confirm("Avbryte hurtigloggen? Det du har fylt ut blir ikke lagret.")) return;
+  quickLog = null;
+  closeOverlay($("#quickLogOverlay"));
+}
+
+// Tekstfelter leses inn i quickLog.data ved hvert stegbytte/lagring.
+function readQuickLogFields() {
+  const body = $("#quickLogBody");
+  if (!body || !quickLog) return;
+  body.querySelectorAll("[data-ql-field]").forEach((el) => {
+    quickLog.data[el.dataset.qlField] = /** @type {HTMLInputElement} */ (el).value;
+  });
+}
+
+function quickChipGroup(group, options, current, labelFor = (v) => v) {
+  return `<div class="ql-chip-grid" role="group">${options
+    .map((value) => {
+      const selected = current === value;
+      return `<button class="chip-button ql-chip${selected ? " is-selected" : ""}" type="button" data-ql-chip="${escapeHtml(group)}" data-ql-value="${escapeHtml(value)}" aria-pressed="${selected}">${escapeHtml(labelFor(value))}</button>`;
+    })
+    .join("")}</div>`;
+}
+
+function renderQuickLog() {
+  const body = $("#quickLogBody");
+  const titleEl = $("#quickLogTitle");
+  if (!body || !quickLog) return;
+  const d = quickLog.data;
+  if (titleEl) titleEl.textContent = quickLog.plan ? quickLog.plan.title : "Logg økt";
+
+  // Kvittering
+  if (quickLog.step >= QUICK_STEPS.length) {
+    const moduleDef = quickLog.plan ? moduleForFocus(quickLog.plan.focus) : null;
+    const savedFor = d.dog.trim() ? ` for ${d.dog.trim()}` : "";
+    body.innerHTML = `
+      <div class="ql-receipt">
+        <span class="ql-receipt-check" aria-hidden="true">✓</span>
+        <h3>Økta er lagret${escapeHtml(savedFor)}</h3>
+        <p class="small">${quickLog.savedCount > 1 ? `${quickLog.savedCount} logger i denne omgangen. ` : ""}Du finner loggen igjen under Trening.</p>
+        <div class="ql-receipt-actions">
+          <button class="primary-button" type="button" data-ql-done>Ferdig</button>
+          <button class="ghost-button" type="button" data-ql-next-dog>Logg neste hund</button>
+        </div>
+        ${moduleDef ? `<button class="text-button ql-receipt-quiz" type="button" data-start-module-quiz="${moduleDef.id}">Fest læringen: quiz om ${escapeHtml(moduleDef.title.replace(/^\d+\.\s*/, ""))} →</button>` : ""}
+      </div>`;
     return;
   }
-  setView("log");
+
+  const step = QUICK_STEPS[quickLog.step];
+  const dots = QUICK_STEPS
+    .map((s, i) => `<span class="ql-dot" data-state="${i < quickLog.step ? "done" : i === quickLog.step ? "active" : "todo"}"></span>`)
+    .join("");
+
+  let content = "";
+  if (step.id === "okt") {
+    content = `
+      <p class="ql-group-label">Type økt</p>
+      ${quickChipGroup("type", QUICK_LOG_TYPES, d.type)}
+      <div class="ql-field-row">
+        <label class="ql-label">Dato
+          <input type="date" data-ql-field="date" value="${escapeHtml(d.date)}" />
+        </label>
+      </div>
+      <div class="ql-field-row">
+        <label class="ql-label">Hund
+          <input data-ql-field="dog" list="dogList" autocomplete="off" autocapitalize="words" placeholder="Hundens navn" value="${escapeHtml(d.dog)}" />
+        </label>
+        <label class="ql-label">Hundefører
+          <input data-ql-field="handler" list="handlerList" autocomplete="off" autocapitalize="words" placeholder="Navn" value="${escapeHtml(d.handler)}" />
+        </label>
+      </div>`;
+  } else if (step.id === "mestring") {
+    const rating = Number(d.rating) || 0;
+    content = `
+      <div class="ql-stars" role="radiogroup" aria-label="Mestring 0 til 5">
+        ${[1, 2, 3, 4, 5]
+          .map((n) => `<button class="ql-star${n <= rating ? " is-on" : ""}" type="button" data-ql-star="${n}" aria-checked="${n === rating}" aria-label="${n} ${n === 1 ? "stjerne" : "stjerner"}">★</button>`)
+          .join("")}
+      </div>
+      <p class="ql-rating-label" aria-live="polite">${escapeHtml(RATING_LABELS[rating] || "Trykk på stjernene")}</p>
+      <p class="small ql-hint">Samme skala for hele laget — trykk samme stjerne igjen for å nullstille.</p>`;
+  } else if (step.id === "obs") {
+    content = `
+      ${quickLog.plan ? `<p class="small ql-hint">Fra planen «${escapeHtml(quickLog.plan.title)}». Skriv kort — stikkord holder.</p>` : `<p class="small ql-hint">Tre korte refleksjonsspørsmål. Skriv kort — stikkord holder.</p>`}
+      ${[0, 1, 2]
+        .map(
+          (i) => `<div class="ql-obs">
+            <p class="ql-obs-prompt"><span class="observation-num">${i + 1}</span>${escapeHtml(d.obsPrompts[i] || "")}</p>
+            <textarea data-ql-field="obs${i}" rows="2" autocapitalize="sentences" placeholder="Hva så dere?">${escapeHtml(d[`obs${i}`])}</textarea>
+          </div>`
+        )
+        .join("")}`;
+  } else if (step.id === "forhold") {
+    content = `
+      <p class="ql-group-label">Liggetid</p>
+      ${quickChipGroup("age", QUICK_AGE_OPTIONS, d.age, readableAge)}
+      <p class="ql-group-label">Underlag</p>
+      ${quickChipGroup("terrain", QUICK_TERRAIN_OPTIONS, d.terrain, readableTerrain)}
+      <p class="ql-group-label">Vind</p>
+      ${quickChipGroup("wind", QUICK_WIND_OPTIONS, d.wind)}
+      <p class="ql-group-label">Vær</p>
+      ${quickChipGroup("weather", QUICK_WEATHER_OPTIONS.map((w) => w.split(" ")[1]), d.weather, (v) => QUICK_WEATHER_OPTIONS.find((w) => w.endsWith(v)) || v)}
+      <div class="ql-field-row">
+        <label class="ql-label">Lengde/moment
+          <input data-ql-field="length" inputmode="text" autocapitalize="none" placeholder="f.eks. 250 m, 2 vinkler" value="${escapeHtml(d.length)}" />
+        </label>
+      </div>`;
+  } else if (step.id === "neste") {
+    content = `
+      <label class="ql-label">Hva er det første dere skal trene på neste gang?
+        <textarea data-ql-field="next" rows="3" autocapitalize="sentences" placeholder="Ett konkret punkt holder">${escapeHtml(d.next)}</textarea>
+      </label>
+      <p class="small ql-hint">Dette dukker opp som forslag neste gang du planlegger en økt.</p>`;
+  }
+
+  const isLast = quickLog.step === QUICK_STEPS.length - 1;
+  body.innerHTML = `
+    <div class="ql-progress" aria-hidden="true">${dots}</div>
+    <p class="small ql-step-count">Steg ${quickLog.step + 1} av ${QUICK_STEPS.length}</p>
+    <h3 class="ql-step-title">${escapeHtml(step.title)}</h3>
+    <div class="ql-step-content">${content}</div>
+    <div class="ql-nav">
+      ${quickLog.step > 0 ? '<button class="ghost-button ql-nav-back" type="button" data-ql-back>◀ Tilbake</button>' : ""}
+      <button class="primary-button ql-nav-next" type="button" data-ql-next>${isLast ? "Lagre økta" : "Neste ▶"}</button>
+    </div>`;
+}
+
+function saveQuickLog() {
+  if (!quickLog) return;
+  readQuickLogFields();
+  const d = quickLog.data;
+  const observations = [0, 1, 2].map((i) => ({
+    prompt: (d.obsPrompts[i] || "").trim(),
+    answer: (d[`obs${i}`] || "").trim(),
+  }));
+  const log = {
+    id: makeId(),
+    createdAt: Date.now(),
+    date: d.date || localIsoDate(),
+    type: d.type,
+    handler: d.handler.trim(),
+    dog: d.dog.trim(),
+    age: d.age,
+    length: d.length.trim(),
+    terrain: d.terrain,
+    wind: d.wind,
+    weather: d.weather,
+    rating: String(Math.min(5, Math.max(0, Number(d.rating) || 0))),
+    next: d.next.trim(),
+    observations,
+    planId: quickLog.plan?.id || "",
+    planTitle: quickLog.plan?.title || "",
+    planPages: quickLog.plan?.pages || "",
+  };
+  state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
+  saveState();
+  quickLog.savedCount += 1;
+  quickLog.step = QUICK_STEPS.length;
+  renderQuickLog();
+  renderTraining();
+  renderDashboard();
+  refreshAutocomplete();
+}
+
+function initQuickLog() {
+  $("#quickLogOverlay")?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-quicklog]")) {
+      closeQuickLog();
+      return;
+    }
+    if (!quickLog) return;
+
+    const chip = event.target.closest("[data-ql-chip]");
+    if (chip) {
+      readQuickLogFields();
+      const group = chip.dataset.qlChip;
+      const value = chip.dataset.qlValue;
+      // Type-feltet har ingen tom tilstand; resten kan slås av igjen.
+      quickLog.data[group] = group !== "type" && quickLog.data[group] === value ? "" : value;
+      renderQuickLog();
+      return;
+    }
+
+    const star = event.target.closest("[data-ql-star]");
+    if (star) {
+      const value = Number(star.dataset.qlStar);
+      quickLog.data.rating = value === Number(quickLog.data.rating) ? 0 : value;
+      renderQuickLog();
+      return;
+    }
+
+    if (event.target.closest("[data-ql-back]")) {
+      readQuickLogFields();
+      quickLog.step = Math.max(0, quickLog.step - 1);
+      renderQuickLog();
+      return;
+    }
+
+    if (event.target.closest("[data-ql-next]")) {
+      readQuickLogFields();
+      if (quickLog.step === QUICK_STEPS.length - 1) {
+        saveQuickLog();
+      } else {
+        quickLog.step += 1;
+        renderQuickLog();
+      }
+      return;
+    }
+
+    if (event.target.closest("[data-ql-done]")) {
+      closeQuickLog(true);
+      setView("training");
+      return;
+    }
+
+    if (event.target.closest("[data-ql-next-dog]")) {
+      // Lagstrening: behold dato, type, fører og forhold — nullstill det
+      // som er per hund.
+      const d = quickLog.data;
+      d.dog = "";
+      d.rating = 0;
+      d.obs0 = "";
+      d.obs1 = "";
+      d.obs2 = "";
+      d.next = "";
+      quickLog.step = 0;
+      renderQuickLog();
+      $("#quickLogBody [data-ql-field='dog']")?.focus();
+      return;
+    }
+
+    if (event.target.closest("[data-start-module-quiz]")) {
+      // Quiz-lenken på kvitteringen: lukk hurtigloggen, så tar den
+      // delegerte handleren på document seg av å starte quizen.
+      closeQuickLog(true);
+    }
+  });
 }
 
 /* ---------- Komplett øktkort for utskrift ---------- */
@@ -2347,7 +2635,7 @@ function initEvents() {
       if (action === "log-from-plan") {
         const planId = nextAction.dataset.planId;
         const plan = state.plans.find((p) => p.id === planId);
-        if (plan) prefillLogFromPlan(plan);
+        if (plan) openQuickLog(plan);
         return;
       }
       if (action === "weak-quiz") {
@@ -2860,7 +3148,7 @@ function initEvents() {
     if (logFromPlan) {
       const id = logFromPlan.dataset.logFromPlan;
       const plan = state.plans.find((p) => p.id === id) || (state.currentPlan && state.currentPlan.id === id ? state.currentPlan : null);
-      if (plan) prefillLogFromPlan(plan);
+      if (plan) openQuickLog(plan);
     }
 
     const printPlan = event.target.closest("[data-print-plan]");
@@ -3117,6 +3405,8 @@ function initWelcome() {
       closeQr();
     } else if ($("#actionSheet")?.classList.contains("is-open")) {
       closeActionSheet();
+    } else if ($("#quickLogOverlay")?.classList.contains("is-open")) {
+      closeQuickLog();
     } else if ($("#fieldOverlay")?.classList.contains("is-open")) {
       closeFieldMode();
     } else if ($("#welcomeOverlay")?.classList.contains("is-open")) {
@@ -3132,6 +3422,7 @@ function init() {
   initEvents();
   initWelcome();
   initActionSheet();
+  initQuickLog();
   initShare();
   initFieldMode();
   handleSharedImport();

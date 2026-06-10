@@ -4558,3 +4558,278 @@ html[data-theme="dark"] .backup-nudge {
     border-radius: 18px;
   }
 }
+
+/* ---------- Hurtiglogg: stegvis loggføring i felt ---------- */
+.quicklog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 125;
+  background: var(--bg);
+  color: var(--ink);
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.quicklog-overlay[hidden] {
+  display: none;
+}
+
+.quicklog-overlay.is-open {
+  opacity: 1;
+}
+
+.quicklog-shell {
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+}
+
+.quicklog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.quicklog-head h2 {
+  margin: 2px 0 0;
+  font-size: clamp(1.3rem, 4.5vw, 1.7rem);
+  line-height: 1.15;
+}
+
+.quicklog-shell .field-close {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.quicklog-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ql-progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ql-dot {
+  width: 26px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.ql-dot[data-state="done"] {
+  background: var(--green-2);
+  opacity: 0.55;
+}
+
+.ql-dot[data-state="active"] {
+  background: var(--green);
+}
+
+.ql-step-count {
+  margin: 0 0 2px;
+}
+
+.ql-step-title {
+  margin: 0 0 14px;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.ql-step-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ql-group-label {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  font-weight: 760;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ql-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ql-chip {
+  min-height: 52px;
+  font-size: 1rem;
+  justify-content: center;
+}
+
+.ql-field-row {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.ql-label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.ql-label input,
+.ql-label textarea {
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface, #fff);
+  font-size: 1.05rem;
+}
+
+.ql-label textarea {
+  resize: vertical;
+}
+
+.ql-stars {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0 8px;
+}
+
+.ql-star {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 64px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface, #fff);
+  color: var(--line);
+  font-size: 2.1rem;
+  cursor: pointer;
+}
+
+.ql-star.is-on {
+  color: var(--amber, #e8a213);
+  border-color: var(--amber, #e8a213);
+  background: #fdf6e3;
+}
+
+html[data-theme="dark"] .ql-star.is-on {
+  background: #33290d;
+}
+
+.ql-rating-label {
+  margin: 0;
+  min-height: 1.5em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.ql-hint {
+  margin: 0;
+}
+
+.ql-obs {
+  display: grid;
+  gap: 6px;
+}
+
+.ql-obs-prompt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ql-obs textarea {
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface, #fff);
+  font-size: 1.05rem;
+  resize: vertical;
+}
+
+.ql-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.ql-nav-back {
+  flex: 0 0 auto;
+  min-height: 56px;
+}
+
+.ql-nav-next {
+  flex: 1;
+  min-height: 56px;
+  font-size: 1.1rem;
+}
+
+/* Kvittering */
+.ql-receipt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: auto 0;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.ql-receipt-check {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #e6f7ef;
+  color: #1a7a40;
+  font-size: 2.4rem;
+  font-weight: 700;
+}
+
+html[data-theme="dark"] .ql-receipt-check {
+  background: #0d3320;
+  color: #4fd685;
+}
+
+.ql-receipt h3 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.ql-receipt-actions {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 8px;
+}
+
+.ql-receipt-actions .primary-button,
+.ql-receipt-actions .ghost-button {
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+
+.ql-receipt-quiz {
+  margin-top: 6px;
+}
