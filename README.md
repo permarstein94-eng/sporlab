@@ -43,6 +43,17 @@ kontekst som etterligner nettleserens globale skop (se
 `tests/helpers/load-app.js`). Appfilene er uendret og lastes i nettleseren
 akkurat som før. `tests/`-mappen trengs ikke i deploy-zipen.
 
+`app.js` er typesjekket med `@ts-check` og JSDoc-typer (Plan, Log,
+QuizQuestion, State m.fl.). Kjør sjekken med:
+
+```
+npx -p typescript tsc -p jsconfig.json
+```
+
+(NB: rene `npx tsc` treffer en utdatert navnebror-pakke på npm.)
+`jsconfig.json` og `types/globals.d.ts` brukes bare av typesjekken og trengs
+ikke i deploy-zipen.
+
 ## Profil
 
 Visuelt uttrykk er tilpasset NRH-profilmanualen med NRH blå, mørkeblå og lyseblå,

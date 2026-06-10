@@ -1,3 +1,4 @@
+// @ts-check
 const STORAGE_KEY = "sporlab-e8-e9-v1";
 const SCHEMA_VERSION = 5;
 
@@ -6,6 +7,121 @@ const SCHEMA_VERSION = 5;
 // (kvotefeil fanges i saveState og varsles).
 const MAX_PLANS = 40;
 const MAX_LOGS = 2000;
+
+/* ---------- JSDoc-typer (sjekkes med `npx tsc -p jsconfig.json`) ---------- */
+
+/**
+ * En lagret øktplan — kanonisk form som produsert av makePlan()/sanitizePlan().
+ * @typedef {Object} Plan
+ * @property {string} id
+ * @property {number} createdAt
+ * @property {string} title
+ * @property {string} pages
+ * @property {string} focus Nøkkel i planBlueprints, eller "" hvis ukjent.
+ * @property {string[]} meta Linjer som "Fører: Kari".
+ * @property {string[]} steps
+ * @property {string} success
+ * @property {string} note
+ * @property {string[]} observations Alltid tre observasjonsspørsmål.
+ * @property {string} handler
+ * @property {string} dog
+ * @property {string} experience
+ * @property {string} intensity
+ * @property {string} age
+ * @property {string} terrain
+ */
+
+/**
+ * @typedef {Object} LogObservation
+ * @property {string} prompt
+ * @property {string} answer
+ */
+
+/**
+ * En loggført treningsøkt — kanonisk form som produsert av sanitizeLog().
+ * @typedef {Object} Log
+ * @property {string} id
+ * @property {number} createdAt
+ * @property {string} date Lokal ISO-dato (YYYY-MM-DD).
+ * @property {string} type
+ * @property {string} handler
+ * @property {string} dog
+ * @property {string} age
+ * @property {string} length
+ * @property {string} terrain
+ * @property {string} wind
+ * @property {string} weather
+ * @property {string} rating "0"–"5".
+ * @property {string} next
+ * @property {string} [observation] Eldre fritekstfelt (før tre-spørsmålsformatet).
+ * @property {LogObservation[]} observations
+ * @property {string} planId
+ * @property {string} planTitle
+ * @property {string} planPages
+ * @property {number} [updatedAt]
+ * @property {string} [image] Historisk felt — fjernes ved migrering og deling.
+ */
+
+/**
+ * Et quizspørsmål fra content.js.
+ * @typedef {Object} QuizQuestion
+ * @property {string} id Stabil id — mestring og økter nøkles på denne.
+ * @property {string} module
+ * @property {boolean} [examRelevant]
+ * @property {string} question
+ * @property {string[]} options
+ * @property {number} answer Indeks i options.
+ * @property {string} explain
+ * @property {string} pages
+ */
+
+/**
+ * @typedef {Object} MasteryEntry
+ * @property {number} correct
+ * @property {number} wrong
+ * @property {number} lastSeen
+ */
+
+/**
+ * @typedef {Object} QuizAnswer
+ * @property {number} display Valgt indeks slik alternativene ble vist.
+ * @property {number} original Tilsvarende indeks i spørsmålets options.
+ * @property {boolean} correct
+ */
+
+/**
+ * Pågående/persistert quiz-økt.
+ * @typedef {Object} QuizSession
+ * @property {string[]} questionIds
+ * @property {number[][]} optionMaps Per spørsmål: permutasjon av options-indekser.
+ * @property {number} index
+ * @property {number} score
+ * @property {Object<string, QuizAnswer>} answered Nøklet på posisjon i økten.
+ * @property {string} mode "all", "weak" eller "module:<id>".
+ * @property {string} modeLabel
+ * @property {boolean} finished
+ */
+
+/**
+ * Hele den persisterte app-tilstanden (localStorage, schemaVersion 5).
+ * @typedef {Object} State
+ * @property {number} schemaVersion
+ * @property {string} view
+ * @property {?string} activeModule
+ * @property {string} learnAccordion
+ * @property {string[]} completed Fullførte modul-id-er.
+ * @property {Log[]} logs
+ * @property {Plan[]} plans
+ * @property {?Plan} currentPlan
+ * @property {number} wizardStep
+ * @property {boolean} wizardShowDetails
+ * @property {string} theme "auto", "light" eller "dark".
+ * @property {Object<string, MasteryEntry>} mastery Nøklet på spørsmåls-id.
+ * @property {QuizSession} quiz
+ * @property {boolean} hasSeenWelcome
+ * @property {?string} activeGuide
+ * @property {number} lastExportLogCount
+ */
 
 const viewMeta = {
   dashboard: ["Feltklar læring", "Dagens sporarbeid"],
@@ -19,8 +135,10 @@ const viewMeta = {
 
 // Oppslag på stabil spørsmåls-id (definert i content.js). Mestring og quiz-økter
 // nøkles på id, ikke array-indeks, så innholdet kan endres uten å knekke historikken.
-const questionsById = new Map(quizQuestions.map((q) => [q.id, q]));
+/** @type {Map<string, QuizQuestion>} */
+const questionsById = new Map(quizQuestions.map((q) => /** @type {[string, QuizQuestion]} */ ([q.id, q])));
 
+/** @returns {QuizSession} */
 const defaultQuizState = () => ({
   questionIds: [],
   optionMaps: [],
@@ -32,6 +150,7 @@ const defaultQuizState = () => ({
   finished: false,
 });
 
+/** @returns {State} */
 const defaultState = () => ({
   schemaVersion: SCHEMA_VERSION,
   view: "dashboard",
@@ -54,6 +173,7 @@ const defaultState = () => ({
 let state = loadState();
 let storageAvailable = true;
 
+/** @returns {State} */
 function loadState() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -64,6 +184,11 @@ function loadState() {
   }
 }
 
+/**
+ * Løfter en lagret tilstand (enhver tidligere schemaVersion) til gjeldende.
+ * @param {any} stored
+ * @returns {State}
+ */
 function migrateState(stored) {
   const base = { ...defaultState(), ...stored };
   const fromVersion = stored.schemaVersion || 1;
@@ -169,6 +294,10 @@ function $all(selector, root = document) {
   return [...root.querySelectorAll(selector)];
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -2039,6 +2168,10 @@ function logCard(log) {
     </article>`;
 }
 
+/**
+ * @param {Log[]} logs
+ * @returns {string}
+ */
 function logsToCsv(logs) {
   const fields = ["date", "type", "handler", "dog", "rating", "age", "length", "weather", "wind", "terrain", "planTitle", "obs1", "obs2", "obs3", "next"];
   const header = fields.join(",");
@@ -2273,6 +2406,10 @@ function sanitizeId(value) {
   return typeof value === "string" && SAFE_ID_PATTERN.test(value) ? value : makeId();
 }
 
+/**
+ * @param {any} raw
+ * @returns {?Plan}
+ */
 function sanitizePlan(raw) {
   if (!raw || typeof raw !== "object") return null;
   const obs = asStringArray(raw.observations, 3);
@@ -2297,6 +2434,10 @@ function sanitizePlan(raw) {
   };
 }
 
+/**
+ * @param {any} raw
+ * @returns {?Log}
+ */
 function sanitizeLog(raw) {
   if (!raw || typeof raw !== "object") return null;
   const observations = Array.isArray(raw.observations)
@@ -2328,6 +2469,10 @@ function sanitizeLog(raw) {
   };
 }
 
+/**
+ * @param {any} snapshot
+ * @returns {{ plans: number, logs: number }} Antall nye elementer som ble flettet inn.
+ */
 function importSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== "object") throw new Error("Ugyldig fil");
   const incomingPlans = (Array.isArray(snapshot.plans) ? snapshot.plans : []).map(sanitizePlan).filter(Boolean);
@@ -2416,6 +2561,7 @@ function shuffle(array) {
   return result;
 }
 
+/** @param {string} [mode] "all", "weak" eller "module:<id>". */
 function buildQuizSession(mode = "all") {
   let pool;
   let label;
@@ -2630,8 +2776,13 @@ function nextQuestion() {
   renderQuiz();
 }
 
+/**
+ * Skjemaene i appen har bare tekstfelter, så alle verdiene er strenger.
+ * @param {HTMLFormElement} form
+ * @returns {Object<string, string>}
+ */
 function collectForm(form) {
-  return Object.fromEntries(new FormData(form).entries());
+  return /** @type {Object<string, string>} */ (Object.fromEntries(new FormData(form).entries()));
 }
 
 function initEvents() {
@@ -3265,7 +3416,7 @@ function initEvents() {
       stack.querySelectorAll("[data-theory-card]").forEach((card) => {
         const haystack = card.textContent.toLowerCase();
         const match = !query || haystack.includes(query);
-        card.hidden = !match;
+        /** @type {HTMLElement} */ (card).hidden = !match;
         if (match) visible += 1;
       });
       if (empty) empty.hidden = visible > 0 || !query;
