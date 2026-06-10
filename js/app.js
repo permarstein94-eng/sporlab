@@ -69,7 +69,7 @@ const navTabForView = {
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
-const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay";
+const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay, #refSheet";
 
 function openOverlay(overlay) {
   if (!overlay) return;
@@ -2417,12 +2417,44 @@ function renderReference() {
 
 function referenceCard(item, query) {
   return `
-    <article class="reference-card">
+    <button class="reference-card" data-ref-open="${references.indexOf(item)}" type="button">
       <p class="page-ref">${escapeHtml(item.pages)}</p>
       <h4>${highlight(item.title, query)}</h4>
       <p>${highlight(item.text, query)}</p>
       <span class="tag">${escapeHtml(categoryLabel(item.category))}</span>
-    </article>`;
+      <span class="reference-card-cue" aria-hidden="true">Åpne →</span>
+    </button>`;
+}
+
+/* Fagkort-detaljer i eget ark, med snarvei til modulen der temaet hører hjemme. */
+const refCategoryToModule = { grunnlag: "grunnlag", spor: "spor", oppsok: "oppsok" };
+
+function openReferenceSheet(index) {
+  const item = references[index];
+  if (!item) return;
+  const pagesEl = $("#refSheetPages");
+  const titleEl = $("#refSheetTitle");
+  const bodyEl = $("#refSheetBody");
+  const actionsEl = $("#refSheetActions");
+  if (pagesEl) pagesEl.textContent = item.pages || "";
+  if (titleEl) titleEl.textContent = item.title || "";
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <p>${escapeHtml(item.text)}</p>
+      <span class="tag">${escapeHtml(categoryLabel(item.category))}</span>`;
+  }
+  if (actionsEl) {
+    const moduleId = refCategoryToModule[item.category];
+    const moduleDef = moduleId ? modules.find((m) => m.id === moduleId) : null;
+    actionsEl.innerHTML = moduleDef
+      ? `<button class="ghost-button" type="button" data-ref-module="${moduleDef.id}">Les modulen: ${escapeHtml(moduleDef.title.replace(/^\d+\.\s*/, ""))}</button>`
+      : "";
+  }
+  openOverlay($("#refSheet"));
+}
+
+function closeReferenceSheet() {
+  closeOverlay($("#refSheet"));
 }
 
 function categoryLabel(category) {
@@ -3222,6 +3254,28 @@ function initEvents() {
       return;
     }
 
+    const refOpen = event.target.closest("[data-ref-open]");
+    if (refOpen) {
+      openReferenceSheet(Number(refOpen.dataset.refOpen));
+      return;
+    }
+
+    if (event.target.closest("[data-close-ref]")) {
+      closeReferenceSheet();
+      return;
+    }
+
+    const refModule = event.target.closest("[data-ref-module]");
+    if (refModule) {
+      closeReferenceSheet();
+      state.activeModule = refModule.dataset.refModule;
+      state.activeGuide = null;
+      state.learnAccordion = "learn";
+      saveState();
+      setView("learn");
+      return;
+    }
+
     if (event.target.closest("[data-quick-log]")) {
       openQuickLog(null);
       return;
@@ -3420,6 +3474,8 @@ function initWelcome() {
     if (event.key !== "Escape") return;
     if ($("#qrOverlay")?.classList.contains("is-open")) {
       closeQr();
+    } else if ($("#refSheet")?.classList.contains("is-open")) {
+      closeReferenceSheet();
     } else if ($("#actionSheet")?.classList.contains("is-open")) {
       closeActionSheet();
     } else if ($("#quickLogOverlay")?.classList.contains("is-open")) {
