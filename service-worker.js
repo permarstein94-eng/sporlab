@@ -1,10 +1,14 @@
-const CACHE_NAME = "sporlab-e8-e9-v17";
+const CACHE_NAME = "sporlab-e8-e9-v18";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./content.js",
-  "./app.js",
+  "./js/app.js",
+  "./js/state.js",
+  "./js/utils.js",
+  "./js/snapshot.js",
+  "./js/quiz.js",
   "./assets/qrcode.js",
   "./manifest.webmanifest",
   "./assets/nrh-logo-romerike.png",

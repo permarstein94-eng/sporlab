@@ -6,5 +6,5 @@
     "strict": false,
     "noEmit": true
   },
-  "include": ["app.js", "content.js", "types/globals.d.ts"]
+  "include": ["js", "content.js", "types/globals.d.ts"]
 }

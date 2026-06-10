@@ -1,4 +1,6 @@
-const modules = [
+import { escapeHtml } from "./js/utils.js";
+
+export const modules = [
   {
     id: "grunnlag",
     title: "1. Grunnlaget",
@@ -186,7 +188,7 @@ const modules = [
   },
 ];
 
-const theoryDeepDives = {
+export const theoryDeepDives = {
   grunnlag: [
     {
       title: "Hvorfor prøvekrav ikke er nok",
@@ -421,7 +423,7 @@ const theoryDeepDives = {
   ],
 };
 
-const references = [
+export const references = [
   {
     title: "Motivasjon + utfordring",
     category: "grunnlag",
@@ -854,7 +856,7 @@ references.push(
   }
 );
 
-const reflectionLibrary = {
+export const reflectionLibrary = {
   grunnlag: [
     "Hva er hundens beste forsterker, og når blir den så høyverdi at konsentrasjonen taper?",
     "Hvor ofte tar du selv aktive grep når hunden ber om fasit, og hvor ofte står du rolig?",
@@ -901,7 +903,7 @@ const reflectionLibrary = {
   ],
 };
 
-const protocols = [
+export const protocols = [
   {
     id: "before",
     title: "Før økta",
@@ -937,7 +939,7 @@ const protocols = [
   },
 ];
 
-const diagrams = [
+export const diagrams = [
   {
     module: "grunnlag",
     title: "Balansen motivasjon ↔ utfordring",
@@ -1071,7 +1073,7 @@ const diagrams = [
   },
 ];
 
-const planBlueprints = {
+export const planBlueprints = {
   "forste-spor": {
     title: "Aller første sporøkt",
     pages: "s. 7-8",
@@ -1248,7 +1250,7 @@ const planBlueprints = {
   },
 };
 
-const gettingStartedGuide = {
+export const gettingStartedGuide = {
   pages: "s. 7-11",
   lead:
     "Heftet sier eksplisitt at detaljene i nyinnlæring skal tilpasses i samarbeid med instruktør. Denne siden gir deg utgangspunktet: det heftet kaller «litt forenklet» — det du må ha tenkt gjennom før du legger første spor.",
@@ -1345,7 +1347,7 @@ const gettingStartedGuide = {
   },
 };
 
-function renderGettingStarted() {
+export function renderGettingStarted() {
   const g = gettingStartedGuide;
   const questionsHtml = g.kartlegging.questions.map((q) => `<li>${escapeHtml(q)}</li>`).join("");
   const methodsHtml = g.metoder.items
@@ -1424,7 +1426,7 @@ function renderGettingStarted() {
     </section>`;
 }
 
-const focusOrder = [
+export const focusOrder = [
   "forste-spor",
   "gamle-spor",
   "oppsok-gjenstand",
@@ -1436,7 +1438,7 @@ const focusOrder = [
   "sirkelspor",
 ];
 
-function theoryForFocus(focus) {
+export function theoryForFocus(focus) {
   const blueprint = planBlueprints[focus];
   if (!blueprint) return [];
   const moduleDeepDives = theoryDeepDives[blueprint.module] || [];
@@ -1447,13 +1449,13 @@ function theoryForFocus(focus) {
   return matched.length ? matched : moduleDeepDives.slice(0, 3);
 }
 
-function moduleForFocus(focus) {
+export function moduleForFocus(focus) {
   const blueprint = planBlueprints[focus];
   if (!blueprint) return null;
   return modules.find((m) => m.id === blueprint.module) || null;
 }
 
-const quizQuestions = [
+export const quizQuestions = [
   {
     id: "grunnlag-1",
     module: "grunnlag",
@@ -1844,4 +1846,5 @@ const quizQuestions = [
     pages: "s. 11",
   },
 ];
+
 

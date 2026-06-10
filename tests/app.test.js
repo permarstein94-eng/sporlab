@@ -7,13 +7,13 @@ const { loadApp } = require("./helpers/load-app.js");
 const SAFE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 test("escapeHtml", async (t) => {
-  const { escapeHtml } = loadApp();
+  const { escapeHtml } = await loadApp();
 
-  await t.test("escaper alle HTML-spesialtegn", () => {
+  await t.test("escaper alle HTML-spesialtegn", async () => {
     assert.equal(escapeHtml("&<>\"'"), "&amp;&lt;&gt;&quot;&#039;");
   });
 
-  await t.test("nøytraliserer et XSS-forsøk", () => {
+  await t.test("nøytraliserer et XSS-forsøk", async () => {
     const escaped = escapeHtml('<img src=x onerror="alert(1)">');
     assert.ok(!escaped.includes("<"));
     assert.ok(!escaped.includes(">"));
@@ -21,7 +21,7 @@ test("escapeHtml", async (t) => {
     assert.equal(escaped, "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 
-  await t.test("tåler null, undefined og tall", () => {
+  await t.test("tåler null, undefined og tall", async () => {
     assert.equal(escapeHtml(null), "");
     assert.equal(escapeHtml(undefined), "");
     assert.equal(escapeHtml(42), "42");
@@ -29,8 +29,8 @@ test("escapeHtml", async (t) => {
 });
 
 test("migrateState v4 → v5", async (t) => {
-  await t.test("oversetter mestring og quiz-økt fra indeks til id", () => {
-    const { migrateState, quizQuestions, SCHEMA_VERSION } = loadApp();
+  await t.test("oversetter mestring og quiz-økt fra indeks til id", async () => {
+    const { migrateState, quizQuestions, SCHEMA_VERSION } = await loadApp();
     const v4 = {
       schemaVersion: 4,
       completed: ["grunnlag"],
@@ -64,8 +64,8 @@ test("migrateState v4 → v5", async (t) => {
     assert.equal(migrated.quiz.score, 1);
   });
 
-  await t.test("forkaster quiz-økt med indekser utenfor innholdet", () => {
-    const { migrateState } = loadApp();
+  await t.test("forkaster quiz-økt med indekser utenfor innholdet", async () => {
+    const { migrateState } = await loadApp();
     const migrated = migrateState({
       schemaVersion: 4,
       quiz: { questionIds: [0, 99999], index: 1, score: 1 },
@@ -74,16 +74,16 @@ test("migrateState v4 → v5", async (t) => {
     assert.equal(migrated.quiz.index, 0);
   });
 
-  await t.test("setter hasSeenWelcome ut fra om brukeren har data", () => {
-    const { migrateState } = loadApp();
+  await t.test("setter hasSeenWelcome ut fra om brukeren har data", async () => {
+    const { migrateState } = await loadApp();
     const withData = migrateState({ schemaVersion: 4, logs: [{ id: "l1" }] });
     assert.equal(withData.hasSeenWelcome, true);
     const empty = migrateState({ schemaVersion: 4 });
     assert.equal(empty.hasSeenWelcome, false);
   });
 
-  await t.test("v1-tilstand får friske quiz-, mestrings- og temafelter", () => {
-    const { migrateState, SCHEMA_VERSION } = loadApp();
+  await t.test("v1-tilstand får friske quiz-, mestrings- og temafelter", async () => {
+    const { migrateState, SCHEMA_VERSION } = await loadApp();
     const migrated = migrateState({ completed: ["grunnlag"], mastery: { 0: { correct: 9 } } });
     assert.equal(migrated.schemaVersion, SCHEMA_VERSION);
     assert.deepEqual(migrated.mastery, {});
@@ -93,14 +93,14 @@ test("migrateState v4 → v5", async (t) => {
 });
 
 test("importSnapshot", async (t) => {
-  await t.test("kaster på ugyldig fil", () => {
-    const api = loadApp();
+  await t.test("kaster på ugyldig fil", async () => {
+    const api = await loadApp();
     assert.throws(() => api.importSnapshot(null), /Ugyldig fil/);
     assert.throws(() => api.importSnapshot("bare tekst"), /Ugyldig fil/);
   });
 
-  await t.test("saniterer planer og logger ved import", () => {
-    const api = loadApp();
+  await t.test("saniterer planer og logger ved import", async () => {
+    const api = await loadApp();
     api.setState(api.defaultState());
     const result = api.importSnapshot({
       plans: [
@@ -144,8 +144,8 @@ test("importSnapshot", async (t) => {
     assert.deepEqual(state.mastery[api.quizQuestions[0].id], { correct: 3, wrong: 0, lastSeen: 1 });
   });
 
-  await t.test("fletter uten å duplisere eksisterende id-er", () => {
-    const api = loadApp();
+  await t.test("fletter uten å duplisere eksisterende id-er", async () => {
+    const api = await loadApp();
     const state = api.defaultState();
     state.plans = [{ id: "plan-1", title: "Original" }];
     api.setState(state);
@@ -162,8 +162,8 @@ test("importSnapshot", async (t) => {
     assert.equal(plans.find((p) => p.id === "plan-2").title, "Ny plan");
   });
 
-  await t.test("mestring: oppføringen med mest historikk vinner", () => {
-    const api = loadApp();
+  await t.test("mestring: oppføringen med mest historikk vinner", async () => {
+    const api = await loadApp();
     const qid = api.quizQuestions[0].id;
     const state = api.defaultState();
     state.mastery = { [qid]: { correct: 5, wrong: 0, lastSeen: 50 } };
@@ -179,8 +179,8 @@ test("importSnapshot", async (t) => {
   });
 });
 
-test("shareSnapshot: komplett rundtur eksport → import → eksport", () => {
-  const api = loadApp();
+test("shareSnapshot: komplett rundtur eksport → import → eksport", async () => {
+  const api = await loadApp();
   const state = api.defaultState();
   state.plans = [
     {
@@ -248,8 +248,8 @@ test("shareSnapshot: komplett rundtur eksport → import → eksport", () => {
 });
 
 test("logsToCsv", async (t) => {
-  await t.test("verner mot formelinjeksjon og siterer spesialtegn", () => {
-    const { logsToCsv } = loadApp();
+  await t.test("verner mot formelinjeksjon og siterer spesialtegn", async () => {
+    const { logsToCsv } = await loadApp();
     const csv = logsToCsv([
       {
         date: "=2+2",
@@ -280,16 +280,16 @@ test("logsToCsv", async (t) => {
     );
   });
 
-  await t.test("løfter eldre fritekst-observasjon inn i obs1", () => {
-    const { logsToCsv } = loadApp();
+  await t.test("løfter eldre fritekst-observasjon inn i obs1", async () => {
+    const { logsToCsv } = await loadApp();
     const csv = logsToCsv([{ date: "2026-01-01", observation: "Gammel fritekst" }]);
     assert.ok(csv.split("\n")[1].includes("Gammel fritekst"));
   });
 });
 
 test("buildQuizSession", async (t) => {
-  await t.test("'all' bruker alle spørsmål med stokkede svaralternativer", () => {
-    const api = loadApp();
+  await t.test("'all' bruker alle spørsmål med stokkede svaralternativer", async () => {
+    const api = await loadApp();
     api.setState(api.defaultState());
     api.buildQuizSession("all");
     const quiz = api.getState().quiz;
@@ -311,8 +311,8 @@ test("buildQuizSession", async (t) => {
     assert.equal(quiz.modeLabel, "Alle moduler");
   });
 
-  await t.test("'weak' prioriterer spørsmål med dårligst mestring", () => {
-    const api = loadApp();
+  await t.test("'weak' prioriterer spørsmål med dårligst mestring", async () => {
+    const api = await loadApp();
     const weakest = api.quizQuestions[3].id;
     const state = api.defaultState();
     state.mastery = { [weakest]: { correct: 0, wrong: 5, lastSeen: 1 } };
@@ -323,8 +323,8 @@ test("buildQuizSession", async (t) => {
     assert.ok(quiz.questionIds.includes(weakest));
   });
 
-  await t.test("modulmodus holder seg til modulens spørsmål", () => {
-    const api = loadApp();
+  await t.test("modulmodus holder seg til modulens spørsmål", async () => {
+    const api = await loadApp();
     api.setState(api.defaultState());
     const moduleId = api.modules[0].id;
     api.buildQuizSession(`module:${moduleId}`);
@@ -334,8 +334,8 @@ test("buildQuizSession", async (t) => {
     quiz.questionIds.forEach((id) => assert.equal(byId.get(id).module, moduleId));
   });
 
-  await t.test("tomt utvalg faller tilbake til alle spørsmål", () => {
-    const api = loadApp();
+  await t.test("tomt utvalg faller tilbake til alle spørsmål", async () => {
+    const api = await loadApp();
     api.setState(api.defaultState());
     api.buildQuizSession("module:finnes-ikke");
     const quiz = api.getState().quiz;

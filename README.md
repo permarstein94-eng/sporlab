@@ -4,7 +4,14 @@ Interaktivt lese- og felthefte basert på `Lesehefte ettersøkning: E8 Sporopps�
 
 ## Åpne appen
 
-Åpne `index.html` i en nettleser. Appen er statisk og trenger ingen server.
+Appen er statisk, men bruker ES-moduler og må derfor serveres over HTTP
+(`file://` fungerer ikke). Lokalt holder det med for eksempel:
+
+```
+npx serve .
+```
+
+og så åpne adressen som vises (typisk http://localhost:3000).
 
 ## Publiser på Netlify
 
@@ -38,13 +45,14 @@ Kjør dem fra prosjektmappen med:
 node --test
 ```
 
-Testene ligger i `tests/` og laster `content.js` + `app.js` i en `node:vm`-
-kontekst som etterligner nettleserens globale skop (se
-`tests/helpers/load-app.js`). Appfilene er uendret og lastes i nettleseren
-akkurat som før. `tests/`-mappen trengs ikke i deploy-zipen.
+Testene ligger i `tests/` og importerer ES-modulene i `js/` direkte (se
+`tests/helpers/load-app.js`). `tests/`-mappen trengs ikke i deploy-zipen.
 
-`app.js` er typesjekket med `@ts-check` og JSDoc-typer (Plan, Log,
-QuizQuestion, State m.fl.). Kjør sjekken med:
+Koden er delt i ES-moduler: `js/state.js` (tilstand/persistens/migrering),
+`js/utils.js` (hjelpere), `js/snapshot.js` (deling/import/CSV), `js/quiz.js`
+(quizlogikk) og `js/app.js` (UI og oppstart). `content.js` eksporterer alt
+fag- og quizinnholdet. Modulene er typesjekket med `@ts-check` og JSDoc-typer
+(Plan, Log, QuizQuestion, State m.fl.). Kjør sjekken med:
 
 ```
 npx -p typescript tsc -p jsconfig.json

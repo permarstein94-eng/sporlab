@@ -1,127 +1,44 @@
 // @ts-check
-const STORAGE_KEY = "sporlab-e8-e9-v1";
-const SCHEMA_VERSION = 5;
-
-// Tak for lagrede elementer. Romslige med vilje: localStorage tåler flere MB,
-// og å kaste brukerens treningshistorikk i stillhet er verre enn en full kvote
-// (kvotefeil fanges i saveState og varsles).
-const MAX_PLANS = 40;
-const MAX_LOGS = 2000;
-
-/* ---------- JSDoc-typer (sjekkes med `npx tsc -p jsconfig.json`) ---------- */
-
-/**
- * En lagret øktplan — kanonisk form som produsert av makePlan()/sanitizePlan().
- * @typedef {Object} Plan
- * @property {string} id
- * @property {number} createdAt
- * @property {string} title
- * @property {string} pages
- * @property {string} focus Nøkkel i planBlueprints, eller "" hvis ukjent.
- * @property {string[]} meta Linjer som "Fører: Kari".
- * @property {string[]} steps
- * @property {string} success
- * @property {string} note
- * @property {string[]} observations Alltid tre observasjonsspørsmål.
- * @property {string} handler
- * @property {string} dog
- * @property {string} experience
- * @property {string} intensity
- * @property {string} age
- * @property {string} terrain
- */
-
-/**
- * @typedef {Object} LogObservation
- * @property {string} prompt
- * @property {string} answer
- */
-
-/**
- * En loggført treningsøkt — kanonisk form som produsert av sanitizeLog().
- * @typedef {Object} Log
- * @property {string} id
- * @property {number} createdAt
- * @property {string} date Lokal ISO-dato (YYYY-MM-DD).
- * @property {string} type
- * @property {string} handler
- * @property {string} dog
- * @property {string} age
- * @property {string} length
- * @property {string} terrain
- * @property {string} wind
- * @property {string} weather
- * @property {string} rating "0"–"5".
- * @property {string} next
- * @property {string} [observation] Eldre fritekstfelt (før tre-spørsmålsformatet).
- * @property {LogObservation[]} observations
- * @property {string} planId
- * @property {string} planTitle
- * @property {string} planPages
- * @property {number} [updatedAt]
- * @property {string} [image] Historisk felt — fjernes ved migrering og deling.
- */
-
-/**
- * Et quizspørsmål fra content.js.
- * @typedef {Object} QuizQuestion
- * @property {string} id Stabil id — mestring og økter nøkles på denne.
- * @property {string} module
- * @property {boolean} [examRelevant]
- * @property {string} question
- * @property {string[]} options
- * @property {number} answer Indeks i options.
- * @property {string} explain
- * @property {string} pages
- */
-
-/**
- * @typedef {Object} MasteryEntry
- * @property {number} correct
- * @property {number} wrong
- * @property {number} lastSeen
- */
-
-/**
- * @typedef {Object} QuizAnswer
- * @property {number} display Valgt indeks slik alternativene ble vist.
- * @property {number} original Tilsvarende indeks i spørsmålets options.
- * @property {boolean} correct
- */
-
-/**
- * Pågående/persistert quiz-økt.
- * @typedef {Object} QuizSession
- * @property {string[]} questionIds
- * @property {number[][]} optionMaps Per spørsmål: permutasjon av options-indekser.
- * @property {number} index
- * @property {number} score
- * @property {Object<string, QuizAnswer>} answered Nøklet på posisjon i økten.
- * @property {string} mode "all", "weak" eller "module:<id>".
- * @property {string} modeLabel
- * @property {boolean} finished
- */
-
-/**
- * Hele den persisterte app-tilstanden (localStorage, schemaVersion 5).
- * @typedef {Object} State
- * @property {number} schemaVersion
- * @property {string} view
- * @property {?string} activeModule
- * @property {string} learnAccordion
- * @property {string[]} completed Fullførte modul-id-er.
- * @property {Log[]} logs
- * @property {Plan[]} plans
- * @property {?Plan} currentPlan
- * @property {number} wizardStep
- * @property {boolean} wizardShowDetails
- * @property {string} theme "auto", "light" eller "dark".
- * @property {Object<string, MasteryEntry>} mastery Nøklet på spørsmåls-id.
- * @property {QuizSession} quiz
- * @property {boolean} hasSeenWelcome
- * @property {?string} activeGuide
- * @property {number} lastExportLogCount
- */
+/* UI-laget: visninger, hendelser, overlays og oppstart (init). */
+import {
+  diagrams,
+  focusOrder,
+  moduleForFocus,
+  modules,
+  planBlueprints,
+  protocols,
+  quizQuestions,
+  references,
+  reflectionLibrary,
+  renderGettingStarted,
+  theoryDeepDives,
+  theoryForFocus,
+} from "../content.js";
+import {
+  MAX_LOGS,
+  MAX_PLANS,
+  SCHEMA_VERSION,
+  resetAllData,
+  saveState,
+  state,
+} from "./state.js";
+import {
+  $,
+  $all,
+  downloadBlob,
+  emptyState,
+  escapeHtml,
+  highlight,
+  localIsoDate,
+  makeId,
+  readableAge,
+  readableExperience,
+  readableIntensity,
+  readableTerrain,
+  shuffle,
+} from "./utils.js";
+import { importSnapshot, logsToCsv, readFileAsText, shareSnapshot } from "./snapshot.js";
+import { buildQuizSession, ensureQuizSession, getWeakestQuestionId, questionsById } from "./quiz.js";
 
 const viewMeta = {
   dashboard: ["Feltklar læring", "Dagens sporarbeid"],
@@ -132,184 +49,6 @@ const viewMeta = {
   quiz: ["Aktiv repetisjon", "Quiz"],
   settings: ["Konto og data", "Innstillinger"],
 };
-
-// Oppslag på stabil spørsmåls-id (definert i content.js). Mestring og quiz-økter
-// nøkles på id, ikke array-indeks, så innholdet kan endres uten å knekke historikken.
-/** @type {Map<string, QuizQuestion>} */
-const questionsById = new Map(quizQuestions.map((q) => /** @type {[string, QuizQuestion]} */ ([q.id, q])));
-
-/** @returns {QuizSession} */
-const defaultQuizState = () => ({
-  questionIds: [],
-  optionMaps: [],
-  index: 0,
-  score: 0,
-  answered: {},
-  mode: "all",
-  modeLabel: "Alle moduler",
-  finished: false,
-});
-
-/** @returns {State} */
-const defaultState = () => ({
-  schemaVersion: SCHEMA_VERSION,
-  view: "dashboard",
-  activeModule: null,
-  learnAccordion: "learn",
-  completed: [],
-  logs: [],
-  plans: [],
-  currentPlan: null,
-  wizardStep: 0,
-  wizardShowDetails: false,
-  theme: "auto",
-  mastery: {},
-  quiz: defaultQuizState(),
-  hasSeenWelcome: false,
-  activeGuide: null,
-  lastExportLogCount: 0,
-});
-
-let state = loadState();
-let storageAvailable = true;
-
-/** @returns {State} */
-function loadState() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!stored || typeof stored !== "object") return defaultState();
-    return migrateState(stored);
-  } catch {
-    return defaultState();
-  }
-}
-
-/**
- * Løfter en lagret tilstand (enhver tidligere schemaVersion) til gjeldende.
- * @param {any} stored
- * @returns {State}
- */
-function migrateState(stored) {
-  const base = { ...defaultState(), ...stored };
-  const fromVersion = stored.schemaVersion || 1;
-  if (fromVersion < 2) {
-    base.quiz = defaultQuizState();
-    base.mastery = {};
-    base.theme = "auto";
-  }
-  if (fromVersion < 3) {
-    base.activeModule = null;
-    base.learnAccordion = "learn";
-  }
-  if (fromVersion < 4) {
-    base.plans = (base.plans || []).map((plan) => {
-      if (plan && Array.isArray(plan.observations) && plan.observations.length === 3) return plan;
-      const blueprint = planBlueprints[plan?.focus];
-      const observations = blueprint?.observations ? [...blueprint.observations] : ["", "", ""];
-      return { ...plan, observations };
-    });
-    base.logs = (base.logs || []).map((log) => {
-      if (!log) return log;
-      const { image, ...rest } = log;
-      return rest;
-    });
-  }
-  if (fromVersion < 5) {
-    // Mestring og quiz-økter var nøklet på array-indeks i quizQuestions.
-    // Indeksene stemmer fortsatt på migreringstidspunktet, så vi kan oversette tapsfritt.
-    const oldMastery = base.mastery && typeof base.mastery === "object" ? base.mastery : {};
-    const remapped = {};
-    Object.entries(oldMastery).forEach(([key, value]) => {
-      const q = quizQuestions[Number(key)];
-      if (q && value && typeof value === "object") remapped[q.id] = value;
-    });
-    base.mastery = remapped;
-    const oldQuiz = base.quiz;
-    if (oldQuiz && Array.isArray(oldQuiz.questionIds) && oldQuiz.questionIds.every((n) => typeof n === "number")) {
-      const ids = oldQuiz.questionIds.map((n) => quizQuestions[n]?.id).filter(Boolean);
-      base.quiz = ids.length === oldQuiz.questionIds.length
-        ? { ...defaultQuizState(), ...oldQuiz, questionIds: ids }
-        : defaultQuizState();
-    } else {
-      base.quiz = defaultQuizState();
-    }
-  }
-  if (!base.quiz || !Array.isArray(base.quiz.questionIds)) {
-    base.quiz = defaultQuizState();
-  }
-  if (typeof base.mastery !== "object" || base.mastery === null) {
-    base.mastery = {};
-  }
-  if (!base.learnAccordion) base.learnAccordion = "learn";
-  // Eksisterende brukere med data skal ikke avbrytes av startmenyen — kun nye/tomme installasjoner.
-  if (typeof stored.hasSeenWelcome !== "boolean") {
-    const hasData = (base.completed?.length || 0) + (base.logs?.length || 0) + (base.plans?.length || 0) > 0;
-    base.hasSeenWelcome = hasData;
-  }
-  base.schemaVersion = SCHEMA_VERSION;
-  return base;
-}
-
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    storageAvailable = true;
-  } catch (error) {
-    storageAvailable = false;
-    console.warn("SporLab kunne ikke lagre lokalt i denne nettleservisningen.", error);
-  }
-  updateStorageWarning();
-}
-
-function updateStorageWarning() {
-  const existing = document.getElementById("storageWarning");
-  if (storageAvailable) {
-    existing?.remove();
-    return;
-  }
-  if (existing) return;
-  const banner = document.createElement("div");
-  banner.id = "storageWarning";
-  banner.className = "storage-warning";
-  banner.setAttribute("role", "alert");
-  banner.innerHTML = `
-    <strong>Lagring feilet.</strong>
-    <span>Endringene dine blir ikke husket i denne nettleseren (full kvote eller privat modus). Eksporter dataene dine nå.</span>
-    <button class="storage-warning-btn" type="button" data-view-jump="settings">Til eksport</button>`;
-  document.body.appendChild(banner);
-}
-
-function makeId() {
-  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function $(selector, root = document) {
-  return root.querySelector(selector);
-}
-
-function $all(selector, root = document) {
-  return [...root.querySelectorAll(selector)];
-}
-
-/**
- * @param {unknown} value
- * @returns {string}
- */
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function emptyState(text = "Legg inn en økt eller plan, så dukker den opp her.") {
-  return `<div class="empty-state"><p class="eyebrow">Tomt foreløpig</p><p>${escapeHtml(text)}</p></div>`;
-}
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
@@ -761,22 +500,6 @@ function renderFrequencyHeatmap(container, logs) {
     <div class="heat-legend"><span class="small">Mindre</span><span class="heat heat-0"></span><span class="heat heat-1"></span><span class="heat heat-2"></span><span class="heat heat-3"></span><span class="small">Mer</span><span class="small heat-total">· ${total} totalt</span></div>`;
 }
 
-function getWeakestQuestionId(skipIds = new Set()) {
-  const completed = new Set(state.completed || []);
-  if (completed.size === 0) return null;
-  const candidates = quizQuestions.filter((q) => completed.has(q.module) && !skipIds.has(q.id));
-  if (!candidates.length) return null;
-  candidates.sort((a, b) => {
-    const ma = state.mastery[a.id] || { correct: 0, wrong: 0, lastSeen: 0 };
-    const mb = state.mastery[b.id] || { correct: 0, wrong: 0, lastSeen: 0 };
-    const scoreA = (ma.correct || 0) - (ma.wrong || 0);
-    const scoreB = (mb.correct || 0) - (mb.wrong || 0);
-    if (scoreA !== scoreB) return scoreA - scoreB;
-    return (ma.lastSeen || 0) - (mb.lastSeen || 0);
-  });
-  return candidates[0].id;
-}
-
 let miniQuizState = null;
 
 function renderMiniQuiz() {
@@ -1208,7 +931,6 @@ function syncThemeUI() {
   });
 }
 
-
 const wizardSteps = [
   { id: "focus", title: "Hva trener vi?", short: "Velg" },
   { id: "theory", title: "Det du må huske", short: "Les" },
@@ -1587,24 +1309,6 @@ function planSignature(plan) {
   return [plan.focus, plan.meta?.join("|") || "", plan.note || ""].join("§");
 }
 
-function readableAge(value) {
-  return {
-    fersk: "Ferskt",
-    "6-12": "6-12 timer",
-    "12-24": "12-24 timer",
-    "24+": "Over ett døgn",
-  }[value] || value;
-}
-
-function readableTerrain(value) {
-  return {
-    skog: "Skog/vegetasjon",
-    vei: "Vei/sti",
-    hardt: "Hardt underlag",
-    blandet: "Blandet",
-  }[value] || value;
-}
-
 function planCard(plan, compact = false) {
   const observations = Array.isArray(plan.observations) ? plan.observations.filter(Boolean) : [];
   const steps = Array.isArray(plan.steps) ? plan.steps : [];
@@ -1635,22 +1339,6 @@ function planCard(plan, compact = false) {
         <button class="ghost-button" data-print-plan="${escapeHtml(plan.id || "")}" type="button">Skriv ut øktkort</button>
       </div>
     </article>`;
-}
-
-function readableExperience(value) {
-  return {
-    start: "Startfase",
-    trygg: "Trygg på grunnspor",
-    videre: "Viderekommen",
-  }[value] || "";
-}
-
-function readableIntensity(value) {
-  return {
-    rolig: "Rolig/metodisk",
-    balansert: "Balansert",
-    hoy: "Høy intensitet",
-  }[value] || "";
 }
 
 /* ---------- QR-kode for én øktplan ---------- */
@@ -2168,56 +1856,6 @@ function logCard(log) {
     </article>`;
 }
 
-/**
- * @param {Log[]} logs
- * @returns {string}
- */
-function logsToCsv(logs) {
-  const fields = ["date", "type", "handler", "dog", "rating", "age", "length", "weather", "wind", "terrain", "planTitle", "obs1", "obs2", "obs3", "next"];
-  const header = fields.join(",");
-  const rows = logs.map((log) => {
-    const obs = Array.isArray(log.observations) ? log.observations : [];
-    const flat = {
-      ...log,
-      age: log.age ? readableAge(log.age) : "",
-      obs1: obs[0] ? `${obs[0].prompt || ""} → ${obs[0].answer || ""}`.trim() : log.observation || "",
-      obs2: obs[1] ? `${obs[1].prompt || ""} → ${obs[1].answer || ""}`.trim() : "",
-      obs3: obs[2] ? `${obs[2].prompt || ""} → ${obs[2].answer || ""}`.trim() : "",
-    };
-    return fields
-      .map((f) => {
-        let value = String(flat[f] ?? "");
-        // Vern mot formelinjeksjon når CSV-en åpnes i Excel/Sheets.
-        if (/^[=+\-@\t]/.test(value)) value = `'${value}`;
-        if (value.includes(",") || value.includes("\"") || value.includes("\n") || value.includes("\r")) {
-          return `"${value.replaceAll("\"", "\"\"")}"`;
-        }
-        return value;
-      })
-      .join(",");
-  });
-  return [header, ...rows].join("\n");
-}
-
-function downloadBlob(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-}
-
-// Lokal dato (ikke UTC): toISOString/valueAsDate ville gitt gårsdagens dato
-// mellom midnatt og kl. 01/02 norsk tid.
-function localIsoDate(date = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 const logTypeByFocus = {
   "gamle-spor": "Spor",
   "oppsok-gjenstand": "Sporoppsøk",
@@ -2368,150 +2006,6 @@ function startEditLog(id) {
   $("#logStatus").textContent = `Du redigerer økten ${[log.date, log.type, log.dog].filter(Boolean).join(" · ")}. Trykk «Avbryt redigering» for å gå tilbake.`;
 }
 
-function shareSnapshot() {
-  const snapshot = {
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    plans: state.plans,
-    logs: state.logs.map(({ image, ...rest }) => rest),
-    completed: state.completed,
-    mastery: state.mastery,
-  };
-  return snapshot;
-}
-
-async function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.readAsText(file);
-  });
-}
-
-/* Sanitering av importerte data: ukjente felter droppes, typer tvinges,
-   og id-er som ikke er trygge for HTML-attributter regenereres. */
-const SAFE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-
-function asText(value, max = 2000) {
-  return typeof value === "string" ? value.slice(0, max) : "";
-}
-
-function asStringArray(value, maxItems = 40, maxLen = 1000) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((v) => typeof v === "string").slice(0, maxItems).map((v) => v.slice(0, maxLen));
-}
-
-function sanitizeId(value) {
-  return typeof value === "string" && SAFE_ID_PATTERN.test(value) ? value : makeId();
-}
-
-/**
- * @param {any} raw
- * @returns {?Plan}
- */
-function sanitizePlan(raw) {
-  if (!raw || typeof raw !== "object") return null;
-  const obs = asStringArray(raw.observations, 3);
-  while (obs.length < 3) obs.push("");
-  return {
-    id: sanitizeId(raw.id),
-    createdAt: Number(raw.createdAt) || Date.now(),
-    title: asText(raw.title, 200),
-    pages: asText(raw.pages, 100),
-    focus: planBlueprints[raw.focus] ? raw.focus : "",
-    meta: asStringArray(raw.meta, 12, 200),
-    steps: asStringArray(raw.steps, 30),
-    success: asText(raw.success, 500),
-    note: asText(raw.note, 1000),
-    observations: obs,
-    handler: asText(raw.handler, 100),
-    dog: asText(raw.dog, 100),
-    experience: asText(raw.experience, 40),
-    intensity: asText(raw.intensity, 40),
-    age: asText(raw.age, 40),
-    terrain: asText(raw.terrain, 40),
-  };
-}
-
-/**
- * @param {any} raw
- * @returns {?Log}
- */
-function sanitizeLog(raw) {
-  if (!raw || typeof raw !== "object") return null;
-  const observations = Array.isArray(raw.observations)
-    ? raw.observations.slice(0, 3).map((o) => ({
-        prompt: asText(o?.prompt, 500),
-        answer: asText(o?.answer, 2000),
-      }))
-    : [];
-  return {
-    id: sanitizeId(raw.id),
-    createdAt: Number(raw.createdAt) || Date.parse(raw.date) || Date.now(),
-    date: asText(raw.date, 40),
-    type: asText(raw.type, 60),
-    handler: asText(raw.handler, 100),
-    dog: asText(raw.dog, 100),
-    age: asText(raw.age, 100),
-    length: asText(raw.length, 200),
-    terrain: asText(raw.terrain, 40),
-    wind: asText(raw.wind, 40),
-    weather: asText(raw.weather, 40),
-    rating: String(Math.min(5, Math.max(0, Math.floor(Number(raw.rating)) || 0))),
-    next: asText(raw.next, 2000),
-    observation: asText(raw.observation, 2000),
-    observations,
-    planId: asText(raw.planId, 64),
-    planTitle: asText(raw.planTitle, 200),
-    planPages: asText(raw.planPages, 100),
-    ...(Number(raw.updatedAt) ? { updatedAt: Number(raw.updatedAt) } : {}),
-  };
-}
-
-/**
- * @param {any} snapshot
- * @returns {{ plans: number, logs: number }} Antall nye elementer som ble flettet inn.
- */
-function importSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") throw new Error("Ugyldig fil");
-  const incomingPlans = (Array.isArray(snapshot.plans) ? snapshot.plans : []).map(sanitizePlan).filter(Boolean);
-  const incomingLogs = (Array.isArray(snapshot.logs) ? snapshot.logs : []).map(sanitizeLog).filter(Boolean);
-  const existingPlanIds = new Set(state.plans.map((p) => p.id));
-  const existingLogIds = new Set(state.logs.map((l) => l.id));
-  const newPlans = incomingPlans.filter((p) => !existingPlanIds.has(p.id));
-  const newLogs = incomingLogs.filter((l) => !existingLogIds.has(l.id));
-  state.plans = [...newPlans, ...state.plans].slice(0, MAX_PLANS);
-  state.logs = [...newLogs, ...state.logs].slice(0, MAX_LOGS);
-
-  // Læringsdata: fullførte moduler flettes som union, mestring per spørsmål
-  // beholder den oppføringen som har mest historikk (gjør re-import idempotent).
-  const validModuleIds = new Set(modules.map((m) => m.id));
-  if (Array.isArray(snapshot.completed)) {
-    const merged = new Set(state.completed);
-    snapshot.completed.forEach((id) => {
-      if (validModuleIds.has(id)) merged.add(id);
-    });
-    state.completed = [...merged];
-  }
-  if (snapshot.mastery && typeof snapshot.mastery === "object" && !Array.isArray(snapshot.mastery)) {
-    Object.entries(snapshot.mastery).forEach(([id, value]) => {
-      if (!questionsById.has(id) || !value || typeof value !== "object") return;
-      const incoming = {
-        correct: Math.max(0, Math.floor(Number(value.correct)) || 0),
-        wrong: Math.max(0, Math.floor(Number(value.wrong)) || 0),
-        lastSeen: Math.max(0, Number(value.lastSeen) || 0),
-      };
-      const current = state.mastery[id];
-      const currentTotal = current ? (current.correct || 0) + (current.wrong || 0) : -1;
-      if (incoming.correct + incoming.wrong > currentTotal) state.mastery[id] = incoming;
-    });
-  }
-
-  saveState();
-  return { plans: newPlans.length, logs: newLogs.length };
-}
-
 function renderReference() {
   const query = ($("#referenceSearch").value || "").trim().toLowerCase();
   const filter = $("#referenceFilter").value;
@@ -2535,13 +2029,6 @@ function referenceCard(item, query) {
     </article>`;
 }
 
-function highlight(text, query) {
-  const safe = escapeHtml(text);
-  if (!query) return safe;
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return safe.replace(new RegExp(`(${escapedQuery})`, "gi"), "<mark>$1</mark>");
-}
-
 function categoryLabel(category) {
   return {
     grunnlag: "Grunnlag",
@@ -2550,78 +2037,6 @@ function categoryLabel(category) {
     problem: "Problemløsning",
     plan: "Planlegging",
   }[category];
-}
-
-function shuffle(array) {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
-
-/** @param {string} [mode] "all", "weak" eller "module:<id>". */
-function buildQuizSession(mode = "all") {
-  let pool;
-  let label;
-  if (mode === "all") {
-    pool = quizQuestions.map((q) => q.id);
-    label = "Alle moduler";
-  } else if (mode === "weak") {
-    const scored = quizQuestions
-      .map((q) => {
-        const m = state.mastery[q.id] || { correct: 0, wrong: 0, lastSeen: 0 };
-        const masteryScore = (m.correct || 0) - (m.wrong || 0);
-        return { id: q.id, masteryScore, lastSeen: m.lastSeen || 0 };
-      })
-      .sort((a, b) => a.masteryScore - b.masteryScore || a.lastSeen - b.lastSeen);
-    pool = scored.slice(0, Math.min(10, scored.length)).map((item) => item.id);
-    label = "Repeter svake";
-  } else {
-    const moduleId = mode.replace(/^module:/, "");
-    pool = quizQuestions.filter((q) => q.module === moduleId).map((q) => q.id);
-    const moduleDef = modules.find((m) => m.id === moduleId);
-    label = moduleDef ? `Modul: ${moduleDef.title.replace(/^\d+\.\s*/, "")}` : "Modul";
-  }
-
-  if (pool.length === 0) pool = quizQuestions.map((q) => q.id);
-
-  const questionIds = shuffle(pool);
-  const optionMaps = questionIds.map((id) => {
-    const question = questionsById.get(id);
-    return shuffle(question.options.map((_, i) => i));
-  });
-
-  state.quiz = {
-    questionIds,
-    optionMaps,
-    index: 0,
-    score: 0,
-    answered: {},
-    mode,
-    modeLabel: label,
-    finished: false,
-  };
-  saveState();
-}
-
-function ensureQuizSession() {
-  // Validerer hele den persisterte økten: id-er som ikke lenger finnes i
-  // innholdet, eller optionMaps som ikke matcher antall svaralternativer,
-  // betyr at innholdet er oppdatert siden sist — da bygger vi ny runde.
-  const quiz = state.quiz;
-  const valid =
-    quiz &&
-    Array.isArray(quiz.questionIds) &&
-    quiz.questionIds.length > 0 &&
-    Array.isArray(quiz.optionMaps) &&
-    quiz.optionMaps.length === quiz.questionIds.length &&
-    quiz.questionIds.every((id, i) => {
-      const question = questionsById.get(id);
-      return question && Array.isArray(quiz.optionMaps[i]) && quiz.optionMaps[i].length === question.options.length;
-    });
-  if (!valid) buildQuizSession("all");
 }
 
 function renderQuiz() {
@@ -3111,12 +2526,7 @@ function initEvents() {
         `Dette sletter ALLE lokale data i denne nettleseren (${counts}). Eksporter loggen først hvis du vil ta vare på den. Vil du fortsette?`
       );
       if (!confirmed) return;
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        storageAvailable = false;
-      }
-      state = defaultState();
+      resetAllData();
       setDefaults();
       applyTheme();
       setView("dashboard");
@@ -3497,7 +2907,6 @@ function handleSharedImport() {
     console.warn("Kunne ikke lese delingslenken.", error);
   }
 }
-
 
 /* ---------- Inline SVG-ikoner ---------- */
 
