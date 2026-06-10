@@ -375,6 +375,34 @@ function logDayKey(log) {
   return localIsoDate(new Date(log?.createdAt || 0));
 }
 
+/* Hundenavn er fritekst — grupper case-insensitivt slik at «Rex» og «rex»
+   telles som samme hund. Etiketten blir den hyppigst brukte skrivemåten.
+   Lagrede logger røres ikke; nøkkelen finnes bare ved visning. */
+function dogKey(name) {
+  return (name || "").trim().toLocaleLowerCase("no");
+}
+
+function dogGroups(logs) {
+  const groups = new Map();
+  logs.forEach((l) => {
+    const key = dogKey(l.dog);
+    if (!key) return;
+    const label = l.dog.trim();
+    if (!groups.has(key)) groups.set(key, { key, labels: new Map() });
+    const g = groups.get(key);
+    g.labels.set(label, (g.labels.get(label) || 0) + 1);
+  });
+  return [...groups.values()]
+    .map((g) => ({
+      key: g.key,
+      label: [...g.labels.entries()].sort((a, b) => b[1] - a[1])[0][0],
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "no"));
+}
+
+// Hundefilteret for dashbordgrafene lever bare i minnet, likt logFilters.
+let chartDogFilter = "all";
+
 function renderProgressCharts() {
   const panel = $("#progressChartsPanel");
   if (!panel) return;
@@ -383,13 +411,107 @@ function renderProgressCharts() {
     return;
   }
   panel.hidden = false;
-  renderMasteryChart($("#masteryChart"));
-  renderFrequencyHeatmap($("#frequencyChart"));
+
+  const groups = dogGroups(state.logs);
+  if (chartDogFilter !== "all" && !groups.some((g) => g.key === chartDogFilter)) chartDogFilter = "all";
+
+  // Filteret vises først når loggene inneholder mer enn én hund.
+  const filterEl = $("#chartDogFilter");
+  if (filterEl) {
+    filterEl.hidden = groups.length < 2;
+    filterEl.innerHTML = groups.length < 2
+      ? ""
+      : [{ key: "all", label: "Alle hunder" }, ...groups]
+          .map((g) => {
+            const selected = g.key === chartDogFilter;
+            return `<button class="chip-button${selected ? " is-selected" : ""}" type="button" data-chart-dog="${escapeHtml(g.key)}" aria-pressed="${selected}">${escapeHtml(g.label)}</button>`;
+          })
+          .join("");
+  }
+
+  const selected = chartDogFilter === "all" ? null : groups.find((g) => g.key === chartDogFilter);
+  const logs = selected ? state.logs.filter((l) => dogKey(l.dog) === selected.key) : state.logs;
+
+  renderDogStats($("#dogStatRow"), logs);
+  renderMasteryChart($("#masteryChart"), logs, selected);
+  renderAgeChart($("#ageChart"), logs);
+  renderFrequencyHeatmap($("#frequencyChart"), logs);
 }
 
-function renderMasteryChart(container) {
+const fmtScore = (n) => n.toLocaleString("no-NO", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/* Nøkkeltall for utvalget: økter, snitt mestring, trend og dager siden siste
+   økt. Trenden sammenligner snittet av de fem siste øktene med score mot de
+   fem før, og vises først når begge vinduene er fulle. */
+function renderDogStats(container, logs) {
   if (!container) return;
-  const rated = state.logs
+  const rated = logs.filter((l) => Number(l.rating) > 0);
+  const avg = rated.length ? rated.reduce((s, l) => s + Number(l.rating), 0) / rated.length : null;
+
+  let trend = null;
+  if (rated.length >= 10) {
+    const byTime = [...rated].sort((a, b) => logTimestamp(a) - logTimestamp(b));
+    const mean = (arr) => arr.reduce((s, l) => s + Number(l.rating), 0) / arr.length;
+    trend = mean(byTime.slice(-5)) - mean(byTime.slice(-10, -5));
+  }
+
+  const newest = logs.reduce((max, l) => Math.max(max, logTimestamp(l)), 0);
+  const daysSince = newest ? Math.max(0, Math.floor((Date.now() - newest) / 86400000)) : null;
+
+  const stats = [
+    { label: "økter", value: String(logs.length) },
+    { label: "snitt mestring", value: avg === null ? "–" : fmtScore(avg) },
+    {
+      label: "trend (5 økter)",
+      value: trend === null ? "–" : `${trend < 0 ? "−" : "+"}${fmtScore(Math.abs(trend))}`,
+      tone: trend === null || Math.abs(trend) < 0.05 ? "" : trend > 0 ? "is-up" : "is-down",
+    },
+    { label: "dager siden økt", value: daysSince === null ? "–" : String(daysSince) },
+  ];
+  container.innerHTML = stats
+    .map((s) => `<div class="dog-stat"><span class="stat-number ${s.tone || ""}">${escapeHtml(s.value)}</span><span class="stat-label">${escapeHtml(s.label)}</span></div>`)
+    .join("");
+}
+
+/* Liggetidsfordeling: hvor mye trenes hver liggetid, og hvordan holder
+   mestringen seg når sporet blir eldre? Tomme kategorier vises med vilje —
+   hullet er selve treningsinnsikten. */
+const AGE_BUCKETS = ["fersk", "6-12", "12-24", "24+"];
+
+function renderAgeChart(container, logs) {
+  if (!container) return;
+  const buckets = new Map([...AGE_BUCKETS, ""].map((k) => [k, { count: 0, sum: 0, ratedCount: 0 }]));
+  logs.forEach((l) => {
+    const b = buckets.get(AGE_BUCKETS.includes(l.age) ? l.age : "");
+    b.count += 1;
+    const r = Number(l.rating) || 0;
+    if (r > 0) {
+      b.sum += r;
+      b.ratedCount += 1;
+    }
+  });
+  const max = Math.max(1, ...[...buckets.values()].map((b) => b.count));
+  const rows = [...buckets.entries()]
+    .filter(([key, b]) => key !== "" || b.count > 0)
+    .map(([key, b]) => {
+      const label = key ? readableAge(key) : "Uten liggetid";
+      const pct = Math.round((b.count / max) * 100);
+      const score = b.ratedCount ? ` · ★ ${fmtScore(b.sum / b.ratedCount)}` : "";
+      return `<div class="age-row${b.count ? "" : " age-row-empty"}">
+        <span class="age-label">${escapeHtml(label)}</span>
+        <span class="age-track"><span class="age-bar" style="width:${pct}%"></span></span>
+        <span class="age-value">${escapeHtml(`${b.count}${score}`)}</span>
+      </div>`;
+    })
+    .join("");
+  container.innerHTML = `
+    <div class="age-chart">${rows}</div>
+    <p class="small chart-caption">Antall økter per liggetid · ★ = snitt mestring (1–5)</p>`;
+}
+
+function renderMasteryChart(container, logs, selectedDog) {
+  if (!container) return;
+  const rated = logs
     .map((l) => ({ t: l.createdAt || Date.parse(l.date) || 0, v: Number(l.rating) || 0 }))
     .filter((p) => p.v > 0)
     .sort((a, b) => a.t - b.t);
@@ -438,13 +560,13 @@ function renderMasteryChart(container) {
       <polyline points="${linePts}" class="chart-line" fill="none" />
       ${dots}
     </svg>
-    <p class="small chart-caption">${n} økter med score · snitt ${avg} av 5</p>`;
+    <p class="small chart-caption">${n} økter med score · snitt ${avg} av 5${selectedDog ? ` · ${escapeHtml(selectedDog.label)}` : ""}</p>`;
 }
 
-function renderFrequencyHeatmap(container) {
+function renderFrequencyHeatmap(container, logs) {
   if (!container) return;
   const counts = {};
-  state.logs.forEach((l) => {
+  logs.forEach((l) => {
     const k = logDayKey(l);
     counts[k] = (counts[k] || 0) + 1;
   });
@@ -500,7 +622,7 @@ function renderFrequencyHeatmap(container) {
     .map((lbl, d) => (lbl ? `<text x="0" y="${topLabel + d * (cell + gap) + cell - 2}" class="chart-axis-label">${lbl}</text>` : ""))
     .join("");
 
-  const total = state.logs.length;
+  const total = logs.length;
   container.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" class="chart-svg heatmap-svg" role="img" aria-label="Treningsfrekvens siste ${weeks} uker">
       ${monthLabels}
@@ -1763,23 +1885,22 @@ function renderLogList() {
     return;
   }
 
-  // Hunde-filter: fyll alternativer fra loggene
+  // Hunde-filter: fyll alternativer fra loggene. Grupperes case-insensitivt
+  // via dogKey(), samme regel som per-hund-analytikken på dashbordet.
   const dogSelect = $("#logFilterDog");
   if (dogSelect) {
-    const dogs = [...new Set(state.logs.map((l) => (l.dog || "").trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "no")
-    );
+    const dogs = dogGroups(state.logs);
     const current = logFilters.dog;
     dogSelect.innerHTML =
       '<option value="all">Alle hunder</option>' +
-      dogs.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
-    dogSelect.value = dogs.includes(current) ? current : "all";
+      dogs.map((d) => `<option value="${escapeHtml(d.key)}">${escapeHtml(d.label)}</option>`).join("");
+    dogSelect.value = dogs.some((d) => d.key === current) ? current : "all";
     logFilters.dog = dogSelect.value;
   }
 
   let logs = state.logs.filter((l) => {
     if (logFilters.type !== "all" && l.type !== logFilters.type) return false;
-    if (logFilters.dog !== "all" && (l.dog || "").trim() !== logFilters.dog) return false;
+    if (logFilters.dog !== "all" && dogKey(l.dog) !== logFilters.dog) return false;
     return true;
   });
 
@@ -3094,6 +3215,13 @@ function initEvents() {
     const fieldMode = event.target.closest("[data-field-mode]");
     if (fieldMode) {
       openFieldMode(fieldMode.dataset.fieldMode);
+      return;
+    }
+
+    const chartDog = event.target.closest("[data-chart-dog]");
+    if (chartDog) {
+      chartDogFilter = chartDog.dataset.chartDog;
+      renderProgressCharts();
       return;
     }
 
