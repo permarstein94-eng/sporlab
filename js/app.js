@@ -639,8 +639,8 @@ function renderMiniQuiz() {
   card.innerHTML = `
     <div class="mini-quiz-head">
       <div>
-        <p class="eyebrow">Rask sjekk</p>
-        <h3>Repeter ett spørsmål</h3>
+        <p class="eyebrow">Dagens spørsmål</p>
+        <h3>Ett spørsmål før du leser videre</h3>
       </div>
       <button class="text-button" type="button" data-mini-quiz-dismiss>Skjul i dag</button>
     </div>
@@ -821,24 +821,26 @@ function renderLearn() {
     shell.innerHTML = renderLearnModule(state.activeModule);
   } else {
     shell.innerHTML = renderLearnIntro();
+    renderMiniQuiz();
   }
 }
 
 function renderLearnIntro() {
   const progress = Math.round((state.completed.length / modules.length) * 100);
   const doneCount = state.completed.length;
+  const logsByModule = computeModuleLogCredit();
   const cards = modules
     .map((module) => {
-      const done = state.completed.includes(module.id);
-      const moduleQs = quizQuestions.filter((q) => q.module === module.id);
-      const totalQs = moduleQs.length;
-      const masteredQs = moduleQs.filter((q) => {
-        const m = state.mastery[q.id];
-        return m && m.correct > m.wrong;
-      }).length;
-      const quizTag = totalQs > 0
-        ? `<span class="tag tag-quiz" title="Quiz: ${masteredQs} av ${totalQs} mestret">Quiz ${masteredQs}/${totalQs}</span>`
-        : "";
+      const c = moduleChecks(module, logsByModule);
+      const done = c.isRead;
+      // Modulens tre trinn mot prøveklar — samme regler som eksamensklarheten.
+      const steps = [
+        { ok: c.isRead, label: "Lest" },
+        { ok: c.quizOk, label: `Quiz ${c.masteredQs}/${c.totalQs}` },
+        { ok: c.hasLog, label: "Trent" },
+      ]
+        .map((s) => `<span class="exam-check ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
+        .join("");
       return `
         <button class="learn-menu-card" data-module-open="${module.id}" data-done="${done}" type="button">
           <h4>
@@ -849,13 +851,13 @@ function renderLearnIntro() {
           <div class="tag-row">
             <span class="tag">${escapeHtml(module.pages)}</span>
             <span class="tag">${module.minutes} min</span>
-            <span class="tag">${done ? "Fullført" : "Ikke startet"}</span>
-            ${quizTag}
           </div>
+          <div class="module-steps">${steps}</div>
         </button>`;
     })
     .join("");
   return `
+    <article class="panel mini-quiz-card" id="miniQuizCard" hidden></article>
     <button class="getting-started-card" type="button" data-open-getstarted>
       <div class="gs-card-icon" aria-hidden="true">▶</div>
       <div class="gs-card-body">
@@ -893,6 +895,15 @@ function renderLearnIntro() {
       <p class="eyebrow">Innhold</p>
       <h3 class="visually-hidden">Modulene i løypa</h3>
       <div class="learn-menu">${cards}</div>
+    </section>
+    <section class="panel learn-quiz-panel">
+      <p class="eyebrow">Aktiv repetisjon</p>
+      <h3>Quiz</h3>
+      <p class="small">Korte runder med forklaring på hvert svar. «Repeter svake» bygger en runde fra spørsmålene du har minst kontroll på.</p>
+      <div class="button-row">
+        <button class="primary-button" data-learn-quiz="all" type="button">Start quiz — alle moduler</button>
+        <button class="ghost-button" data-learn-quiz="weak" type="button">Repeter svake</button>
+      </div>
     </section>`;
 }
 
@@ -2713,6 +2724,12 @@ function initEvents() {
 
     const moduleQuiz = event.target.closest("[data-start-module-quiz]");
     if (moduleQuiz) resetQuiz(`module:${moduleQuiz.dataset.startModuleQuiz}`);
+
+    const learnQuiz = event.target.closest("[data-learn-quiz]");
+    if (learnQuiz) {
+      resetQuiz(learnQuiz.dataset.learnQuiz);
+      return;
+    }
 
     const moduleStatLink = event.target.closest("[data-module-quiz]");
     if (moduleStatLink) resetQuiz(`module:${moduleStatLink.dataset.moduleQuiz}`);

@@ -4833,3 +4833,19 @@ html[data-theme="dark"] .ql-receipt-check {
 .ql-receipt-quiz {
   margin-top: 6px;
 }
+
+/* ---------- Lær: modultrinn og quiz-inngang ---------- */
+.learn-shell > .panel {
+  margin-bottom: 16px;
+}
+
+.module-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.learn-quiz-panel {
+  margin-top: 16px;
+}
