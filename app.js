@@ -1836,9 +1836,31 @@ const RATING_LABELS = {
   5: "5 — Selvstendig og presis",
 };
 
+function renderLogPlanPicker() {
+  const wrap = $("#logPlanPickerWrap");
+  const picker = $("#logPlanPicker");
+  const form = $("#logForm");
+  if (!wrap || !picker || !form) return;
+  const plans = state.plans || [];
+  wrap.hidden = !plans.length;
+  if (!plans.length) return;
+  const current = form.dataset.planId || "";
+  picker.innerHTML =
+    '<option value="">— ingen plan —</option>' +
+    plans
+      .map((p) => {
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString("no-NO", { day: "numeric", month: "short" }) : "";
+        const label = [p.title, date, p.dog].filter(Boolean).join(" · ");
+        return `<option value="${escapeHtml(p.id)}">${escapeHtml(label)}</option>`;
+      })
+      .join("");
+  picker.value = plans.some((p) => p.id === current) ? current : "";
+}
+
 function syncLogFormUI() {
   const form = $("#logForm");
   if (!form) return;
+  renderLogPlanPicker();
   const ratingValue = form.querySelector('input[name="rating"]')?.value || "0";
   form.querySelectorAll("[data-rating-star]").forEach((star) => {
     const value = Number(star.dataset.ratingStar);
@@ -1942,35 +1964,71 @@ function localIsoDate(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function prefillLogFromPlan(plan) {
-  const form = $("#logForm");
-  if (!form || !plan) return;
-  const get = (name) => form.querySelector(`[name="${name}"]`);
+const logTypeByFocus = {
+  "gamle-spor": "Spor",
+  "oppsok-gjenstand": "Sporoppsøk",
+  "oppsok-bil": "Sporoppsøk",
+  frisok: "Frisøk med sporopptak",
+  retning: "Momenttrening",
+  sportap: "Momenttrening",
+  kryssende: "Momenttrening",
+  sirkelspor: "Momenttrening",
+};
+
+const terrainValueByLabel = { "Skog/vegetasjon": "skog", "Vei/sti": "vei", "Hardt underlag": "hardt", "Blandet": "blandet" };
+
+// Feltverdiene en plan gir loggskjemaet — brukes både til å fylle inn og til å
+// kjenne igjen (og tømme) verdier som kom fra en tidligere valgt plan.
+function planPrefillValues(plan) {
   const findMeta = (label) => {
     const item = (Array.isArray(plan.meta) ? plan.meta : []).find((m) => typeof m === "string" && m.startsWith(`${label}:`));
     return item ? item.split(":").slice(1).join(":").trim() : "";
   };
+  return {
+    type: logTypeByFocus[plan.focus] || "Momenttrening",
+    handler: findMeta("Fører"),
+    dog: findMeta("Hund"),
+    age: plan.age || "",
+    terrain: terrainValueByLabel[findMeta("Underlag")] || "",
+    next: plan.success ? `Vurder mot målbilde: ${plan.success}` : "",
+  };
+}
+
+// Tøm felter som står på akkurat det planen prefylte dem med — de er ikke
+// fylt ut av brukeren og skal ikke overleve et planbytte eller en av-kobling.
+function clearPlanPrefill(form, plan) {
+  if (!form || !plan) return;
+  const values = planPrefillValues(plan);
+  const get = (name) => form.querySelector(`[name="${name}"]`);
+  const typeSelect = get("type");
+  if (typeSelect && typeSelect.value === values.type) typeSelect.value = typeSelect.options[0]?.value || "";
+  [["handler", values.handler], ["dog", values.dog], ["age", values.age], ["terrain", values.terrain], ["next", values.next]].forEach(([name, value]) => {
+    const field = get(name);
+    if (field && value && field.value === value) field.value = "";
+  });
+}
+
+function prefillLogFromPlan(plan, options = {}) {
+  // keepUserInput: brukt fra «Fra plan»-velgeren i loggskjemaet — fyll bare
+  // felter som fortsatt står tomme/på standardvalg, så det brukeren allerede
+  // har skrevet inn ikke overskrives.
+  const keepUserInput = options.keepUserInput === true;
+  const form = $("#logForm");
+  if (!form || !plan) return;
+  const get = (name) => form.querySelector(`[name="${name}"]`);
+  const values = planPrefillValues(plan);
   if (get("date") && !get("date").value) get("date").value = localIsoDate();
-  if (get("type")) {
-    const typeMap = {
-      "gamle-spor": "Spor",
-      "oppsok-gjenstand": "Sporoppsøk",
-      "oppsok-bil": "Sporoppsøk",
-      frisok: "Frisøk med sporopptak",
-      retning: "Momenttrening",
-      sportap: "Momenttrening",
-      kryssende: "Momenttrening",
-      sirkelspor: "Momenttrening",
-    };
-    get("type").value = typeMap[plan.focus] || "Momenttrening";
+  const typeSelect = get("type");
+  // Type-feltet har ingen tom tilstand — regn det som urørt så lenge det
+  // står på første alternativ.
+  if (typeSelect && (!keepUserInput || typeSelect.value === typeSelect.options[0]?.value)) {
+    typeSelect.value = values.type;
   }
-  if (get("handler")) get("handler").value = findMeta("Fører") || get("handler").value;
-  if (get("dog")) get("dog").value = findMeta("Hund") || get("dog").value;
-  if (get("age") && plan.age) get("age").value = plan.age;
-  const terrainReverse = { "Skog/vegetasjon": "skog", "Vei/sti": "vei", "Hardt underlag": "hardt", "Blandet": "blandet" };
-  const terrainReadable = findMeta("Underlag");
-  if (get("terrain") && terrainReadable) get("terrain").value = terrainReverse[terrainReadable] || "";
-  if (get("next") && plan.success) get("next").value = `Vurder mot målbilde: ${plan.success}`;
+  if (get("handler") && (!keepUserInput || !get("handler").value.trim())) get("handler").value = values.handler || get("handler").value;
+  if (get("dog") && (!keepUserInput || !get("dog").value.trim())) get("dog").value = values.dog || get("dog").value;
+  if (get("age") && values.age && (!keepUserInput || !get("age").value)) get("age").value = values.age;
+  if (get("terrain") && values.terrain && (!keepUserInput || !get("terrain").value)) get("terrain").value = values.terrain;
+  if (get("next") && values.next && (!keepUserInput || !get("next").value.trim())) get("next").value = values.next;
 
   const observations = Array.isArray(plan.observations) ? plan.observations : [];
   form.dataset.planId = plan.id || "";
@@ -1987,6 +2045,12 @@ function prefillLogFromPlan(plan) {
     hint.textContent = `Fra planen «${plan.title}»${plan.pages ? ` (${plan.pages})` : ""}. Svar på hvert punkt med det dere så.`;
   }
 
+  if (keepUserInput) {
+    // Velgeren står i loggskjemaet — brukeren er her allerede.
+    syncLogFormUI();
+    $("#logStatus").textContent = "Skjemaet er fylt fra planen. Felter du allerede hadde fylt ut er beholdt.";
+    return;
+  }
   setView("log");
   syncLogFormUI();
   form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2816,9 +2880,11 @@ function initEvents() {
     const editId = form.dataset.editId || "";
     const editIndex = editId ? state.logs.findIndex((l) => l.id === editId) : -1;
     if (editIndex !== -1) {
-      // Oppdater eksisterende oppføring — id, createdAt og plan-kobling beholdes.
+      // Oppdater eksisterende oppføring — id og createdAt beholdes.
+      // Plan-koblingen følger skjemaet, så «Fra plan»-velgeren kan endre den.
       state.logs[editIndex] = {
         ...state.logs[editIndex],
+        ...planMeta,
         date: data.date,
         type: data.type,
         handler: data.handler,
@@ -2907,6 +2973,35 @@ function initEvents() {
   $("#logSort")?.addEventListener("change", (event) => {
     logFilters.sort = event.target.value;
     renderLogList();
+  });
+
+  // «Fra plan»-velgeren i loggskjemaet: forhåndsfyll uten å røre det brukeren
+  // alt har fylt ut, eller fjern plan-koblingen ved tomt valg.
+  $("#logPlanPicker")?.addEventListener("change", (event) => {
+    const form = $("#logForm");
+    if (!form) return;
+    const planId = event.target.value;
+    // Verdier som kom fra forrige valgte plan skal ikke bli stående som om
+    // brukeren hadde skrevet dem inn selv.
+    if (form.dataset.planId && form.dataset.planId !== planId) {
+      clearPlanPrefill(form, findPlanById(form.dataset.planId));
+    }
+    if (!planId) {
+      form.removeAttribute("data-plan-id");
+      form.removeAttribute("data-plan-title");
+      form.removeAttribute("data-plan-pages");
+      defaultReflectionPrompts.forEach((prompt, i) => {
+        const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
+        if (promptEl) promptEl.textContent = prompt;
+      });
+      const hint = $("#logObservationHint");
+      if (hint) hint.textContent = "Tre korte refleksjonsspørsmål. Bytt ut med egne hvis dere kom fra en plan.";
+      syncLogFormUI();
+      $("#logStatus").textContent = "Plan-koblingen er fjernet. Det planen fylte inn er tømt — egne felter står urørt.";
+      return;
+    }
+    const plan = findPlanById(planId);
+    if (plan) prefillLogFromPlan(plan, { keepUserInput: true });
   });
 
   // Settings: eksport/import/deling
