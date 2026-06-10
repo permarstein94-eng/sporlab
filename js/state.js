@@ -4,7 +4,7 @@
 import { planBlueprints, quizQuestions } from "../content.js";
 
 export const STORAGE_KEY = "sporlab-e8-e9-v1";
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 // Tak for lagrede elementer. Romslige med vilje: localStorage tåler flere MB,
 // og å kaste brukerens treningshistorikk i stillhet er verre enn en full kvote
@@ -106,7 +106,7 @@ export const MAX_LOGS = 2000;
  */
 
 /**
- * Hele den persisterte app-tilstanden (localStorage, schemaVersion 5).
+ * Hele den persisterte app-tilstanden (localStorage, schemaVersion 6).
  * @typedef {Object} State
  * @property {number} schemaVersion
  * @property {string} view
@@ -220,6 +220,12 @@ export function migrateState(stored) {
     } else {
       base.quiz = defaultQuizState();
     }
+  }
+  if (fromVersion < 6) {
+    // Redesign juni 2026: «quiz», «planner» og «log» er ikke lenger faner.
+    // Lagret visning oversettes til fanen som eier innholdet nå.
+    const viewMap = { quiz: "learn", planner: "training", log: "training" };
+    if (viewMap[base.view]) base.view = viewMap[base.view];
   }
   if (!base.quiz || !Array.isArray(base.quiz.questionIds)) {
     base.quiz = defaultQuizState();

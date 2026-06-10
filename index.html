@@ -23,149 +23,84 @@
   <body>
     <a class="skip-link" href="#mainContent">Hopp til hovedinnhold</a>
     <div class="app-shell">
-      <aside class="sidebar" id="sidebar" data-collapsed="true" aria-label="Sidemeny">
-        <div class="sidebar-inner">
-          <div class="brand">
-            <div class="brand-logo-card">
-              <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
-            </div>
-            <div class="brand-text">
-              <p class="eyebrow">E8 / E9</p>
-              <h1>SporLab</h1>
-            </div>
-          </div>
-
-          <nav class="nav-list" id="navList" aria-label="Hovednavigasjon">
-            <button class="nav-item is-active" data-view="dashboard" type="button">
-              <span class="nav-icon" data-icon="dashboard" aria-hidden="true"></span>
-              <span class="nav-label">I dag</span>
-            </button>
-            <button class="nav-item" data-view="learn" type="button">
-              <span class="nav-icon" data-icon="learn" aria-hidden="true"></span>
-              <span class="nav-label">Lær</span>
-            </button>
-            <button class="nav-item" data-view="planner" type="button">
-              <span class="nav-icon" data-icon="planner" aria-hidden="true"></span>
-              <span class="nav-label">Planlegg</span>
-            </button>
-            <button class="nav-item" data-view="log" type="button">
-              <span class="nav-icon" data-icon="log" aria-hidden="true"></span>
-              <span class="nav-label">Logg</span>
-            </button>
-            <button class="nav-item" data-view="quiz" type="button">
-              <span class="nav-icon" data-icon="quiz" aria-hidden="true"></span>
-              <span class="nav-label">Quiz</span>
-            </button>
-            <button class="nav-item" data-view="reference" type="button">
-              <span class="nav-icon" data-icon="reference" aria-hidden="true"></span>
-              <span class="nav-label">Slå opp</span>
-            </button>
-            <button class="nav-item nav-item-settings nav-item-settings-rule" data-view="settings" type="button">
-              <span class="nav-icon" data-icon="settings" aria-hidden="true"></span>
-              <span class="nav-label">Innstillinger</span>
-            </button>
-          </nav>
-
-          <section class="source-box" aria-label="Kilde og om">
-            <button class="source-box-toggle" id="sourceBoxToggle" type="button" aria-expanded="false">
-              <span class="eyebrow">Kilde og om</span>
-              <span class="source-box-chevron" aria-hidden="true">▾</span>
-            </button>
-            <div class="source-box-content">
-              <p>Lesehefte ettersøkning: E8 Sporoppsøk og E9 Spor, versjon 1.0.</p>
-              <p class="small">Sjur Haugen / NRH Fagteknisk utvalg, oktober 2025. Fagkort viser til sider i heftet. Tillegg er merket <strong>[produktforslag]</strong>.</p>
-              <p class="small">SporLab er et hjelpeverktøy for NRH Romerike og erstatter ikke instruktør eller heftet.</p>
-            </div>
-          </section>
-        </div>
-      </aside>
-
       <main class="main-panel" id="mainContent">
         <header class="topbar">
           <div class="topbar-title">
-            <p class="eyebrow" id="viewEyebrow">Feltklar læring</p>
-            <h2 id="viewTitle">Dagens sporarbeid</h2>
+            <p class="eyebrow" id="viewEyebrow">E8 / E9</p>
+            <h2 id="viewTitle">SporLab</h2>
           </div>
           <div class="topbar-actions">
-            <button class="topbar-help" id="openWelcome" type="button" aria-label="Om appen og hvordan du bruker den" title="Slik bruker du SporLab">?</button>
+            <button class="topbar-help" id="openWelcome" type="button" aria-label="Om appen og hvordan du bruker den" title="Om SporLab">?</button>
             <button class="topbar-help topbar-settings" data-view-jump="settings" type="button" aria-label="Innstillinger" title="Innstillinger"><span class="nav-icon" data-icon="settings" aria-hidden="true"></span></button>
-            <button class="primary-button" data-view-jump="planner" type="button">Planlegg økt</button>
           </div>
         </header>
 
         <section class="view is-visible" id="dashboardView" aria-labelledby="viewTitle">
           <article class="next-step-hero" id="nextStepHero" aria-live="polite"></article>
 
-          <article class="panel mini-quiz-card" id="miniQuizCard" hidden></article>
-
           <section class="panel dashboard-secondary">
             <div class="section-head">
               <div>
                 <p class="eyebrow">Neste trening</p>
-                <h3>Øktkort</h3>
+                <h3>Neste økt</h3>
               </div>
-              <button class="text-button" data-view-jump="planner" type="button">Lag ny</button>
+              <button class="text-button" data-next-action="open-planner" type="button">Planlegg ny</button>
             </div>
             <div id="nextPlan"></div>
           </section>
 
-          <section class="panel dashboard-secondary">
+          <button class="panel home-progress-card" id="homeProgressCard" type="button" data-view-jump="progress">
+            <div class="home-progress-text">
+              <p class="eyebrow">Progresjon</p>
+              <div id="homeProgressBody"></div>
+            </div>
+            <span class="home-progress-arrow" aria-hidden="true">→</span>
+          </button>
+
+          <p class="small backup-nudge" id="backupNudge" hidden></p>
+        </section>
+
+        <section class="view" id="trainingView" aria-labelledby="viewTitle">
+          <section class="panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Laget</p>
-                <h3>Siste loggføring</h3>
+                <p class="eyebrow">Før trening</p>
+                <h3>Mine planer</h3>
               </div>
-              <button class="text-button" data-view-jump="log" type="button">Se logg</button>
+              <button class="text-button" data-next-action="open-planner" type="button">Planlegg ny</button>
             </div>
-            <div id="recentLogs" class="log-list compact"></div>
+            <div id="planList"></div>
           </section>
 
-          <section class="panel dashboard-secondary dashboard-stats">
+          <section class="panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Progresjon</p>
-                <h3>Oversikt</h3>
+                <p class="eyebrow">Etter trening</p>
+                <h3>Loggførte økter</h3>
               </div>
+              <button class="text-button" data-quick-log type="button">Logg en økt</button>
             </div>
-            <div class="mini-stat-row">
-              <div class="mini-stat"><span class="stat-number" id="progressNumber">0%</span><span class="stat-label">læringsløype</span></div>
-              <div class="mini-stat"><span class="stat-number" id="logNumber">0</span><span class="stat-label">økter loggført</span></div>
-              <div class="mini-stat"><span class="stat-number" id="planNumber">0</span><span class="stat-label">planlagte økter</span></div>
+            <div class="log-filter-row" id="logFilterRow" hidden>
+              <label class="visually-hidden" for="logFilterType">Filtrer på type</label>
+              <select id="logFilterType">
+                <option value="all">Alle typer</option>
+                <option value="Spor">Spor</option>
+                <option value="Sporoppsøk">Sporoppsøk</option>
+                <option value="Frisøk med sporopptak">Frisøk med sporopptak</option>
+                <option value="Momenttrening">Momenttrening</option>
+              </select>
+              <label class="visually-hidden" for="logFilterDog">Filtrer på hund</label>
+              <select id="logFilterDog">
+                <option value="all">Alle hunder</option>
+              </select>
+              <label class="visually-hidden" for="logSort">Sorter</label>
+              <select id="logSort">
+                <option value="new">Nyeste først</option>
+                <option value="old">Eldste først</option>
+                <option value="rating">Høyest mestring</option>
+              </select>
             </div>
-            <p class="small" id="backupNudge" hidden></p>
-          </section>
-
-          <section class="panel dashboard-secondary" id="progressChartsPanel" hidden>
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Utvikling over tid</p>
-                <h3>Mestring og treningsfrekvens</h3>
-              </div>
-            </div>
-            <div class="chip-row chart-dog-filter" id="chartDogFilter" role="group" aria-label="Vis grafene for én hund" hidden></div>
-            <div class="dog-stat-row" id="dogStatRow"></div>
-            <div class="chart-block">
-              <p class="chart-title">Mestringsscore per økt</p>
-              <div id="masteryChart"></div>
-            </div>
-            <div class="chart-block">
-              <p class="chart-title">Liggetid — økter og mestring</p>
-              <div id="ageChart"></div>
-            </div>
-            <div class="chart-block">
-              <p class="chart-title">Treningsfrekvens (siste 18 uker)</p>
-              <div id="frequencyChart"></div>
-            </div>
-          </section>
-
-          <section class="panel dashboard-secondary" id="examReadinessPanel" hidden>
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Prøveforberedelse</p>
-                <h3>Eksamensklarhet</h3>
-              </div>
-            </div>
-            <div id="examReadinessBody"></div>
+            <div id="logList" class="log-list"></div>
           </section>
         </section>
 
@@ -174,6 +109,7 @@
         </section>
 
         <section class="view" id="settingsView" aria-labelledby="viewTitle">
+          <button class="view-back" data-view-jump="dashboard" type="button">← Hjem</button>
           <div class="settings-grid">
             <article class="panel">
               <p class="eyebrow">Utseende</p>
@@ -214,17 +150,19 @@
             </article>
 
             <article class="panel">
-              <p class="eyebrow">Om</p>
+              <p class="eyebrow">Om og kilde</p>
               <h3>SporLab E8/E9</h3>
-              <p class="small">Hjelpeverktøy for NRH Romerike, basert på Lesehefte ettersøkning E8 Sporoppsøk og E9 Spor (Sjur Haugen / NRH Fagteknisk utvalg, oktober 2025). Erstatter ikke instruktør eller heftet.</p>
+              <p class="small">Bygget på «Lesehefte ettersøkning: E8 Sporoppsøk og E9 Spor», versjon 1.0 (Sjur Haugen / NRH Fagteknisk utvalg, oktober 2025). Fagkort viser til sider i heftet. Tillegg er merket <strong>[produktforslag]</strong>.</p>
+              <p class="small">SporLab er et hjelpeverktøy for NRH Romerike og erstatter ikke instruktør eller heftet.</p>
               <div class="button-row">
-                <button class="ghost-button" id="settingsShowIntro" type="button">Vis startmeny og intro</button>
+                <button class="ghost-button" id="settingsShowIntro" type="button">Vis introduksjonen</button>
               </div>
             </article>
           </div>
         </section>
 
         <section class="view" id="plannerView" aria-labelledby="viewTitle">
+          <button class="view-back" data-view-jump="training" type="button">← Trening</button>
           <div class="wizard" id="planWizard">
             <div class="wizard-progress" id="wizardProgress" role="tablist" aria-label="Steg i øktplanen"></div>
             <div class="wizard-body" id="wizardBody"></div>
@@ -232,7 +170,8 @@
         </section>
 
         <section class="view" id="logView" aria-labelledby="viewTitle">
-          <div class="log-grid">
+          <button class="view-back" data-view-jump="training" type="button">← Trening</button>
+          <div class="log-single">
             <form class="panel form-panel" id="logForm">
               <div class="section-head">
                 <div>
@@ -380,36 +319,6 @@
               </div>
               <p class="small status-line" id="logStatus" role="status" aria-live="polite"></p>
             </form>
-
-            <article class="panel">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">Historikk</p>
-                  <h3>Loggførte økter</h3>
-                </div>
-              </div>
-              <div class="log-filter-row" id="logFilterRow" hidden>
-                <label class="visually-hidden" for="logFilterType">Filtrer på type</label>
-                <select id="logFilterType">
-                  <option value="all">Alle typer</option>
-                  <option value="Spor">Spor</option>
-                  <option value="Sporoppsøk">Sporoppsøk</option>
-                  <option value="Frisøk med sporopptak">Frisøk med sporopptak</option>
-                  <option value="Momenttrening">Momenttrening</option>
-                </select>
-                <label class="visually-hidden" for="logFilterDog">Filtrer på hund</label>
-                <select id="logFilterDog">
-                  <option value="all">Alle hunder</option>
-                </select>
-                <label class="visually-hidden" for="logSort">Sorter</label>
-                <select id="logSort">
-                  <option value="new">Nyeste først</option>
-                  <option value="old">Eldste først</option>
-                  <option value="rating">Høyest mestring</option>
-                </select>
-              </div>
-              <div id="logList" class="log-list"></div>
-            </article>
           </div>
         </section>
 
@@ -417,32 +326,92 @@
           <div class="panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Oppslagsverk</p>
-                <h3>Søk i praktiske fagkort</h3>
+                <p class="eyebrow">Fagkort fra heftet</p>
+                <h3>Søk og slå opp</h3>
               </div>
             </div>
-            <div class="search-row">
+            <div class="search-row reference-search-row">
               <label class="visually-hidden" for="referenceSearch">Søk i fagkort</label>
               <input id="referenceSearch" type="search" placeholder="Søk etter bil, sportap, liggetid, hardt underlag..." autocomplete="off" />
-              <label class="visually-hidden" for="referenceFilter">Filtrer fagkort etter tema</label>
-              <select id="referenceFilter">
-                <option value="all">Alle tema</option>
-                <option value="grunnlag">Grunnlag</option>
-                <option value="spor">Spor</option>
-                <option value="oppsok">Sporoppsøk</option>
-                <option value="problem">Problemløsning</option>
-                <option value="plan">Planlegging</option>
-              </select>
             </div>
+            <div class="chip-row reference-filter-chips" id="referenceFilterChips" role="group" aria-label="Filtrer fagkort etter tema"></div>
             <div id="referenceResults" class="reference-grid"></div>
           </div>
         </section>
 
         <section class="view" id="quizView" aria-labelledby="viewTitle">
+          <button class="view-back" data-view-jump="learn" type="button">← Lær</button>
           <div class="quiz-layout">
             <article class="panel" id="quizPanel"></article>
             <aside class="panel" id="quizStats"></aside>
           </div>
+        </section>
+
+        <section class="view" id="progressView" aria-labelledby="viewTitle">
+          <button class="view-back" data-view-jump="dashboard" type="button">← Hjem</button>
+
+          <section class="panel dashboard-stats">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Status</p>
+                <h3>Oversikt</h3>
+              </div>
+            </div>
+            <div class="mini-stat-row">
+              <div class="mini-stat"><span class="stat-number" id="progressNumber">0%</span><span class="stat-label">læringsløype</span></div>
+              <div class="mini-stat"><span class="stat-number" id="logNumber">0</span><span class="stat-label">økter loggført</span></div>
+              <div class="mini-stat"><span class="stat-number" id="planNumber">0</span><span class="stat-label">planlagte økter</span></div>
+            </div>
+          </section>
+
+          <section class="panel" id="examReadinessPanel" hidden>
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Prøveforberedelse</p>
+                <h3>Eksamensklarhet</h3>
+              </div>
+            </div>
+            <div id="examReadinessBody"></div>
+          </section>
+
+          <section class="panel" id="progressChartsPanel" hidden>
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Utvikling over tid</p>
+                <h3>Mestring og treningsfrekvens</h3>
+              </div>
+            </div>
+            <div class="chip-row chart-dog-filter" id="chartDogFilter" role="group" aria-label="Vis grafene for én hund" hidden></div>
+            <div class="dog-stat-row" id="dogStatRow"></div>
+            <div class="chart-block">
+              <p class="chart-title">Mestringsscore per økt</p>
+              <div id="masteryChart"></div>
+            </div>
+            <div class="chart-block">
+              <p class="chart-title">Liggetid — økter og mestring</p>
+              <div id="ageChart"></div>
+            </div>
+            <div class="chart-block">
+              <p class="chart-title">Treningsfrekvens (siste 18 uker)</p>
+              <div id="frequencyChart"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Instruktør og lag</p>
+                <h3>Del status</h3>
+              </div>
+            </div>
+            <p class="small">Send et sammendrag av de siste øktene til instruktør, eller del hele datasettet med en lagkamerat.</p>
+            <div class="button-row">
+              <button class="ghost-button" id="progressCopySummary" type="button">Kopier lagsammendrag</button>
+              <button class="ghost-button" id="progressShareLink" type="button">Lag delingslenke</button>
+              <button class="ghost-button" id="progressExportCsv" type="button">Eksporter logg (CSV)</button>
+            </div>
+            <p class="small status-line" id="progressShareStatus" role="status" aria-live="polite"></p>
+          </section>
         </section>
       </main>
     </div>
@@ -450,33 +419,40 @@
     <nav class="bottom-nav" id="bottomNav" aria-label="Hovednavigasjon">
       <button class="bottom-nav-item is-active" data-view="dashboard" type="button">
         <span class="bottom-nav-icon" data-icon="dashboard" aria-hidden="true"></span>
-        <span class="bottom-nav-label">I dag</span>
+        <span class="bottom-nav-label">Hjem</span>
+      </button>
+      <button class="bottom-nav-item" data-view="training" type="button">
+        <span class="bottom-nav-icon" data-icon="planner" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Trening</span>
+      </button>
+      <button class="bottom-nav-action" id="navActionButton" type="button" aria-label="Ny økt — planlegg eller loggfør" aria-haspopup="true" aria-expanded="false">
+        <span aria-hidden="true">+</span>
       </button>
       <button class="bottom-nav-item" data-view="learn" type="button">
         <span class="bottom-nav-icon" data-icon="learn" aria-hidden="true"></span>
         <span class="bottom-nav-label">Lær</span>
       </button>
-      <button class="bottom-nav-item" data-view="planner" type="button">
-        <span class="bottom-nav-icon" data-icon="planner" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Planlegg</span>
-      </button>
-      <button class="bottom-nav-item" data-view="log" type="button">
-        <span class="bottom-nav-icon" data-icon="log" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Logg</span>
-      </button>
-      <button class="bottom-nav-item" data-view="quiz" type="button">
-        <span class="bottom-nav-icon" data-icon="quiz" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Quiz</span>
-      </button>
       <button class="bottom-nav-item" data-view="reference" type="button">
         <span class="bottom-nav-icon" data-icon="reference" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Slå opp</span>
+        <span class="bottom-nav-label">Oppslag</span>
       </button>
     </nav>
 
-    <button class="fab" id="quickActionFab" type="button" data-view-jump="planner" aria-label="Ny økt">
-      <span aria-hidden="true">+</span>
-    </button>
+    <div class="action-sheet" id="actionSheet" hidden aria-hidden="true">
+      <div class="action-sheet-backdrop" data-close-sheet></div>
+      <div class="action-sheet-panel" role="dialog" aria-modal="true" aria-label="Ny økt">
+        <p class="eyebrow action-sheet-label">Ny økt</p>
+        <button class="action-sheet-item" data-sheet-action="plan" type="button">
+          <span class="action-sheet-icon" data-icon="planner" aria-hidden="true"></span>
+          <span class="action-sheet-text"><strong>Planlegg en økt</strong><span>Velg fokus, les teorien og få et øktkort</span></span>
+        </button>
+        <button class="action-sheet-item" data-sheet-action="log" type="button">
+          <span class="action-sheet-icon" data-icon="log" aria-hidden="true"></span>
+          <span class="action-sheet-text"><strong>Logg en økt</strong><span>Rask loggføring rett etter trening</span></span>
+        </button>
+        <button class="ghost-button action-sheet-cancel" data-close-sheet type="button">Avbryt</button>
+      </div>
+    </div>
 
     <template id="emptyStateTemplate">
       <div class="empty-state">
@@ -488,7 +464,7 @@
     <div class="welcome-overlay" id="welcomeOverlay" hidden aria-hidden="true">
       <div class="welcome-backdrop" data-close-welcome></div>
       <div class="welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" aria-describedby="welcomeAbout">
-        <button class="welcome-close" data-close-welcome type="button" aria-label="Lukk startmeny">✕</button>
+        <button class="welcome-close" data-close-welcome type="button" aria-label="Lukk introduksjon">✕</button>
         <div class="welcome-brand">
           <div class="brand-logo-card">
             <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
@@ -500,43 +476,16 @@
         </div>
 
         <div class="welcome-about" id="welcomeAbout">
-          <p><strong>Hva er SporLab E8/E9?</strong> Et interaktivt lese- og felthefte for sporarbeid, bygget på «Lesehefte ettersøkning: E8 Sporoppsøk og E9 Spor» (NRH).</p>
-          <p><strong>Formålet</strong> er å gjøre teorien fra heftet feltklar — lære stoffet, planlegge konkrete økter, loggføre det dere ser, og slå opp fagstoff når dere står ute.</p>
-          <p><strong>For hvem?</strong> Hundeførere og lag i Norske Redningshunder Romerike som trener mot E8 og E9 — både ferske ekvipasjer og erfarne som vil systematisere treningen.</p>
-        </div>
-
-        <p class="eyebrow welcome-pick-label">Velg veien videre</p>
-        <div class="welcome-paths">
-          <button class="welcome-path" data-welcome-go="learn" type="button">
-            <span class="welcome-path-icon" data-icon="learn" aria-hidden="true"></span>
-            <span class="welcome-path-text"><strong>Lær</strong><span>Læringsløype med moduler og quiz</span></span>
-          </button>
-          <button class="welcome-path" data-welcome-go="planner" type="button">
-            <span class="welcome-path-icon" data-icon="planner" aria-hidden="true"></span>
-            <span class="welcome-path-text"><strong>Planlegg</strong><span>Bygg en konkret økt steg for steg</span></span>
-          </button>
-          <button class="welcome-path" data-welcome-go="log" type="button">
-            <span class="welcome-path-icon" data-icon="log" aria-hidden="true"></span>
-            <span class="welcome-path-text"><strong>Logg</strong><span>Loggfør trening og observasjoner</span></span>
-          </button>
-          <button class="welcome-path" data-welcome-go="reference" type="button">
-            <span class="welcome-path-icon" data-icon="reference" aria-hidden="true"></span>
-            <span class="welcome-path-text"><strong>Slå opp</strong><span>Søkbare fagkort med sidehenvisninger</span></span>
-          </button>
+          <p>SporLab er felthefte og treningslogg for sporarbeid i NRH Romerike, bygget på leseheftet for E8 Sporoppsøk og E9 Spor.</p>
+          <p><strong>Slik henger det sammen:</strong> du lærer teorien under <strong>Lær</strong>, planlegger og loggfører øktene dine under <strong>Trening</strong> med <strong>+</strong>-knappen, og slår opp fagkort under <strong>Oppslag</strong> når du står ute.</p>
+          <p>Alt lagres lokalt på din enhet — ingen konto, alltid offline.</p>
         </div>
 
         <div class="welcome-actions">
-          <button class="primary-button" id="startTour" type="button">Slik bruker du SporLab</button>
-          <button class="text-button" data-welcome-go="dashboard" type="button">Hopp inn i appen →</button>
+          <button class="primary-button" id="welcomeGetStarted" type="button">Ny med spor? Åpne «Før første spor»</button>
+          <button class="text-button" data-close-welcome type="button">Hopp inn i appen →</button>
         </div>
-        <p class="small welcome-footnote">Du finner denne siden igjen via «?» øverst, eller under Innstillinger.</p>
-      </div>
-    </div>
-
-    <div class="tour-overlay" id="tourOverlay" hidden aria-hidden="true">
-      <div class="tour-backdrop"></div>
-      <div class="tour-dialog" role="dialog" aria-modal="true" aria-labelledby="tourTitle" aria-describedby="tourBody">
-        <div id="tourContent" aria-live="polite"></div>
+        <p class="small welcome-footnote">Du finner denne siden igjen via «?» øverst.</p>
       </div>
     </div>
 
@@ -550,6 +499,19 @@
           <button class="field-close" data-close-field type="button" aria-label="Avslutt feltmodus">Avslutt ✕</button>
         </header>
         <div class="field-body" id="fieldBody"></div>
+      </div>
+    </div>
+
+    <div class="quicklog-overlay" id="quickLogOverlay" hidden aria-hidden="true">
+      <div class="quicklog-shell" role="dialog" aria-modal="true" aria-labelledby="quickLogTitle">
+        <header class="quicklog-head">
+          <div class="quicklog-head-text">
+            <p class="eyebrow">Hurtiglogg</p>
+            <h2 id="quickLogTitle">Logg økt</h2>
+          </div>
+          <button class="field-close" data-close-quicklog type="button" aria-label="Avbryt loggføring">Avbryt ✕</button>
+        </header>
+        <div class="quicklog-body" id="quickLogBody"></div>
       </div>
     </div>
 

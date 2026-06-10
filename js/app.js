@@ -41,18 +41,35 @@ import { importSnapshot, logsToCsv, readFileAsText, shareSnapshot } from "./snap
 import { buildQuizSession, ensureQuizSession, getWeakestQuestionId, questionsById } from "./quiz.js";
 
 const viewMeta = {
-  dashboard: ["Feltklar læring", "Dagens sporarbeid"],
-  learn: ["Strukturert gjennomgang", "Lær"],
-  planner: ["Øktplanlegger", "Planlegg neste trening"],
-  log: ["Treningslogg", "Laget og progresjonen"],
-  reference: ["Søkbar referanse", "Oppslagsverk"],
+  dashboard: ["E8 / E9 · NRH Romerike", "SporLab"],
+  training: ["Planer og loggførte økter", "Trening"],
+  learn: ["Læringsløype og quiz", "Lær"],
+  planner: ["Øktplanlegger", "Planlegg økt"],
+  log: ["Treningslogg", "Loggskjema"],
+  reference: ["Fagkort med sidehenvisninger", "Oppslag"],
   quiz: ["Aktiv repetisjon", "Quiz"],
-  settings: ["Konto og data", "Innstillinger"],
+  progress: ["Læringsløype og felt", "Progresjon"],
+  settings: ["Data og utseende", "Innstillinger"],
+};
+
+const ALL_VIEWS = ["dashboard", "training", "learn", "planner", "log", "reference", "quiz", "progress", "settings"];
+
+// Visninger utenfor bunnmenyen markerer fanen de hører hjemme under.
+const navTabForView = {
+  dashboard: "dashboard",
+  progress: "dashboard",
+  training: "training",
+  planner: "training",
+  log: "training",
+  learn: "learn",
+  quiz: "learn",
+  reference: "reference",
+  settings: "",
 };
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
-const OVERLAY_SELECTOR = "#welcomeOverlay, #tourOverlay, #fieldOverlay, #qrOverlay";
+const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay";
 
 function openOverlay(overlay) {
   if (!overlay) return;
@@ -74,14 +91,16 @@ function closeOverlay(overlay) {
 }
 
 function setView(view) {
+  if (!ALL_VIEWS.includes(view)) view = "dashboard";
   state.view = view;
   saveState();
   $all(".view").forEach((item) => item.classList.remove("is-visible"));
   const target = $(`#${view}View`);
   if (target) target.classList.add("is-visible");
-  $all(".nav-item, .bottom-nav-item").forEach((item) => {
+  const activeTab = navTabForView[view] ?? view;
+  $all(".bottom-nav-item").forEach((item) => {
     if (!item.dataset.view) return;
-    const isActive = item.dataset.view === view;
+    const isActive = item.dataset.view === activeTab;
     item.classList.toggle("is-active", isActive);
     if (isActive) {
       item.setAttribute("aria-current", "page");
@@ -92,7 +111,7 @@ function setView(view) {
   const [eyebrow, title] = viewMeta[view] || ["", view];
   $("#viewEyebrow").textContent = eyebrow;
   $("#viewTitle").textContent = title;
-  ["dashboard", "learn", "planner", "log", "reference", "quiz", "settings"].forEach((v) => {
+  ALL_VIEWS.forEach((v) => {
     document.body.classList.toggle(`view-${v}`, view === v);
   });
   renderView(view);
@@ -104,11 +123,13 @@ function setView(view) {
 function renderView(view = state.view) {
   try {
     if (view === "dashboard") renderDashboard();
+    if (view === "training") renderTraining();
     if (view === "learn") renderLearn();
     if (view === "planner") renderPlanner();
     if (view === "log") renderLog();
     if (view === "reference") renderReference();
     if (view === "quiz") renderQuiz();
+    if (view === "progress") renderProgress();
     if (view === "settings") renderSettings();
   } catch (error) {
     // Én ødelagt visning skal ikke ta med seg hele appen (f.eks. korrupt
@@ -119,13 +140,7 @@ function renderView(view = state.view) {
 }
 
 function renderDashboard() {
-  const progress = Math.round((state.completed.length / modules.length) * 100);
-  $("#progressNumber").textContent = `${progress}%`;
-  $("#logNumber").textContent = state.logs.length;
-  $("#planNumber").textContent = state.plans.length;
   $("#nextPlan").innerHTML = state.plans[0] ? planCard(state.plans[0], true) : emptyState("Lag en øktplan, så ligger neste økt klar her.");
-  const recent = [...state.logs].sort((a, b) => logTimestamp(b) - logTimestamp(a)).slice(0, 3);
-  $("#recentLogs").innerHTML = recent.length ? recent.map(logCard).join("") : emptyState("Ingen logg ennå. Start med én enkel observasjon fra neste økt.");
 
   const hero = $("#nextStepHero");
   if (hero) {
@@ -143,10 +158,23 @@ function renderDashboard() {
     `;
   }
 
+  renderHomeProgress();
   renderBackupNudge();
-  renderProgressCharts();
-  renderExamReadiness();
-  renderMiniQuiz();
+}
+
+function renderHomeProgress() {
+  const body = $("#homeProgressBody");
+  if (!body) return;
+  const done = state.completed.length;
+  const progress = Math.round((done / modules.length) * 100);
+  const logsByModule = computeModuleLogCredit();
+  const ready = modules.filter((m) => {
+    const c = moduleChecks(m, logsByModule);
+    return c.isRead && c.quizOk && c.hasLog;
+  }).length;
+  body.innerHTML = `
+    <p class="home-progress-line"><strong>${done} av ${modules.length}</strong> moduler lest · <strong>${state.logs.length}</strong> ${state.logs.length === 1 ? "økt" : "økter"} · <strong>${ready}</strong> prøveklar${ready === 1 ? "" : "e"}</p>
+    <div class="progress-bar" aria-hidden="true"><span style="width:${progress}%"></span></div>`;
 }
 
 // Diskret påminnelse om sikkerhetskopi: all data bor i localStorage, som kan
@@ -165,21 +193,10 @@ function renderBackupNudge() {
   nudge.innerHTML = `${unsaved} økter er ikke sikkerhetskopiert. <button class="text-button" type="button" data-view-jump="settings">Eksporter nå</button>`;
 }
 
-function renderExamReadiness() {
-  const panel = $("#examReadinessPanel");
-  const body = $("#examReadinessBody");
-  if (!panel || !body) return;
-
-  const hasAnyActivity = state.completed.length || state.logs.length;
-  if (!hasAnyActivity) {
-    panel.hidden = true;
-    return;
-  }
-  panel.hidden = false;
-
-  // Logger krediteres en modul via planen de kom fra, eller via økt-type for
-  // manuelle logger. «Momenttrening» er tvetydig (fire mulige moduler) og
-  // krediteres derfor bare via plan. Grunnlaget trenes i enhver loggført økt.
+/* Logger krediteres en modul via planen de kom fra, eller via økt-type for
+   manuelle logger. «Momenttrening» er tvetydig (fire mulige moduler) og
+   krediteres derfor bare via plan. Grunnlaget trenes i enhver loggført økt. */
+function computeModuleLogCredit() {
   const typeToModules = {
     Spor: ["spor"],
     "Sporoppsøk": ["oppsok"],
@@ -195,26 +212,48 @@ function renderExamReadiness() {
     else (typeToModules[l.type] || []).forEach(credit);
   });
   if (state.logs.length && !logsByModule.grunnlag) logsByModule.grunnlag = 1;
+  return logsByModule;
+}
+
+/* De tre trinnene som gjør en modul prøveklar: lest, 60 % av quizspørsmålene
+   mestret, og minst én loggført økt på modulens tema. */
+function moduleChecks(module, logsByModule) {
+  const isRead = state.completed.includes(module.id);
+  const moduleQs = quizQuestions.filter((q) => q.module === module.id);
+  const totalQs = moduleQs.length;
+  const masteredQs = moduleQs.filter((q) => {
+    const m = state.mastery[q.id];
+    return m && m.correct > m.wrong;
+  }).length;
+  const quizOk = totalQs > 0 && masteredQs >= Math.ceil(totalQs * 0.6);
+  const hasLog = (logsByModule[module.id] || 0) > 0;
+  return { isRead, quizOk, masteredQs, totalQs, hasLog };
+}
+
+function renderExamReadiness() {
+  const panel = $("#examReadinessPanel");
+  const body = $("#examReadinessBody");
+  if (!panel || !body) return;
+
+  const hasAnyActivity = state.completed.length || state.logs.length;
+  if (!hasAnyActivity) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  const logsByModule = computeModuleLogCredit();
 
   const rows = modules.map((module) => {
-    const isRead = state.completed.includes(module.id);
-    const moduleQs = quizQuestions.filter((q) => q.module === module.id);
-    const totalQs = moduleQs.length;
-    const masteredQs = moduleQs.filter((q) => {
-      const m = state.mastery[q.id];
-      return m && m.correct > m.wrong;
-    }).length;
-    const quizOk = totalQs > 0 && masteredQs >= Math.ceil(totalQs * 0.6);
-    const hasLog = (logsByModule[module.id] || 0) > 0;
-
+    const c = moduleChecks(module, logsByModule);
     const checks = [
-      { ok: isRead, label: "Lest" },
-      { ok: quizOk, label: `Quiz (${masteredQs}/${totalQs})` },
-      { ok: hasLog, label: "Loggført" },
+      { ok: c.isRead, label: "Lest" },
+      { ok: c.quizOk, label: `Quiz (${c.masteredQs}/${c.totalQs})` },
+      { ok: c.hasLog, label: "Loggført" },
     ];
-    const score = checks.filter((c) => c.ok).length;
-    const checksHtml = checks.map((c) =>
-      `<span class="exam-check ${c.ok ? "is-ok" : ""}" aria-label="${c.label}: ${c.ok ? "ok" : "mangler"}">${c.ok ? "✓" : "○"} ${escapeHtml(c.label)}</span>`
+    const score = checks.filter((item) => item.ok).length;
+    const checksHtml = checks.map((item) =>
+      `<span class="exam-check ${item.ok ? "is-ok" : ""}" aria-label="${item.label}: ${item.ok ? "ok" : "mangler"}">${item.ok ? "✓" : "○"} ${escapeHtml(item.label)}</span>`
     ).join("");
 
     return `<div class="exam-row" data-score="${score}">
@@ -224,18 +263,66 @@ function renderExamReadiness() {
   }).join("");
 
   const totalReady = modules.filter((m) => {
-    const isRead = state.completed.includes(m.id);
-    const moduleQs = quizQuestions.filter((q) => q.module === m.id);
-    const masteredQs = moduleQs.filter((q) => { const mm = state.mastery[q.id]; return mm && mm.correct > mm.wrong; }).length;
-    const quizOk = moduleQs.length > 0 && masteredQs >= Math.ceil(moduleQs.length * 0.6);
-    const hasLog = (logsByModule[m.id] || 0) > 0;
-    return isRead && quizOk && hasLog;
+    const c = moduleChecks(m, logsByModule);
+    return c.isRead && c.quizOk && c.hasLog;
   }).length;
 
   body.innerHTML = `
     <p class="small exam-legend">Lest + 60 % quiz mestret + loggført økt = prøveklar modul.</p>
     <div class="exam-rows">${rows}</div>
     <p class="small exam-summary">${totalReady} av ${modules.length} moduler prøveklare.</p>`;
+}
+
+function renderProgress() {
+  const progress = Math.round((state.completed.length / modules.length) * 100);
+  const progressNumber = $("#progressNumber");
+  if (progressNumber) progressNumber.textContent = `${progress}%`;
+  const logNumber = $("#logNumber");
+  if (logNumber) logNumber.textContent = String(state.logs.length);
+  const planNumber = $("#planNumber");
+  if (planNumber) planNumber.textContent = String(state.plans.length);
+  renderExamReadiness();
+  renderProgressCharts();
+}
+
+/* ---------- Trening: planer og loggførte økter ---------- */
+
+function renderTraining() {
+  renderPlanList();
+  renderLogList();
+}
+
+function planRow(plan) {
+  const date = plan.createdAt
+    ? new Date(plan.createdAt).toLocaleDateString("no-NO", { day: "numeric", month: "short" })
+    : "";
+  const subtitle = [date, plan.dog].filter(Boolean).join(" · ");
+  return `<details class="plan-row">
+    <summary>
+      <span class="plan-row-info"><strong>${escapeHtml(plan.title)}</strong>${subtitle ? `<span class="small">${escapeHtml(subtitle)}</span>` : ""}</span>
+      <span class="plan-row-chevron" aria-hidden="true">▾</span>
+    </summary>
+    <div class="plan-row-actions">
+      <button class="primary-button small-button" data-field-mode="${escapeHtml(plan.id)}" type="button">Start feltmodus</button>
+      <button class="ghost-button small-button" data-log-from-plan="${escapeHtml(plan.id)}" type="button">Loggfør</button>
+      <button class="ghost-button small-button" data-print-plan="${escapeHtml(plan.id)}" type="button">Skriv ut</button>
+      <button class="ghost-button small-button" data-share-qr="${escapeHtml(plan.id)}" type="button">Del med QR</button>
+      <button class="ghost-button small-button" data-load-plan="${escapeHtml(plan.id)}" type="button">Gjenbruk</button>
+      <button class="text-button small-button" data-delete-plan="${escapeHtml(plan.id)}" type="button">Slett</button>
+    </div>
+  </details>`;
+}
+
+function renderPlanList() {
+  const el = $("#planList");
+  if (!el) return;
+  const plans = state.plans || [];
+  if (!plans.length) {
+    el.innerHTML = emptyState("Ingen planer ennå. Trykk «Planlegg ny» eller bruk +-knappen.");
+    return;
+  }
+  const [first, ...rest] = plans;
+  el.innerHTML = planCard(first, true) + (rest.length ? `<div class="plan-row-list">${rest.map(planRow).join("")}</div>` : "");
 }
 
 function logDayKey(log) {
@@ -990,32 +1077,8 @@ function renderWizardFocus() {
       </div>`
     : "";
 
-  // Plan-historikk: vis lagrede planer øverst
-  const recentPlans = (state.plans || []).slice(0, 4);
-  const planHistoryHtml = recentPlans.length
-    ? `<section class="wizard-plan-history">
-        <p class="eyebrow">Mine planer</p>
-        <div class="plan-history-list">
-          ${recentPlans.map((p) => {
-            const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString("no-NO", { day: "numeric", month: "short" }) : "";
-            return `<div class="plan-history-item">
-              <div class="plan-history-info">
-                <strong>${escapeHtml(p.title)}</strong>
-                <span class="small">${escapeHtml(date)}${p.dog ? ` · ${escapeHtml(p.dog)}` : ""}</span>
-              </div>
-              <div class="plan-history-actions">
-                <button class="ghost-button small-button" data-load-plan="${escapeHtml(p.id)}" type="button">Gjenbruk</button>
-                <button class="text-button small-button" data-delete-plan="${escapeHtml(p.id)}" type="button">Slett</button>
-              </div>
-            </div>`;
-          }).join("")}
-        </div>
-      </section>`
-    : "";
-
   return `
     <section class="wizard-step-panel">
-      ${planHistoryHtml}
       ${nextStepHint}
       <header class="wizard-head">
         <p class="eyebrow">Steg 1 av 4 · ca. 1 min</p>
@@ -1530,6 +1593,17 @@ function initFieldMode() {
   });
 }
 
+/* ---------- Hurtiglogg ---------- */
+
+// Midlertidig: ruter til fullt skjema til den stegvise hurtigloggen er på plass.
+function openQuickLog(plan) {
+  if (plan) {
+    prefillLogFromPlan(plan);
+    return;
+  }
+  setView("log");
+}
+
 /* ---------- Komplett øktkort for utskrift ---------- */
 
 function buildOktkortHtml(plan, options = {}) {
@@ -2006,11 +2080,34 @@ function startEditLog(id) {
   $("#logStatus").textContent = `Du redigerer økten ${[log.date, log.type, log.dog].filter(Boolean).join(" · ")}. Trykk «Avbryt redigering» for å gå tilbake.`;
 }
 
+const referenceCategories = [
+  ["all", "Alle"],
+  ["grunnlag", "Grunnlag"],
+  ["spor", "Spor"],
+  ["oppsok", "Sporoppsøk"],
+  ["problem", "Problemløsning"],
+  ["plan", "Planlegging"],
+];
+
+// Temafilteret lever i minnet, likt logFilters.
+let referenceFilter = "all";
+
+function renderReferenceChips() {
+  const el = $("#referenceFilterChips");
+  if (!el) return;
+  el.innerHTML = referenceCategories
+    .map(([value, label]) => {
+      const selected = value === referenceFilter;
+      return `<button class="chip-button${selected ? " is-selected" : ""}" type="button" data-ref-filter="${value}" aria-pressed="${selected}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
+}
+
 function renderReference() {
+  renderReferenceChips();
   const query = ($("#referenceSearch").value || "").trim().toLowerCase();
-  const filter = $("#referenceFilter").value;
   const filtered = references.filter((item) => {
-    const categoryOk = filter === "all" || item.category === filter;
+    const categoryOk = referenceFilter === "all" || item.category === referenceFilter;
     const haystack = `${item.title} ${item.text} ${item.pages}`.toLowerCase();
     return categoryOk && (!query || haystack.includes(query));
   });
@@ -2201,11 +2298,6 @@ function collectForm(form) {
 }
 
 function initEvents() {
-  $("#navList").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-view]");
-    if (button) setView(button.dataset.view);
-  });
-
   $("#bottomNav")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-view]");
     if (button) setView(button.dataset.view);
@@ -2435,6 +2527,7 @@ function initEvents() {
         state.plans = state.plans.map((p) => (p.id === state.currentPlan.id ? { ...state.currentPlan } : p));
         saveState();
         renderPlanner();
+        renderTraining();
         renderDashboard();
         return;
       }
@@ -2453,6 +2546,7 @@ function initEvents() {
       }
       saveState();
       renderPlanner();
+      renderTraining();
       renderDashboard();
       return;
     }
@@ -2474,7 +2568,7 @@ function initEvents() {
         state.wizardStep = 3;
         state.wizardShowDetails = false;
         saveState();
-        renderPlanner();
+        setView("planner");
       }
       return;
     }
@@ -2487,6 +2581,7 @@ function initEvents() {
       if (state.currentPlan?.id === deletePlan.dataset.deletePlan) state.currentPlan = null;
       saveState();
       renderPlanner();
+      renderTraining();
       renderDashboard();
       return;
     }
@@ -2505,6 +2600,7 @@ function initEvents() {
       state.logs = state.logs.filter((l) => l.id !== deleteLog.dataset.deleteLog);
       saveState();
       renderLog();
+      renderTraining();
       renderDashboard();
     }
 
@@ -2586,6 +2682,7 @@ function initEvents() {
       saveState();
       resetLogForm();
       $("#logStatus").textContent = "Endringene er lagret.";
+      renderTraining();
       renderDashboard();
       return;
     }
@@ -2626,23 +2723,60 @@ function initEvents() {
     syncLogFormUI();
     $("#logStatus").textContent = "Loggen er lagret. Dato og forhold står igjen — bytt hund for neste logg, eller trykk «Tøm skjemaet».";
     renderLog();
+    renderTraining();
     renderDashboard();
   });
 
-  // Kopier lagsammendrag — nå kun i Settings
-  $("#settingsCopySummary")?.addEventListener("click", async () => {
+  // Lagsammendrag og deling finnes både i Innstillinger og i Progresjon
+  // (instruktørflaten) — samme logikk, ulik statuslinje.
+  const copySummaryTo = (status) => async () => {
     const summary = makeTeamSummary();
-    const status = $("#settingsDataStatus");
     try {
       await navigator.clipboard.writeText(summary);
       if (status) status.textContent = "Lagsammendrag kopiert — lim inn i chat eller e-post.";
     } catch {
       if (status) status.textContent = summary;
     }
-  });
+  };
+  $("#settingsCopySummary")?.addEventListener("click", () => copySummaryTo($("#settingsDataStatus"))());
+  $("#progressCopySummary")?.addEventListener("click", () => copySummaryTo($("#progressShareStatus"))());
+
+  const exportCsvTo = (status) => () => {
+    if (!state.logs.length) {
+      if (status) status.textContent = "Ingen logger å eksportere.";
+      return;
+    }
+    const today = localIsoDate();
+    downloadBlob(logsToCsv(state.logs), `sporlab-logg-${today}.csv`, "text/csv;charset=utf-8");
+    state.lastExportLogCount = state.logs.length;
+    saveState();
+    renderBackupNudge();
+    if (status) status.textContent = "Eksport CSV er lastet ned.";
+  };
+  $("#progressExportCsv")?.addEventListener("click", () => exportCsvTo($("#progressShareStatus"))());
+
+  const shareLinkTo = (status) => async () => {
+    try {
+      const json = JSON.stringify(shareSnapshot());
+      const encoded = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_");
+      if (encoded.length > 6000) {
+        if (status) status.textContent = "Dataene er for store til delingslenke. Bruk JSON-eksport i stedet.";
+        return;
+      }
+      const url = `${window.location.origin}${window.location.pathname}?import=${encodeURIComponent(encoded)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        if (status) status.textContent = "Delingslenken er kopiert. Send til lagkamerat — de får valg om å importere.";
+      } catch {
+        if (status) status.textContent = url;
+      }
+    } catch (error) {
+      if (status) status.textContent = `Kunne ikke lage delingslenke: ${error.message}`;
+    }
+  };
+  $("#progressShareLink")?.addEventListener("click", () => shareLinkTo($("#progressShareStatus"))());
 
   $("#referenceSearch").addEventListener("input", renderReference);
-  $("#referenceFilter").addEventListener("change", renderReference);
 
   $("#logFilterType")?.addEventListener("change", (event) => {
     logFilters.type = event.target.value;
@@ -2697,40 +2831,9 @@ function initEvents() {
     if (status) status.textContent = "Eksport JSON er lastet ned.";
   });
 
-  $("#settingsExportCsv")?.addEventListener("click", () => {
-    const status = $("#settingsDataStatus");
-    if (!state.logs.length) {
-      if (status) status.textContent = "Ingen logger å eksportere.";
-      return;
-    }
-    const today = localIsoDate();
-    downloadBlob(logsToCsv(state.logs), `sporlab-logg-${today}.csv`, "text/csv;charset=utf-8");
-    state.lastExportLogCount = state.logs.length;
-    saveState();
-    renderBackupNudge();
-    if (status) status.textContent = "Eksport CSV er lastet ned.";
-  });
+  $("#settingsExportCsv")?.addEventListener("click", () => exportCsvTo($("#settingsDataStatus"))());
 
-  $("#settingsShareLink")?.addEventListener("click", async () => {
-    const status = $("#settingsDataStatus");
-    try {
-      const json = JSON.stringify(shareSnapshot());
-      const encoded = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_");
-      if (encoded.length > 6000) {
-        if (status) status.textContent = "Dataene er for store til delingslenke. Bruk JSON-eksport i stedet.";
-        return;
-      }
-      const url = `${window.location.origin}${window.location.pathname}?import=${encodeURIComponent(encoded)}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        if (status) status.textContent = "Delingslenken er kopiert. Send til lagkamerat — de får valg om å importere.";
-      } catch {
-        if (status) status.textContent = url;
-      }
-    } catch (error) {
-      if (status) status.textContent = `Kunne ikke lage delingslenke: ${error.message}`;
-    }
-  });
+  $("#settingsShareLink")?.addEventListener("click", () => shareLinkTo($("#settingsDataStatus"))());
 
   $("#settingsImportFile")?.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
@@ -2742,6 +2845,7 @@ function initEvents() {
       const result = importSnapshot(data);
       if (status) status.textContent = `Importert: ${result.plans} nye planer, ${result.logs} nye logger.`;
       renderLog();
+      renderTraining();
       renderPlanner();
       renderDashboard();
     } catch (error) {
@@ -2806,13 +2910,16 @@ function initEvents() {
       }
     }
 
-    const sourceToggle = event.target.closest("#sourceBoxToggle");
-    if (sourceToggle) {
-      const box = $(".source-box");
-      if (box) {
-        const isOpen = box.classList.toggle("is-open");
-        sourceToggle.setAttribute("aria-expanded", String(isOpen));
-      }
+    const refFilter = event.target.closest("[data-ref-filter]");
+    if (refFilter) {
+      referenceFilter = refFilter.dataset.refFilter || "all";
+      renderReference();
+      return;
+    }
+
+    if (event.target.closest("[data-quick-log]")) {
+      openQuickLog(null);
+      return;
     }
   });
 
@@ -2934,47 +3041,45 @@ function paintIcons(root = document) {
   });
 }
 
-/* ---------- Startmeny + pedagogisk steg-for-steg-guide ---------- */
+/* ---------- Handlingsark («+» i bunnmenyen) ---------- */
 
-const tourSteps = [
-  {
-    icon: "👋",
-    title: "Velkommen!",
-    body: "SporLab tar deg fra heftet og ut i felt. På under ett minutt viser vi deg de fem delene av appen. Trykk «Skjønner» for å bla videre — du kan hoppe over når som helst.",
-  },
-  {
-    icon: "⌂",
-    title: "«I dag» — din neste handling",
-    body: "Forsiden foreslår alltid det neste lure steget ditt: lese en modul, planlegge en økt eller loggføre. Er du i tvil om hvor du skal begynne, start her.",
-  },
-  {
-    icon: "□",
-    title: "«Lær» — læringsløypa",
-    body: "Korte moduler bygget rett på leseheftet, med en liten quiz til hver. Les i din egen takt og merk moduler som fullført etter hvert som du kommer gjennom dem.",
-  },
-  {
-    icon: "＋",
-    title: "«Planlegg» — bygg en økt",
-    body: "En veiviser tar deg steg for steg gjennom å sette opp en konkret spor- eller sporoppsøksøkt — helt ned til tre konkrete ting dere skal se etter ute.",
-  },
-  {
-    icon: "≡",
-    title: "«Logg» — fest læringen",
-    body: "Etter økta noterer du hva dere så på de tre observasjonspunktene, gir en mestringsscore og skriver neste steg. Det er her framgangen blir synlig over tid.",
-  },
-  {
-    icon: "⌕",
-    title: "«Slå opp» — fagkort",
-    body: "Søk i praktiske fagkort med sidehenvisninger til heftet når du trenger et raskt svar — også når du står ute i felt.",
-  },
-  {
-    icon: "✓",
-    title: "Klar! Dataene er dine",
-    body: "Alt lagres lokalt på din enhet. Under Innstillinger kan du eksportere, dele med laget eller bytte tema. Velg nå en vei på startmenyen for å komme i gang.",
-  },
-];
+function openActionSheet() {
+  openOverlay($("#actionSheet"));
+  $("#navActionButton")?.setAttribute("aria-expanded", "true");
+}
 
-let tourStep = 0;
+function closeActionSheet() {
+  closeOverlay($("#actionSheet"));
+  $("#navActionButton")?.setAttribute("aria-expanded", "false");
+}
+
+function initActionSheet() {
+  $("#navActionButton")?.addEventListener("click", () => {
+    const sheet = $("#actionSheet");
+    if (!sheet) return;
+    if (sheet.classList.contains("is-open")) closeActionSheet();
+    else openActionSheet();
+  });
+
+  $("#actionSheet")?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-sheet]")) {
+      closeActionSheet();
+      return;
+    }
+    const item = event.target.closest("[data-sheet-action]");
+    if (!item) return;
+    closeActionSheet();
+    if (item.dataset.sheetAction === "plan") {
+      state.wizardStep = state.currentPlan ? state.wizardStep || 0 : 0;
+      saveState();
+      setView("planner");
+    } else if (item.dataset.sheetAction === "log") {
+      openQuickLog(null);
+    }
+  });
+}
+
+/* ---------- Introduksjon (énskjerms velkomst) ---------- */
 
 function openWelcome() {
   openOverlay($("#welcomeOverlay"));
@@ -2988,60 +3093,6 @@ function closeWelcome() {
   closeOverlay($("#welcomeOverlay"));
 }
 
-function renderTourStep() {
-  const content = $("#tourContent");
-  if (!content) return;
-  const step = tourSteps[tourStep];
-  const total = tourSteps.length;
-  const isLast = tourStep === total - 1;
-  const dots = tourSteps
-    .map((_, i) => `<span class="tour-dot" data-active="${i === tourStep}"></span>`)
-    .join("");
-  content.innerHTML = `
-    <div class="tour-step">
-      <div class="tour-progress" aria-hidden="true">${dots}</div>
-      <p class="small tour-count">Steg ${tourStep + 1} av ${total}</p>
-      <span class="tour-icon" aria-hidden="true">${step.icon}</span>
-      <h2 id="tourTitle">${escapeHtml(step.title)}</h2>
-      <p id="tourBody" class="tour-body">${escapeHtml(step.body)}</p>
-      <div class="tour-nav">
-        <button class="text-button" type="button" data-tour-skip>${isLast ? "Lukk" : "Hopp over"}</button>
-        <div class="tour-nav-right">
-          ${tourStep > 0 ? '<button class="ghost-button" type="button" data-tour-back>Tilbake</button>' : ""}
-          <button class="primary-button" type="button" data-tour-next>${isLast ? "Kom i gang!" : "Skjønner →"}</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function startTour() {
-  const overlay = $("#tourOverlay");
-  if (!overlay) return;
-  tourStep = 0;
-  renderTourStep();
-  openOverlay(overlay);
-  requestAnimationFrame(() => $("#tourOverlay [data-tour-next]")?.focus());
-}
-
-function endTour() {
-  closeOverlay($("#tourOverlay"));
-}
-
-function nextTourStep() {
-  if (tourStep >= tourSteps.length - 1) {
-    endTour();
-    return;
-  }
-  tourStep += 1;
-  renderTourStep();
-}
-
-function prevTourStep() {
-  if (tourStep === 0) return;
-  tourStep -= 1;
-  renderTourStep();
-}
-
 function initWelcome() {
   $("#openWelcome")?.addEventListener("click", openWelcome);
   $("#settingsShowIntro")?.addEventListener("click", openWelcome);
@@ -3051,29 +3102,12 @@ function initWelcome() {
       closeWelcome();
       return;
     }
-    if (event.target.closest("#startTour")) {
-      startTour();
-      return;
-    }
-    const go = event.target.closest("[data-welcome-go]");
-    if (go) {
-      const view = go.dataset.welcomeGo;
+    if (event.target.closest("#welcomeGetStarted")) {
+      state.activeGuide = "getting-started";
+      state.activeModule = null;
+      saveState();
       closeWelcome();
-      if (view) setView(view);
-    }
-  });
-
-  $("#tourOverlay")?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-tour-next]")) {
-      nextTourStep();
-      return;
-    }
-    if (event.target.closest("[data-tour-back]")) {
-      prevTourStep();
-      return;
-    }
-    if (event.target.closest("[data-tour-skip]")) {
-      endTour();
+      setView("learn");
     }
   });
 
@@ -3081,10 +3115,10 @@ function initWelcome() {
     if (event.key !== "Escape") return;
     if ($("#qrOverlay")?.classList.contains("is-open")) {
       closeQr();
+    } else if ($("#actionSheet")?.classList.contains("is-open")) {
+      closeActionSheet();
     } else if ($("#fieldOverlay")?.classList.contains("is-open")) {
       closeFieldMode();
-    } else if ($("#tourOverlay")?.classList.contains("is-open")) {
-      endTour();
     } else if ($("#welcomeOverlay")?.classList.contains("is-open")) {
       closeWelcome();
     }
@@ -3097,39 +3131,14 @@ function init() {
   applyTheme();
   initEvents();
   initWelcome();
+  initActionSheet();
   initShare();
   initFieldMode();
-  initSidebarHover();
   handleSharedImport();
   setView(state.view || "dashboard");
   registerServiceWorker();
-  // Første gang: vis startmenyen og auto-start den pedagogiske guiden.
-  if (!state.hasSeenWelcome) {
-    openWelcome();
-    startTour();
-  }
-}
-
-function initSidebarHover() {
-  const sidebar = $("#sidebar");
-  const shell = $(".app-shell");
-  if (!sidebar || !shell) return;
-  // Vi bruker data-collapsed for å la CSS styre rail/expanded.
-  // På hover/fokus fjerner vi attributtet midlertidig.
-  const expand = () => {
-    sidebar.dataset.collapsed = "false";
-    shell.classList.add("sidebar-expanded");
-  };
-  const collapse = () => {
-    sidebar.dataset.collapsed = "true";
-    shell.classList.remove("sidebar-expanded");
-  };
-  sidebar.addEventListener("mouseenter", expand);
-  sidebar.addEventListener("mouseleave", collapse);
-  sidebar.addEventListener("focusin", expand);
-  sidebar.addEventListener("focusout", (event) => {
-    if (!sidebar.contains(event.relatedTarget)) collapse();
-  });
+  // Første gang: vis den korte introduksjonen.
+  if (!state.hasSeenWelcome) openWelcome();
 }
 
 function showUpdateToast() {

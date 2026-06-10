@@ -149,79 +149,11 @@ button {
   cursor: pointer;
 }
 
+/* Enkolonne-skall: bunnmenyen (mobil) / venstre-railen (desktop) ligger
+   utenfor skallet som faste elementer. */
 .app-shell {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  display: block;
   min-height: 100vh;
-  transition: grid-template-columns 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.app-shell.sidebar-expanded {
-  grid-template-columns: 272px minmax(0, 1fr);
-}
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  background: var(--dark-blue);
-  color: #f7fbf8;
-  overflow: hidden;
-  z-index: 40;
-}
-
-.sidebar-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  height: 100%;
-  padding: 18px 14px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-.sidebar-inner::-webkit-scrollbar {
-  width: 6px;
-}
-.sidebar-inner::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-}
-
-/* Skjul tekst-elementer i kollapset rail-modus på desktop */
-.sidebar[data-collapsed="true"] .brand-text,
-.sidebar[data-collapsed="true"] .nav-label,
-.sidebar[data-collapsed="true"] .source-box {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.sidebar[data-collapsed="false"] .brand-text,
-.sidebar[data-collapsed="false"] .nav-label,
-.sidebar[data-collapsed="false"] .source-box {
-  opacity: 1;
-  transition: opacity 220ms ease 80ms;
-}
-
-.sidebar[data-collapsed="true"] .brand-logo-card {
-  width: 44px;
-  min-height: 44px;
-  padding: 4px;
-  margin: 0 auto;
-}
-
-.sidebar[data-collapsed="true"] .brand-logo-card img {
-  max-height: 36px;
-  object-position: center;
-}
-
-.sidebar[data-collapsed="true"] .nav-item {
-  grid-template-columns: 1fr;
-  justify-items: center;
-  padding: 10px 6px;
 }
 
 .brand {
@@ -296,47 +228,6 @@ button {
   line-height: 1.45;
 }
 
-.sidebar .small,
-.sidebar .source-box p {
-  color: rgba(247, 251, 248, 0.72);
-}
-
-.nav-list {
-  display: grid;
-  gap: 6px;
-}
-
-.nav-item {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  align-items: center;
-  min-height: 42px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  color: rgba(247, 251, 248, 0.78);
-  text-align: left;
-}
-
-.nav-item:hover,
-.nav-item:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  outline: 0;
-}
-
-.nav-item.is-active,
-.nav-item[aria-current="page"] {
-  background: #f7fbf8;
-  color: var(--dark-blue);
-  font-weight: 760;
-}
-
-.nav-item[aria-current="page"] {
-  box-shadow: inset 3px 0 0 var(--green);
-}
-
 .nav-icon {
   display: grid;
   width: 24px;
@@ -345,21 +236,10 @@ button {
   border-radius: 6px;
 }
 
-.source-box {
-  margin-top: auto;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius);
-  background: rgba(212, 237, 252, 0.08);
-}
-
-.source-box p {
-  margin: 0 0 8px;
-  line-height: 1.42;
-}
-
 .main-panel {
   min-width: 0;
+  max-width: 980px;
+  margin: 0 auto;
   padding: 24px;
 }
 
@@ -378,32 +258,6 @@ button {
 
 .topbar h2 {
   font-size: clamp(1.7rem, 4vw, 2.8rem);
-}
-
-.mobile-menu-toggle {
-  display: none;
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--ink);
-  place-items: center;
-}
-
-.hamburger {
-  display: inline-grid;
-  gap: 4px;
-  width: 22px;
-}
-
-.hamburger span {
-  display: block;
-  height: 2px;
-  border-radius: 2px;
-  background: currentColor;
 }
 
 .topbar-actions,
@@ -1177,32 +1031,11 @@ button:focus-visible {
 
 @media (max-width: 900px) {
   html, body {
-    font-size: 16.5px;
-  }
-
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .app-shell.sidebar-expanded {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    display: none;
-  }
-
-  /* Hamburger erstattes av bunnmeny på mobil */
-  .mobile-menu-toggle {
-    display: none;
-  }
-
-  .topbar-settings {
-    display: grid;
+    font-size: 17px;
   }
 
   .main-panel {
-    padding: calc(14px + env(safe-area-inset-top)) 14px calc(86px + env(safe-area-inset-bottom));
+    padding: calc(14px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom));
   }
 
   .topbar {
@@ -1356,10 +1189,14 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .topbar,
   .section-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  /* Toppbaren har bare tittel + to ikonknapper — hold den på én rad */
+  .topbar {
+    align-items: center;
   }
 
   .dashboard-grid,
@@ -1399,122 +1236,6 @@ button:focus-visible {
     font-size: 10rem;
     right: 8px;
     top: -10px;
-  }
-}
-
-/* === Mobil-meny (dropdown) + FAB === */
-
-.fab {
-  display: none;
-}
-
-.mobile-menu {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-}
-
-.mobile-menu[hidden] {
-  display: none;
-}
-
-.mobile-menu-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(7, 26, 51, 0.45);
-  opacity: 0;
-  transition: opacity 180ms ease;
-}
-
-.mobile-menu-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  max-height: 92vh;
-  overflow-y: auto;
-  padding: calc(14px + env(safe-area-inset-top)) 16px 18px;
-  background: var(--dark-blue);
-  color: #f7fbf8;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
-  transform: translateY(-110%);
-  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.mobile-menu.is-open .mobile-menu-backdrop {
-  opacity: 1;
-}
-
-.mobile-menu.is-open .mobile-menu-panel {
-  transform: translateY(0);
-}
-
-.mobile-menu-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  color: rgba(247, 251, 248, 0.78);
-}
-
-.mobile-menu-head .text-button {
-  color: #fff;
-}
-
-.mobile-menu-list {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.mobile-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  padding: 10px 14px;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  color: rgba(247, 251, 248, 0.86);
-  font-weight: 760;
-  text-align: left;
-  font-size: 1rem;
-}
-
-.mobile-menu-item span[aria-hidden] {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-  font-size: 1.1rem;
-}
-
-.mobile-menu-item.is-active,
-.mobile-menu-item[aria-current="page"] {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-body.menu-open {
-  overflow: hidden;
-}
-
-@media (max-width: 900px) {
-  /* Bunnmenyen erstatter FAB-en på mobil */
-  .fab {
-    display: none;
-  }
-
-  .topbar-actions .primary-button[data-view-jump="planner"] {
-    display: none;
   }
 }
 
@@ -1813,113 +1534,8 @@ html[data-theme="auto"] .star.is-on {
   background: var(--green);
 }
 
-.source-box-toggle {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.source-box-chevron {
-  transition: transform 0.2s ease;
-}
-
-.source-box.is-open .source-box-chevron {
-  transform: rotate(180deg);
-}
-
-.source-box-content {
-  display: grid;
-  gap: 8px;
-}
-
 .no-print {
   /* utility - hidden in print stylesheet below */
-}
-
-/* Sidebar accordion-only på små skjermer */
-@media (max-width: 900px) {
-  .source-box .source-box-content {
-    display: none;
-  }
-  .source-box.is-open .source-box-content {
-    display: grid;
-  }
-  .source-box-toggle {
-    padding: 4px 0;
-  }
-}
-
-@media (min-width: 901px) {
-  .source-box-toggle {
-    pointer-events: none;
-  }
-  .source-box-chevron {
-    display: none;
-  }
-
-  /* Hover-utvidelse av sidebar på desktop */
-  .app-shell:hover .sidebar[data-collapsed="true"],
-  .app-shell:focus-within .sidebar[data-collapsed="true"] {
-    /* Hover på sidebar (eller fokus i den) ekspanderer */
-  }
-
-  .sidebar:hover,
-  .sidebar:focus-within {
-    width: 272px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
-  }
-
-  /* Når sidebar hovrer, gjør app-shell sin første kolonne bredere */
-  .app-shell:has(.sidebar:hover),
-  .app-shell:has(.sidebar:focus-within) {
-    grid-template-columns: 272px minmax(0, 1fr);
-  }
-
-  /* Hover-effekt: vis tekst og kilde-boks */
-  .sidebar:hover .brand-text,
-  .sidebar:hover .nav-label,
-  .sidebar:hover .source-box,
-  .sidebar:focus-within .brand-text,
-  .sidebar:focus-within .nav-label,
-  .sidebar:focus-within .source-box {
-    opacity: 1;
-    pointer-events: auto;
-    transition: opacity 200ms ease 60ms;
-  }
-
-  .sidebar:hover .brand-logo-card,
-  .sidebar:focus-within .brand-logo-card {
-    width: 100%;
-    min-height: 76px;
-    padding: 12px;
-    margin: 0;
-  }
-
-  .sidebar:hover .brand-logo-card img,
-  .sidebar:focus-within .brand-logo-card img {
-    max-height: 62px;
-    object-position: left center;
-  }
-
-  .sidebar:hover .nav-item,
-  .sidebar:focus-within .nav-item {
-    grid-template-columns: 28px 1fr;
-    justify-items: stretch;
-    padding: 8px 10px;
-  }
-
-  .nav-item-settings {
-    margin-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    padding-top: 16px !important;
-  }
 }
 
 /* === Mørk modus: overstyrer hardkodede lyse farger === */
@@ -3630,16 +3246,65 @@ body.overlay-open {
   height: 24px;
 }
 
-/* Tannhjul i toppbar: kun på mobil (desktop har det i sidemenyen) */
-@media (min-width: 901px) {
-  .topbar-settings {
-    display: none;
-  }
+/* ---------- Hovednavigasjon: bunnmeny på mobil, venstre-rail på desktop ---------- */
+
+.bottom-nav-item {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius);
 }
 
-/* ---------- Bunnmeny (mobil) ---------- */
-.bottom-nav {
-  display: none;
+.bottom-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+}
+
+.bottom-nav-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bottom-nav-item.is-active,
+.bottom-nav-item[aria-current="page"] {
+  color: var(--blue);
+}
+
+/* Midtknappen: appens primærhandling (planlegg/logg en økt) */
+.bottom-nav-action {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-2) 100%);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 6px 16px rgba(0, 80, 160, 0.35);
+  cursor: pointer;
+}
+
+.bottom-nav-action span {
+  transform: translateY(-1px);
+}
+
+.bottom-nav-action:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
 }
 
 @media (max-width: 900px) {
@@ -3650,7 +3315,8 @@ body.overlay-open {
     bottom: 0;
     z-index: 90;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: 1fr 1fr 74px 1fr 1fr;
+    align-items: center;
     gap: 2px;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     background: var(--surface);
@@ -3658,40 +3324,59 @@ body.overlay-open {
     box-shadow: 0 -6px 18px rgba(10, 40, 80, 0.08);
   }
 
-  .bottom-nav-item {
-    display: grid;
-    justify-items: center;
-    align-content: center;
-    gap: 3px;
-    min-height: 52px;
-    padding: 4px 2px;
-    border: 0;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-  }
-
-  .bottom-nav-icon {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-  }
-
-  .bottom-nav-label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .bottom-nav-item.is-active,
-  .bottom-nav-item[aria-current="page"] {
-    color: var(--blue);
+  .bottom-nav-action {
+    margin-top: -22px;
+    border: 4px solid var(--surface);
   }
 
   body.menu-open .bottom-nav,
   body.overlay-open .bottom-nav {
     display: none;
+  }
+}
+
+@media (min-width: 901px) {
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    width: 88px;
+    padding: 18px 10px;
+    background: var(--dark-blue);
+  }
+
+  .bottom-nav-item {
+    color: rgba(247, 251, 248, 0.72);
+    width: 100%;
+  }
+
+  .bottom-nav-item:hover,
+  .bottom-nav-item:focus-visible {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    outline: 0;
+  }
+
+  .bottom-nav-item.is-active,
+  .bottom-nav-item[aria-current="page"] {
+    background: #f7fbf8;
+    color: var(--dark-blue);
+  }
+
+  .bottom-nav-action {
+    order: -1;
+    margin-bottom: 14px;
+  }
+
+  /* Skyv innholdet til høyre for railen — sentrering skjer i restflaten */
+  body {
+    padding-left: 88px;
   }
 }
 
@@ -4618,4 +4303,258 @@ html[data-theme="dark"] .exam-check.is-ok {
 html[data-theme="dark"] .tag-quiz {
   background: #0d2840;
   color: #5ab8f5;
+}
+
+/* ===========================================================
+   Redesign 2026: nye skall-komponenter
+   =========================================================== */
+
+/* Generell vertikal rytme for paneler som ligger rett i en visning */
+.view > .panel {
+  margin-bottom: 14px;
+}
+
+/* Tilbake-lenke øverst i undervisninger (planlegger, loggskjema, quiz m.m.) */
+.view-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-bottom: 10px;
+  padding: 8px 14px 8px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--blue);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.view-back:hover,
+.view-back:focus-visible {
+  background: rgba(0, 119, 218, 0.08);
+  outline: 0;
+}
+
+/* Progresjonskort på Hjem */
+.home-progress-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.home-progress-card:hover,
+.home-progress-card:focus-visible {
+  border-color: var(--blue);
+  outline: 0;
+}
+
+.home-progress-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-progress-line {
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.home-progress-arrow {
+  flex: 0 0 auto;
+  font-size: 1.4rem;
+  color: var(--blue);
+}
+
+.backup-nudge {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid #e7c97a;
+  border-radius: var(--radius);
+  background: #fdf6e3;
+  color: #6b5410;
+}
+
+html[data-theme="dark"] .backup-nudge {
+  background: #33290d;
+  border-color: #6b5410;
+  color: #e7c97a;
+}
+
+/* Planlister på Trening-flaten */
+.plan-row-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.plan-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface, #fff);
+}
+
+.plan-row > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.plan-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.plan-row-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.plan-row-chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.plan-row[open] .plan-row-chevron {
+  transform: rotate(180deg);
+}
+
+.plan-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+
+/* Loggskjemaet som egen undervisning */
+.log-single {
+  max-width: 720px;
+}
+
+/* Temafilter-chips i Oppslag */
+.reference-filter-chips {
+  margin: 10px 0 16px;
+}
+
+/* ---------- Handlingsark fra +-knappen ---------- */
+.action-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+}
+
+.action-sheet[hidden] {
+  display: none;
+}
+
+.action-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 26, 51, 0.55);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.action-sheet.is-open .action-sheet-backdrop {
+  opacity: 1;
+}
+
+.action-sheet-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 18px 18px 0 0;
+  background: var(--surface, #fff);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.25);
+  transform: translateY(105%);
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.action-sheet.is-open .action-sheet-panel {
+  transform: translateY(0);
+}
+
+.action-sheet-label {
+  margin: 0;
+  color: var(--muted);
+}
+
+.action-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong, #f4f9fd);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.action-sheet-item:hover,
+.action-sheet-item:focus-visible {
+  border-color: var(--blue);
+  outline: 0;
+}
+
+.action-sheet-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(0, 119, 218, 0.12);
+  color: var(--blue);
+}
+
+.action-sheet-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.action-sheet-text {
+  display: grid;
+  gap: 2px;
+}
+
+.action-sheet-text strong {
+  font-size: 1.05rem;
+}
+
+.action-sheet-text span:not(strong) {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.action-sheet-cancel {
+  justify-content: center;
+  min-height: 48px;
+}
+
+@media (min-width: 901px) {
+  .action-sheet-panel {
+    bottom: 24px;
+    border-radius: 18px;
+  }
 }
