@@ -1455,6 +1455,46 @@ export function moduleForFocus(focus) {
   return modules.find((m) => m.id === blueprint.module) || null;
 }
 
+/* ---------- Koblingen mellom læring og praksis ----------
+   Disse hjelperne binder en loggført økt til et læringstema, slik at praksis
+   kan oppdatere teorien og omvendt. Brukes av kreditering, migrering og UI. */
+
+// Entydig kartlegging fra økt-type til tema. «Momenttrening» er tvetydig (fire
+// mulige moduler) og krediteres derfor bare via plan/fokus, ikke via type.
+export const TYPE_TO_MODULE = {
+  Spor: "spor",
+  "Sporoppsøk": "oppsok",
+  "Frisøk med sporopptak": "oppsok",
+};
+
+// Hvilket fokus (øvelse) hører til et tema? Bruker temaets egen feltøvelse
+// (module.drill.focus), med fallback til første blueprint som peker på temaet.
+export function focusForModule(moduleId) {
+  const mod = modules.find((m) => m.id === moduleId);
+  if (mod?.drill?.focus && planBlueprints[mod.drill.focus]) return mod.drill.focus;
+  const entry = Object.entries(planBlueprints).find(([, b]) => b.module === moduleId);
+  return entry ? entry[0] : "";
+}
+
+// Plantitler er entydige (jf. planBlueprints). Gjør at eldre logger uten
+// lagret fokus likevel kan spores tilbake til riktig øvelse.
+export function planFocusByTitle(title) {
+  if (!title) return "";
+  const entry = Object.entries(planBlueprints).find(([, b]) => b.title === title);
+  return entry ? entry[0] : "";
+}
+
+// Det primære temaet en logg krediterer: lagret felt først, så fokus/plan,
+// så økt-type. Returnerer "" hvis økta ikke kan bindes til ett tema.
+export function moduleForLog(log) {
+  if (!log) return "";
+  const mod = modules.find((m) => m.id === log.module);
+  if (mod) return mod.id;
+  const focus = log.planFocus || planFocusByTitle(log.planTitle);
+  if (focus && planBlueprints[focus]) return planBlueprints[focus].module;
+  return TYPE_TO_MODULE[log.type] || "";
+}
+
 export const quizQuestions = [
   {
     id: "grunnlag-1",

@@ -2,8 +2,10 @@
 /* UI-laget: visninger, hendelser, overlays og oppstart (init). */
 import {
   diagrams,
+  focusForModule,
   focusOrder,
   moduleForFocus,
+  moduleForLog,
   modules,
   planBlueprints,
   protocols,
@@ -193,26 +195,30 @@ function renderBackupNudge() {
   nudge.innerHTML = `${unsaved} økter er ikke sikkerhetskopiert. <button class="text-button" type="button" data-view-jump="settings">Eksporter nå</button>`;
 }
 
-/* Logger krediteres en modul via planen de kom fra, eller via økt-type for
-   manuelle logger. «Momenttrening» er tvetydig (fire mulige moduler) og
-   krediteres derfor bare via plan. Grunnlaget trenes i enhver loggført økt. */
+/* Logger krediteres ett tema via `moduleForLog` (lagret felt → plan/fokus →
+   økt-type). «Momenttrening» er tvetydig (fire mulige moduler) og krediteres
+   derfor bare via plan/fokus. Grunnlaget trenes i enhver loggført økt. */
 function computeModuleLogCredit() {
-  const typeToModules = {
-    Spor: ["spor"],
-    "Sporoppsøk": ["oppsok"],
-    "Frisøk med sporopptak": ["oppsok"],
-  };
   const logsByModule = {};
-  const credit = (mod) => {
-    logsByModule[mod] = (logsByModule[mod] || 0) + 1;
-  };
   state.logs.forEach((l) => {
-    const bp = l.planTitle ? Object.values(planBlueprints).find((b) => b.title === l.planTitle) : null;
-    if (bp) credit(bp.module);
-    else (typeToModules[l.type] || []).forEach(credit);
+    const mod = moduleForLog(l);
+    if (mod) logsByModule[mod] = (logsByModule[mod] || 0) + 1;
   });
   if (state.logs.length && !logsByModule.grunnlag) logsByModule.grunnlag = 1;
   return logsByModule;
+}
+
+/* Sist trent på et tema — datostempel fra nyeste logg som krediterer temaet.
+   Brukes til å vise praksis-koblingen rett i læringsløypa. */
+function lastTrainedByModule() {
+  const byModule = {};
+  state.logs.forEach((l) => {
+    const mod = moduleForLog(l);
+    if (!mod) return;
+    const ts = logTimestamp(l);
+    if (ts > (byModule[mod] || 0)) byModule[mod] = ts;
+  });
+  return byModule;
 }
 
 /* De tre trinnene som gjør en modul prøveklar: lest, 60 % av quizspørsmålene
@@ -1817,7 +1823,10 @@ function saveQuickLog() {
     planId: quickLog.plan?.id || "",
     planTitle: quickLog.plan?.title || "",
     planPages: quickLog.plan?.pages || "",
+    planFocus: quickLog.plan?.focus || "",
   };
+  // Kobling til læring: bind økta til ett tema (via fokus eller økt-type).
+  log.module = moduleForLog(log);
   state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
   saveState();
   quickLog.savedCount += 1;
@@ -2299,6 +2308,7 @@ function prefillLogFromPlan(plan, options = {}) {
   form.dataset.planId = plan.id || "";
   form.dataset.planTitle = plan.title || "";
   form.dataset.planPages = plan.pages || "";
+  form.dataset.planFocus = plan.focus || "";
   [0, 1, 2].forEach((i) => {
     const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
     if (promptEl) promptEl.textContent = observations[i] || "";
@@ -2367,6 +2377,7 @@ function startEditLog(id) {
   form.dataset.planId = log.planId || "";
   form.dataset.planTitle = log.planTitle || "";
   form.dataset.planPages = log.planPages || "";
+  form.dataset.planFocus = log.planFocus || "";
   const hint = $("#logObservationHint");
   if (hint) {
     hint.textContent = log.planTitle
@@ -2986,11 +2997,15 @@ function initEvents() {
       const answer = (data[`obs${i}`] || "").trim();
       return { prompt, answer };
     });
+    const planFocus = form.dataset.planFocus || "";
     const planMeta = {
       planId: form.dataset.planId || "",
       planTitle: form.dataset.planTitle || "",
       planPages: form.dataset.planPages || "",
+      ...(planFocus ? { planFocus } : {}),
     };
+    // Kobling til læring: bind økta til ett tema (fokus → plantittel → type).
+    const moduleId = moduleForLog({ ...planMeta, type: data.type });
 
     const editId = form.dataset.editId || "";
     const editIndex = editId ? state.logs.findIndex((l) => l.id === editId) : -1;
@@ -3000,6 +3015,7 @@ function initEvents() {
       state.logs[editIndex] = {
         ...state.logs[editIndex],
         ...planMeta,
+        module: moduleId,
         date: data.date,
         type: data.type,
         handler: data.handler,
@@ -3045,6 +3061,7 @@ function initEvents() {
       next: data.next,
       observations,
       ...planMeta,
+      ...(moduleId ? { module: moduleId } : {}),
     };
     state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
     saveState();
@@ -3336,6 +3353,7 @@ function resetLogForm() {
   form.removeAttribute("data-plan-id");
   form.removeAttribute("data-plan-title");
   form.removeAttribute("data-plan-pages");
+  form.removeAttribute("data-plan-focus");
   [0, 1, 2].forEach((i) => {
     const promptEl = form.querySelector(`[data-obs-prompt="${i}"]`);
     if (promptEl) promptEl.textContent = "";
