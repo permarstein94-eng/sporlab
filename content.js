@@ -1467,13 +1467,16 @@ export const TYPE_TO_MODULE = {
   "Frisøk med sporopptak": "oppsok",
 };
 
-// Hvilket fokus (øvelse) hører til et tema? Bruker temaets egen feltøvelse
-// (module.drill.focus), med fallback til første blueprint som peker på temaet.
+// Hvilket fokus (øvelse) hører til et tema? For at koblingen skal lukkes må en
+// logget økt på dette fokuset kreditere SAMME tema — derfor prioriteres et
+// blueprint som peker tilbake på temaet, foran temaets generelle drill-øvelse
+// (drill.focus kan tilhøre et annet tema og brukes bare som fallback).
 export function focusForModule(moduleId) {
+  const entry = Object.entries(planBlueprints).find(([, b]) => b.module === moduleId);
+  if (entry) return entry[0];
   const mod = modules.find((m) => m.id === moduleId);
   if (mod?.drill?.focus && planBlueprints[mod.drill.focus]) return mod.drill.focus;
-  const entry = Object.entries(planBlueprints).find(([, b]) => b.module === moduleId);
-  return entry ? entry[0] : "";
+  return "";
 }
 
 // Plantitler er entydige (jf. planBlueprints). Gjør at eldre logger uten

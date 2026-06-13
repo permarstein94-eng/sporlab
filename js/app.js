@@ -43,18 +43,28 @@ import { importSnapshot, logsToCsv, readFileAsText, shareSnapshot } from "./snap
 import { buildQuizSession, ensureQuizSession, getWeakestQuestionId, questionsById } from "./quiz.js";
 
 const viewMeta = {
-  dashboard: ["E8 / E9 · NRH Romerike", "SporLab"],
-  training: ["Planer og loggførte økter", "Trening"],
-  learn: ["Læringsløype og quiz", "Lær"],
-  planner: ["Øktplanlegger", "Planlegg økt"],
-  log: ["Treningslogg", "Loggskjema"],
+  dashboard: ["Samlet progresjon · teori og praksis", "Oversikt"],
+  training: ["Feltmodus · planlegg og loggfør", "Felt"],
+  learn: ["Læringsmodus · løype og kontrollspørsmål", "Lær"],
+  planner: ["Feltmodus · øktplanlegger", "Planlegg økt"],
+  log: ["Feltmodus · treningslogg", "Loggskjema"],
   reference: ["Fagkort med sidehenvisninger", "Oppslag"],
-  quiz: ["Aktiv repetisjon", "Quiz"],
-  progress: ["Læringsløype og felt", "Progresjon"],
+  quiz: ["Læringsmodus · kontrollspørsmål", "Quiz"],
+  progress: ["Samlet progresjon · teori og praksis", "Progresjon"],
   settings: ["Data og utseende", "Innstillinger"],
 };
 
 const ALL_VIEWS = ["dashboard", "training", "learn", "planner", "log", "reference", "quiz", "progress", "settings"];
+
+// Hvilken av de to modulene en visning hører til. «Oversikt» er broen og er
+// bevisst nøytral. Brukes til å vise tydelig om du er i lærings- eller feltmodus.
+const viewDomain = {
+  learn: "learning",
+  quiz: "learning",
+  training: "field",
+  planner: "field",
+  log: "field",
+};
 
 // Visninger utenfor bunnmenyen markerer fanen de hører hjemme under.
 const navTabForView = {
@@ -116,6 +126,8 @@ function setView(view) {
   ALL_VIEWS.forEach((v) => {
     document.body.classList.toggle(`view-${v}`, view === v);
   });
+  // Tydelig modus-identitet: lærings- vs feltmodul (Oversikt er broen, nøytral).
+  document.body.dataset.domain = viewDomain[view] || "bridge";
   renderView(view);
   if (typeof window !== "undefined") {
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
@@ -170,12 +182,24 @@ function renderHomeProgress() {
   const done = state.completed.length;
   const progress = Math.round((done / modules.length) * 100);
   const logsByModule = computeModuleLogCredit();
+  const trained = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
   const ready = modules.filter((m) => {
     const c = moduleChecks(m, logsByModule);
     return c.isRead && c.quizOk && c.hasLog;
   }).length;
+  // Broen: teori og praksis samlet, med antall temaer som er både lært og trent.
   body.innerHTML = `
-    <p class="home-progress-line"><strong>${done} av ${modules.length}</strong> moduler lest · <strong>${state.logs.length}</strong> ${state.logs.length === 1 ? "økt" : "økter"} · <strong>${ready}</strong> prøveklar${ready === 1 ? "" : "e"}</p>
+    <div class="bridge-grid">
+      <div class="bridge-cell is-learning">
+        <span class="bridge-num">${done}/${modules.length}</span>
+        <span class="bridge-label">temaer mestret (læring)</span>
+      </div>
+      <div class="bridge-cell is-field">
+        <span class="bridge-num">${trained}/${modules.length}</span>
+        <span class="bridge-label">temaer trent (felt)</span>
+      </div>
+    </div>
+    <p class="home-progress-line"><strong>${ready} av ${modules.length}</strong> temaer er både lært og trent · <strong>${state.logs.length}</strong> ${state.logs.length === 1 ? "økt" : "økter"} logget</p>
     <div class="progress-bar" aria-hidden="true"><span style="width:${progress}%"></span></div>`;
 }
 
@@ -750,6 +774,40 @@ function computeNextStep() {
     };
   }
 
+  // Koblingen teori → praksis: et tema er lært, men ikke trent på ennå. Pek til
+  // feltmodulen med konkret fokus, så sirkelen mellom modulene lukkes.
+  const logsByModule = computeModuleLogCredit();
+  const learnedUntrained = modules.find((m) => completed.includes(m.id) && !(logsByModule[m.id] > 0));
+  if (learnedUntrained) {
+    const shortTitle = learnedUntrained.title.replace(/^\d+\.\s*/, "");
+    const focus = focusForModule(learnedUntrained.id);
+    // Finnes det allerede en plan for dette temaet? Da er neste steg å loggføre
+    // den — ikke å lage en ny. Slik lukkes sirkelen med færrest mulig trykk.
+    const planForModule = plans.find((p) => planBlueprints[p.focus]?.module === learnedUntrained.id);
+    if (planForModule) {
+      return {
+        tone: "primary",
+        eyebrow: "Fra teori til felt",
+        title: `Du har en plan for ${shortTitle} — loggfør økta`,
+        body: `Du har lært ${shortTitle} og laget planen «${planForModule.title}». Når dere har trent, loggfør den — da markeres temaet som «trent» og koblingen lukkes.`,
+        actionLabel: "Loggfør gjennomført",
+        actionData: `data-next-action="log-from-plan" data-plan-id="${escapeHtml(planForModule.id)}"`,
+        secondary: { label: "Eller fortsett i løypa", data: 'data-next-action="continue-learning"' },
+      };
+    }
+    return {
+      tone: "primary",
+      eyebrow: "Fra teori til felt",
+      title: `Du har lært ${shortTitle} — prøv det ute`,
+      body: `Du har mestret ${shortTitle} i læringsmodulen, men ikke trent på det i felt ennå. Planlegg en økt på dette, så markeres temaet som «trent» og koblingen lukkes.`,
+      actionLabel: `Planlegg ${shortTitle}`,
+      actionData: focus ? `data-drill-plan="${escapeHtml(focus)}"` : 'data-next-action="open-planner"',
+      secondary: firstUnreadModule
+        ? { label: "Eller fortsett i løypa", data: 'data-next-action="continue-learning"' }
+        : { label: "Eller repeter svake spørsmål", data: 'data-next-action="weak-quiz"' },
+    };
+  }
+
   // Har lest noe, ingen plan ennå
   if (completed.length && !plans.length) {
     const nextModuleHint = firstUnreadModule ? ` Når dere kommer tilbake fra felt: ${firstUnreadModule.title.replace(/^\d+\.\s*/, "")} står for tur.` : "";
@@ -832,38 +890,75 @@ function renderLearn() {
 }
 
 function renderLearnIntro() {
-  const progress = Math.round((state.completed.length / modules.length) * 100);
   const doneCount = state.completed.length;
+  const progress = Math.round((doneCount / modules.length) * 100);
   const logsByModule = computeModuleLogCredit();
-  const cards = modules
-    .map((module) => {
+  const trainedAt = lastTrainedByModule();
+  const trainedCount = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
+
+  // Myk rekkefølge: neste steg er det første uleste temaet, men alt er åpent.
+  const nextModule = modules.find((m) => !state.completed.includes(m.id));
+  const shortTitle = (m) => m.title.replace(/^\d+\.\s*/, "");
+  const fmtDay = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
+
+  const steps = modules
+    .map((module, i) => {
       const c = moduleChecks(module, logsByModule);
-      const done = c.isRead;
-      // Modulens tre trinn mot prøveklar — samme regler som eksamensklarheten.
-      const steps = [
-        { ok: c.isRead, label: "Lest" },
-        { ok: c.quizOk, label: `Quiz ${c.masteredQs}/${c.totalQs}` },
-        { ok: c.hasLog, label: "Trent" },
+      const stepState = c.isRead ? "done" : nextModule && module.id === nextModule.id ? "current" : "upcoming";
+      const trained = (logsByModule[module.id] || 0) > 0;
+      const trainedLabel = trained && trainedAt[module.id] ? `Trent · ${fmtDay(trainedAt[module.id])}` : "Trent";
+      const lights = [
+        { ok: c.isRead, label: "Lest", cls: "" },
+        { ok: c.quizOk, label: `Quiz ${c.masteredQs}/${c.totalQs}`, cls: "" },
+        { ok: trained, label: trainedLabel, cls: "is-trained" },
       ]
-        .map((s) => `<span class="exam-check ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
+        .map((s) => `<span class="loype-light ${s.cls} ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
         .join("");
       return `
-        <button class="learn-menu-card" data-module-open="${module.id}" data-done="${done}" type="button">
-          <h4>
-            <span>${escapeHtml(module.title)}</span>
-            ${done ? '<span class="done-mark" aria-label="Fullført">✓</span>' : ""}
-          </h4>
-          <p>${escapeHtml(module.summary)}</p>
-          <div class="tag-row">
-            <span class="tag">${escapeHtml(module.pages)}</span>
-            <span class="tag">${module.minutes} min</span>
-          </div>
-          <div class="module-steps">${steps}</div>
+        <button class="loype-step" data-state="${stepState}" data-module-open="${module.id}" type="button">
+          <span class="loype-step-num">${c.isRead ? "✓" : i + 1}</span>
+          <span class="loype-step-body">
+            <h4>${escapeHtml(module.title)}</h4>
+            <p>${escapeHtml(module.summary)}</p>
+            <span class="loype-lights">${lights}</span>
+          </span>
         </button>`;
     })
     .join("");
+
+  const nextStepHtml = nextModule
+    ? `<section class="loype-next">
+        <p class="eyebrow">Neste steg i løypa</p>
+        <h4>${escapeHtml(nextModule.title)}</h4>
+        <p class="small">${escapeHtml(nextModule.summary)}</p>
+        <button class="primary-button" data-module-open="${nextModule.id}" type="button">Åpne ${escapeHtml(shortTitle(nextModule))} →</button>
+      </section>`
+    : `<section class="loype-next">
+        <p class="eyebrow">Du har gått hele løypa</p>
+        <h4>Alle åtte temaer er mestret 🎉</h4>
+        <p class="small">Nå handler det om å bruke det i felt og holde kunnskapen skarp.</p>
+        <div class="button-row">
+          <button class="primary-button" data-next-action="open-planner" type="button">Planlegg en økt</button>
+          <button class="ghost-button" data-learn-quiz="weak" type="button">Repeter svake spørsmål</button>
+        </div>
+      </section>`;
+
   return `
     <article class="panel mini-quiz-card" id="miniQuizCard" hidden></article>
+
+    <header class="loype-header">
+      <span class="domain-pill domain-pill-learning">Læringsmodul</span>
+      <p class="eyebrow">Læringsløype · E8 Sporoppsøk og E9 Spor</p>
+      <h3>Et kurs du jobber deg gjennom — fra grunnlag til mål</h3>
+      <div class="loype-progress-ring">
+        <div class="loype-ring" style="--pct:${progress}"><span>${progress}%</span></div>
+        <div>
+          <p class="loype-position"><strong>${doneCount} av ${modules.length}</strong> temaer mestret</p>
+          <p class="small">${trainedCount} av ${modules.length} også trent i felt — koblingen til feltmodulen.</p>
+        </div>
+      </div>
+    </header>
+
     <button class="getting-started-card" type="button" data-open-getstarted>
       <div class="gs-card-icon" aria-hidden="true">▶</div>
       <div class="gs-card-body">
@@ -873,35 +968,16 @@ function renderLearnIntro() {
       </div>
       <span class="gs-card-arrow" aria-hidden="true">→</span>
     </button>
-    <section class="learn-intro">
-      <p class="eyebrow">Læringsløype · E8 Sporoppsøk og E9 Spor</p>
-      <h3>Slik henger heftet sammen</h3>
-      <p>
-        Læringsløypa følger den røde tråden fra E8/E9-heftet: først forstår vi <strong>grunnlaget</strong>
-        (motivasjon, utfordring, hjelp), så bygger vi <strong>sporet</strong> som ferdighet, deretter
-        <strong>sporoppsøket</strong> og <strong>gamle spor</strong>. Til slutt kommer momentene som løser
-        de praktiske problemene: <strong>retning</strong>, <strong>sportap</strong>,
-        <strong>kryssende spor</strong> og <strong>sirkelspor</strong>.
-      </p>
-      <div class="learn-thread">
-        <p><strong>Slik bruker du løypa:</strong></p>
-        <ol>
-          <li>Les én modul av gangen — innholdet er kort, men dypt.</li>
-          <li>Hver modul har <em>Kjernen</em>, <em>Teoridykk</em>, <em>Ute i felt</em> og <em>Refleksjon for laget</em>. Bare én er åpen om gangen.</li>
-          <li>Marker som fullført når dere har snakket gjennom modulen på laget.</li>
-          <li>Bruk «Quiz denne modulen» til å sikre at det sitter.</li>
-        </ol>
-      </div>
-      <div class="learn-progress">
-        <p class="small">Fullført: <strong>${doneCount} av ${modules.length} moduler</strong> (${progress}%).</p>
-        <div class="progress-bar" aria-label="Progresjon i læringsløypa"><span style="width:${progress}%"></span></div>
-      </div>
-    </section>
+
+    ${nextStepHtml}
+
     <section>
-      <p class="eyebrow">Innhold</p>
-      <h3 class="visually-hidden">Modulene i løypa</h3>
-      <div class="learn-menu">${cards}</div>
+      <p class="eyebrow">Hele løypa</p>
+      <h3 class="visually-hidden">Temaene i løypa</h3>
+      <p class="small">Hvert tema viser tre lys: <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Trykk på et tema for å lese, jobbe og markere som mestret.</p>
+      <div class="loype-list">${steps}</div>
     </section>
+
     <section class="panel learn-quiz-panel">
       <p class="eyebrow">Aktiv repetisjon</p>
       <h3>Quiz</h3>
@@ -916,6 +992,21 @@ function renderLearnIntro() {
 function renderLearnModule(moduleId) {
   const module = modules.find((item) => item.id === moduleId) || modules[0];
   const done = state.completed.includes(module.id);
+  // Koblingen til feltmodulen: er dette temaet trent på, og hvordan planlegges det?
+  const couplingFocus = focusForModule(module.id);
+  const trainedCount = computeModuleLogCredit()[module.id] || 0;
+  const trainedTs = lastTrainedByModule()[module.id];
+  const fmtTrained = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
+  const couplingBand = `
+    <div class="coupling-band">
+      <span class="coupling-text">
+        <span class="domain-pill domain-pill-field">Felt</span>
+        ${trainedCount
+          ? `<strong>Trent på ✓</strong> — sist ${escapeHtml(fmtTrained(trainedTs))} · ${trainedCount} ${trainedCount === 1 ? "økt" : "økter"} logget på dette temaet.`
+          : `<strong>Ikke trent i felt ennå.</strong> Når teorien sitter: prøv det ute, så markeres temaet som trent her.`}
+      </span>
+      ${couplingFocus ? `<button class="ghost-button small-button" data-drill-plan="${escapeHtml(couplingFocus)}" type="button">Planlegg i felt →</button>` : ""}
+    </div>`;
   const deepDive = theoryDeepDives[module.id] || [];
   const reflections = reflectionLibrary[module.id] || [module.reflection];
   const moduleIndex = modules.findIndex((m) => m.id === module.id);
@@ -991,6 +1082,8 @@ function renderLearnModule(moduleId) {
       </header>
 
       <p>${escapeHtml(module.summary)}</p>
+
+      ${couplingBand}
 
       <div class="learn-accordion">
         ${accordionItem("learn", "Kjernen", learnHtml)}
@@ -1068,19 +1161,35 @@ function renderPlanner() {
 }
 
 function renderWizardFocus() {
-  const cards = focusOrder
+  // Koblingen læring → praksis: temaer du har lest, men ikke trent på, foreslås
+  // øverst som fokus for økta. Det lukker sirkelen fra teori til felt.
+  const logsByModule = computeModuleLogCredit();
+  const isSuggested = (focusId) => {
+    const moduleId = planBlueprints[focusId]?.module;
+    return Boolean(moduleId && state.completed.includes(moduleId) && !(logsByModule[moduleId] > 0));
+  };
+  const orderedFocus = [...focusOrder].sort((a, b) => Number(isSuggested(b)) - Number(isSuggested(a)));
+
+  const cards = orderedFocus
     .map((focusId) => {
       const bp = planBlueprints[focusId];
       const moduleDef = moduleForFocus(focusId);
       const selected = state.currentPlan?.focus === focusId;
-      return `<button class="focus-card ${selected ? "is-selected" : ""}" data-pick-focus="${focusId}" type="button">
+      const suggested = isSuggested(focusId);
+      return `<button class="focus-card ${selected ? "is-selected" : ""} ${suggested ? "is-suggested" : ""}" data-pick-focus="${focusId}" type="button">
         <span class="focus-card-title">${escapeHtml(bp.title)}</span>
         <span class="focus-card-pages">${escapeHtml(bp.pages)}</span>
         <span class="focus-card-intro">${escapeHtml(bp.intro || "")}</span>
         ${moduleDef ? `<span class="focus-card-module">Modul: ${escapeHtml(moduleDef.title.replace(/^\d+\.\s*/, ""))}</span>` : ""}
+        ${suggested ? `<span class="focus-suggest-tag">Nylig lært · ikke trent ennå</span>` : ""}
       </button>`;
     })
     .join("");
+
+  const suggestedCount = focusOrder.filter(isSuggested).length;
+  const suggestLede = suggestedCount
+    ? `<p class="small">Øverst ligger ${suggestedCount === 1 ? "temaet du" : `de ${suggestedCount} temaene du`} nettopp har lært, men ikke trent på ennå.</p>`
+    : "";
 
   // Forrige økt-hint: vis "neste steg"-notat fra siste logg
   const newestLog = state.logs.length
@@ -1101,6 +1210,7 @@ function renderWizardFocus() {
         <p class="eyebrow">Steg 1 av 4 · ca. 1 min</p>
         <h3>Hva skal dere trene på i dag?</h3>
         <p class="wizard-lede">Velg ett fokus. Du kan endre detaljene senere — det viktigste er å låse hva økta handler om.</p>
+        ${suggestLede}
       </header>
       <div class="focus-grid">${cards}</div>
     </section>`;
