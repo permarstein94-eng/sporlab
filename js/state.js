@@ -1,10 +1,10 @@
 // @ts-check
 /* Tilstand og persistens: standardverdier, localStorage og schema-migrering.
    Eier den globale app-tilstanden (`state`). */
-import { planBlueprints, quizQuestions } from "../content.js";
+import { moduleForLog, planBlueprints, planFocusByTitle, quizQuestions } from "../content.js";
 
 export const STORAGE_KEY = "sporlab-e8-e9-v1";
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 // Tak for lagrede elementer. Romslige med vilje: localStorage tåler flere MB,
 // og å kaste brukerens treningshistorikk i stillhet er verre enn en full kvote
@@ -61,6 +61,8 @@ export const MAX_LOGS = 2000;
  * @property {string} planId
  * @property {string} planTitle
  * @property {string} planPages
+ * @property {string} [planFocus] Fokusnøkkel økta ble trent på (kobling til læring).
+ * @property {string} [module] Tema-id økta krediterer (kobling til læring).
  * @property {number} [updatedAt]
  * @property {string} [image] Historisk felt — fjernes ved migrering og deling.
  */
@@ -226,6 +228,24 @@ export function migrateState(stored) {
     // Lagret visning oversettes til fanen som eier innholdet nå.
     const viewMap = { quiz: "learn", planner: "training", log: "training" };
     if (viewMap[base.view]) base.view = viewMap[base.view];
+  }
+  if (fromVersion < 7) {
+    // Todelt redesign: en logg kobles nå eksplisitt til et læringstema via
+    // `module`/`planFocus`. Backfyll fra plantittel/økt-type så eldre logger
+    // krediterer riktig tema med den nye, robuste logikken. Ingenting slettes.
+    base.logs = (base.logs || []).map((log) => {
+      if (!log || typeof log !== "object") return log;
+      const next = { ...log };
+      if (!next.planFocus) {
+        const focus = planFocusByTitle(next.planTitle);
+        if (focus) next.planFocus = focus;
+      }
+      if (!next.module) {
+        const mod = moduleForLog(next);
+        if (mod) next.module = mod;
+      }
+      return next;
+    });
   }
   if (!base.quiz || !Array.isArray(base.quiz.questionIds)) {
     base.quiz = defaultQuizState();

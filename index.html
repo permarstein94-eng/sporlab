@@ -419,18 +419,18 @@
     <nav class="bottom-nav" id="bottomNav" aria-label="Hovednavigasjon">
       <button class="bottom-nav-item is-active" data-view="dashboard" type="button">
         <span class="bottom-nav-icon" data-icon="dashboard" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Hjem</span>
+        <span class="bottom-nav-label">Oversikt</span>
       </button>
-      <button class="bottom-nav-item" data-view="training" type="button">
-        <span class="bottom-nav-icon" data-icon="planner" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Trening</span>
+      <button class="bottom-nav-item nav-domain-learning" data-view="learn" type="button">
+        <span class="bottom-nav-icon" data-icon="learn" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Lær</span>
       </button>
       <button class="bottom-nav-action" id="navActionButton" type="button" aria-label="Ny økt — planlegg eller loggfør" aria-haspopup="true" aria-expanded="false">
         <span aria-hidden="true">+</span>
       </button>
-      <button class="bottom-nav-item" data-view="learn" type="button">
-        <span class="bottom-nav-icon" data-icon="learn" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Lær</span>
+      <button class="bottom-nav-item nav-domain-field" data-view="training" type="button">
+        <span class="bottom-nav-icon" data-icon="planner" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Felt</span>
       </button>
       <button class="bottom-nav-item" data-view="reference" type="button">
         <span class="bottom-nav-icon" data-icon="reference" aria-hidden="true"></span>
@@ -476,8 +476,10 @@
         </div>
 
         <div class="welcome-about" id="welcomeAbout">
-          <p>SporLab er felthefte og treningslogg for sporarbeid i NRH Romerike, bygget på leseheftet for E8 Sporoppsøk og E9 Spor.</p>
-          <p><strong>Slik henger det sammen:</strong> du lærer teorien under <strong>Lær</strong>, planlegger og loggfører øktene dine under <strong>Trening</strong> med <strong>+</strong>-knappen, og slår opp fagkort under <strong>Oppslag</strong> når du står ute.</p>
+          <p>SporLab er bygget på leseheftet for E8 Sporoppsøk og E9 Spor, og har to likeverdige deler som forsterker hverandre.</p>
+          <p><span class="domain-pill domain-pill-learning">Lær</span> <strong>Læringsmodulen</strong> er et kurs du jobber deg gjennom: les fagkort, svar på kontrollspørsmål og se hvor du er i løypa.</p>
+          <p><span class="domain-pill domain-pill-field">Felt</span> <strong>Praktisk verktøy</strong> er for trening ute: planlegg økt med <strong>+</strong>, loggfør raskt og følg progresjonen.</p>
+          <p><strong>Koblingen er kjernen:</strong> en logget økt markerer temaet som «trent på», og et lest tema foreslås som fokus i neste økt. <strong>Oversikt</strong> viser begge deler samlet.</p>
           <p>Alt lagres lokalt på din enhet — ingen konto, alltid offline.</p>
         </div>
 

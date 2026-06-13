@@ -4709,3 +4709,204 @@ html[data-theme="dark"] .ql-receipt-check {
     border-radius: 18px;
   }
 }
+
+/* ============================================================
+   Todelt struktur: lærings- og feltmodul (juni 2026-redesign)
+   To likeverdige moduler, tydelig adskilt med farge og merke,
+   men koblet i data og pedagogikk. Oversikt er den nøytrale broen.
+   ============================================================ */
+:root {
+  --domain-learning: #0077da;
+  --domain-learning-soft: #d4edfc;
+  --domain-field: #1f8a5b;
+  --domain-field-soft: #d8f0e4;
+}
+:root[data-theme="dark"],
+.dark-mode {
+  --domain-learning: #4ea8f5;
+  --domain-learning-soft: #14283e;
+  --domain-field: #5cc08a;
+  --domain-field-soft: #102a20;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --domain-learning: #4ea8f5;
+    --domain-learning-soft: #14283e;
+    --domain-field: #5cc08a;
+    --domain-field-soft: #102a20;
+  }
+}
+
+/* Modus-stripe over topplinjen: rolig, men gjør det umiddelbart tydelig
+   om du står i lærings- eller feltmodus. Oversikt får ingen stripe. */
+.topbar {
+  border-top: 3px solid transparent;
+  transition: border-color 0.2s ease;
+}
+body[data-domain="learning"] .topbar { border-top-color: var(--domain-learning); }
+body[data-domain="field"] .topbar { border-top-color: var(--domain-field); }
+body[data-domain="learning"] #viewEyebrow { color: var(--domain-learning); }
+body[data-domain="field"] #viewEyebrow { color: var(--domain-field); }
+
+/* Bunnmeny: aktiv fane fargelegges etter modulen den tilhører. */
+.bottom-nav-item.nav-domain-learning.is-active { color: var(--domain-learning); }
+.bottom-nav-item.nav-domain-field.is-active { color: var(--domain-field); }
+
+/* Modul-merke (pill) — brukes i intro og i løypa for å si «dette er læring/felt». */
+.domain-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.domain-pill-learning { background: var(--domain-learning-soft); color: var(--domain-learning); }
+.domain-pill-field { background: var(--domain-field-soft); color: var(--domain-field); }
+
+/* ---------- Læringsløype (interaktivt løp) ---------- */
+.loype-header {
+  background: linear-gradient(135deg, var(--domain-learning-soft), var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.loype-progress-ring {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 4px;
+}
+.loype-ring {
+  --pct: 0;
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: conic-gradient(var(--domain-learning) calc(var(--pct) * 1%), var(--line) 0);
+  display: grid;
+  place-items: center;
+}
+.loype-ring span {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+.loype-next {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--domain-learning);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+.loype-next .eyebrow { color: var(--domain-learning); }
+.loype-next h4 { margin: 2px 0 8px; }
+
+/* Stegene i løypa: vertikal sti med statuslys per tema. */
+.loype-list { display: flex; flex-direction: column; gap: 10px; }
+.loype-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  position: relative;
+}
+.loype-step:hover { border-color: var(--domain-learning); }
+.loype-step[data-state="current"] {
+  border-color: var(--domain-learning);
+  box-shadow: 0 0 0 2px var(--domain-learning-soft);
+}
+.loype-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--domain-learning-soft);
+  color: var(--domain-learning);
+}
+.loype-step[data-state="done"] .loype-step-num {
+  background: var(--domain-learning);
+  color: #fff;
+}
+.loype-step-body h4 { margin: 0 0 2px; font-size: 1rem; }
+.loype-step-body p { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+.loype-lights { display: flex; flex-wrap: wrap; gap: 6px; }
+.loype-light {
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.loype-light.is-ok { background: var(--domain-learning-soft); color: var(--domain-learning); font-weight: 600; }
+.loype-light.is-trained.is-ok { background: var(--domain-field-soft); color: var(--domain-field); }
+
+/* Koblingsbånd: viser praksis-status og lenke til felt inne i en modul. */
+.coupling-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  background: var(--domain-field-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-top: 16px;
+}
+.coupling-band .coupling-text { font-size: 0.9rem; color: var(--ink); }
+.coupling-band .coupling-text strong { color: var(--domain-field); }
+.coupling-band .domain-pill { flex: 0 0 auto; }
+
+/* Forslag i fokussteget: «lest, men ikke trent» løftes fram. */
+.focus-card.is-suggested {
+  border-color: var(--domain-field);
+  box-shadow: 0 0 0 2px var(--domain-field-soft);
+}
+.focus-suggest-tag {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--domain-field);
+  background: var(--domain-field-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* Oversikt: samlet teori + praksis (broen mellom modulene). */
+.bridge-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 8px 0;
+}
+.bridge-cell {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--surface);
+}
+.bridge-cell .bridge-num { font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+.bridge-cell .bridge-label { font-size: 0.8rem; color: var(--muted); }
+.bridge-cell.is-learning { border-top: 3px solid var(--domain-learning); }
+.bridge-cell.is-field { border-top: 3px solid var(--domain-field); }
