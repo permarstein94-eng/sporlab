@@ -1,0 +1,12 @@
+# Cache-styring for Cloudflare (Workers Static Assets / Pages leser denne fila).
+# Service-workeren og index.html må aldri caches hardt, ellers blir brukere
+# sittende fast på en gammel versjon. Resten håndteres av service-workeren.
+
+/service-worker.js
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache

@@ -66,15 +66,17 @@ const viewDomain = {
   log: "field",
 };
 
-// Visninger utenfor bunnmenyen markerer fanen de hører hjemme under.
+// Todelt «to dører»-modell: bunnmenyen har bare Hjem, + og Oppslag.
+// Lærings- og feltmodulen nås via de to dørene på Hjem, så de markerer ingen
+// fane (modus vises i stedet via topplinjefarge og «← Hjem»).
 const navTabForView = {
   dashboard: "dashboard",
   progress: "dashboard",
-  training: "training",
-  planner: "training",
-  log: "training",
-  learn: "learn",
-  quiz: "learn",
+  training: "",
+  planner: "",
+  log: "",
+  learn: "",
+  quiz: "",
   reference: "reference",
   settings: "",
 };
@@ -154,7 +156,7 @@ function renderView(view = state.view) {
 }
 
 function renderDashboard() {
-  $("#nextPlan").innerHTML = state.plans[0] ? planCard(state.plans[0], true) : emptyState("Lag en øktplan, så ligger neste økt klar her.");
+  renderDoors();
 
   const hero = $("#nextStepHero");
   if (hero) {
@@ -174,6 +176,47 @@ function renderDashboard() {
 
   renderHomeProgress();
   renderBackupNudge();
+}
+
+/* De to dørene på Hjem: lærings- og feltmodulen som likeverdige innganger.
+   Hver dør viser sin egen status, slik at todelingen er umiddelbart tydelig. */
+function renderDoors() {
+  const grid = $("#doorGrid");
+  if (!grid) return;
+  const short = (m) => m.title.replace(/^\d+\.\s*/, "");
+  const logsByModule = computeModuleLogCredit();
+
+  const done = state.completed.length;
+  const progressL = Math.round((done / modules.length) * 100);
+  const nextModule = modules.find((m) => !state.completed.includes(m.id));
+  const learnNext = nextModule
+    ? `Neste: ${escapeHtml(short(nextModule))}`
+    : "Hele løypa fullført 🎉";
+
+  const trained = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
+  const progressF = Math.round((trained / modules.length) * 100);
+  const logCount = state.logs.length;
+  const fieldNext = state.plans[0]
+    ? `Neste økt: ${escapeHtml(state.plans[0].title)}`
+    : "Ingen planer ennå — trykk + for å logge";
+
+  grid.innerHTML = `
+    <button class="door door-learning" data-view-jump="learn" type="button" aria-label="Åpne læringsmodulen">
+      <span class="domain-pill domain-pill-learning">Læringsmodul</span>
+      <h3>Lær</h3>
+      <p class="door-status">${done} av ${modules.length} temaer mestret</p>
+      <div class="progress-bar" aria-hidden="true"><span style="width:${progressL}%"></span></div>
+      <p class="door-next">${learnNext}</p>
+      <span class="door-arrow" aria-hidden="true">→</span>
+    </button>
+    <button class="door door-field" data-view-jump="training" type="button" aria-label="Åpne feltmodulen">
+      <span class="domain-pill domain-pill-field">Praktisk verktøy</span>
+      <h3>Felt</h3>
+      <p class="door-status">${logCount} ${logCount === 1 ? "økt" : "økter"} · ${trained} av ${modules.length} temaer trent</p>
+      <div class="progress-bar" aria-hidden="true"><span style="width:${progressF}%"></span></div>
+      <p class="door-next">${fieldNext}</p>
+      <span class="door-arrow" aria-hidden="true">→</span>
+    </button>`;
 }
 
 function renderHomeProgress() {
@@ -944,6 +987,7 @@ function renderLearnIntro() {
       </section>`;
 
   return `
+    <button class="view-back" data-view-jump="dashboard" type="button">← Hjem</button>
     <article class="panel mini-quiz-card" id="miniQuizCard" hidden></article>
 
     <header class="loype-header">
@@ -1071,7 +1115,7 @@ function renderLearnModule(moduleId) {
   return `
     <div class="learn-module">
       <header class="learn-module-head">
-        <button class="learn-back-button" type="button" data-learn-back>← Til oversikt</button>
+        <button class="learn-back-button" type="button" data-learn-back>← Løypa</button>
         <div>
           <p class="eyebrow">${escapeHtml(module.pages)} · ${module.minutes} min</p>
           <h3>${escapeHtml(module.title)}</h3>

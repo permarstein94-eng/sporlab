@@ -4910,3 +4910,64 @@ body[data-domain="field"] #viewEyebrow { color: var(--domain-field); }
 .bridge-cell .bridge-label { font-size: 0.8rem; color: var(--muted); }
 .bridge-cell.is-learning { border-top: 3px solid var(--domain-learning); }
 .bridge-cell.is-field { border-top: 3px solid var(--domain-field); }
+
+/* ============================================================
+   «To dører»-modell: Hjem som hub med to likeverdige innganger.
+   Bunnmeny redusert til Hjem · + · Oppslag; modulene nås via dørene.
+   ============================================================ */
+
+/* Bunnmeny med tre mål (Hjem, +, Oppslag) i stedet for fem. */
+.bottom-nav.bottom-nav-doors {
+  grid-template-columns: 1fr 74px 1fr;
+}
+
+.doors-lede {
+  margin: 18px 2px 8px;
+  color: var(--muted);
+}
+
+.door-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+@media (min-width: 620px) {
+  .door-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.door {
+  position: relative;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 150px;
+  padding: 20px 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.door:hover { transform: translateY(-2px); }
+.door:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.door h3 { margin: 6px 0 2px; font-size: 1.6rem; }
+.door .domain-pill { align-self: flex-start; }
+.door-status { font-weight: 600; color: var(--ink); margin: 4px 0 2px; }
+.door-next { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; padding-right: 26px; }
+.door-arrow { position: absolute; right: 18px; bottom: 16px; font-size: 1.4rem; color: var(--muted); }
+.door .progress-bar { margin: 2px 0; }
+
+.door-learning {
+  border-top: 4px solid var(--domain-learning);
+  background: linear-gradient(165deg, var(--domain-learning-soft), var(--surface) 62%);
+}
+.door-field {
+  border-top: 4px solid var(--domain-field);
+  background: linear-gradient(165deg, var(--domain-field-soft), var(--surface) 62%);
+}
+.door-learning .progress-bar span { background: var(--domain-learning); }
+.door-field .progress-bar span { background: var(--domain-field); }
