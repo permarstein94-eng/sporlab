@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers (Static Assets) – serverer SporLab som ren statisk PWA.
+  // build.sh kopierer KUN app-filene til dist/, så .git, tester og dokumenter
+  // aldri publiseres. Endre "name" for et annet *.workers.dev-subdomene.
+  "name": "sporlab",
+  "compatibility_date": "2026-06-14",
+  "assets": {
+    "directory": "dist"
+  }
+}
