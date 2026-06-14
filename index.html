@@ -36,20 +36,23 @@
         </header>
 
         <section class="view is-visible" id="dashboardView" aria-labelledby="viewTitle">
-          <article class="next-step-hero" id="nextStepHero" aria-live="polite"></article>
+          <div class="home-chooser">
+            <header class="home-chooser-head">
+              <div class="brand-logo-card home-chooser-logo">
+                <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
+              </div>
+              <p class="eyebrow">E8 Sporoppsøk · E9 Spor</p>
+              <h2>Hvor vil du jobbe i dag?</h2>
+              <p class="small home-chooser-lede">Velg en modul for å komme i gang. Du kan alltid bytte tilbake hit med «← Hjem».</p>
+            </header>
 
-          <p class="doors-lede small">To moduler som forsterker hverandre. Velg hvor du vil jobbe — du kan alltid bytte herfra.</p>
-          <div class="door-grid" id="doorGrid"></div>
+            <div class="door-grid door-grid-hero" id="doorGrid"></div>
 
-          <button class="panel home-progress-card" id="homeProgressCard" type="button" data-view-jump="progress">
-            <div class="home-progress-text">
-              <p class="eyebrow">Progresjon</p>
-              <div id="homeProgressBody"></div>
+            <div class="home-chooser-foot">
+              <button class="text-button" data-view-jump="progress" type="button">Se samlet progresjon på tvers →</button>
             </div>
-            <span class="home-progress-arrow" aria-hidden="true">→</span>
-          </button>
-
-          <p class="small backup-nudge" id="backupNudge" hidden></p>
+            <p class="small backup-nudge" id="backupNudge" hidden></p>
+          </div>
         </section>
 
         <section class="view" id="trainingView" aria-labelledby="viewTitle">

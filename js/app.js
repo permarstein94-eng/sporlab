@@ -156,25 +156,9 @@ function renderView(view = state.view) {
 }
 
 function renderDashboard() {
+  // Hjem er en ren valgskjerm: kun de to dørene. Brukeren tar et aktivt valg
+  // inn i lærings- eller feltmodulen. Samlet progresjon ligger ett trykk unna.
   renderDoors();
-
-  const hero = $("#nextStepHero");
-  if (hero) {
-    const next = computeNextStep();
-    hero.dataset.tone = next.tone || "primary";
-    hero.innerHTML = `
-      <p class="eyebrow">${escapeHtml(next.eyebrow)}</p>
-      <h3>${escapeHtml(next.title)}</h3>
-      <p class="next-step-body">${escapeHtml(next.body)}</p>
-      <div class="next-step-actions">
-        <button class="primary-button" type="button" ${next.actionData}>${escapeHtml(next.actionLabel)}</button>
-        ${next.secondary ? `<button class="text-button" type="button" ${next.secondary.data}>${escapeHtml(next.secondary.label)}</button>` : ""}
-      </div>
-      ${next.footnote ? `<p class="small next-step-footnote">${escapeHtml(next.footnote)}</p>` : ""}
-    `;
-  }
-
-  renderHomeProgress();
   renderBackupNudge();
 }
 
@@ -196,14 +180,21 @@ function renderDoors() {
   const trained = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
   const progressF = Math.round((trained / modules.length) * 100);
   const logCount = state.logs.length;
-  const fieldNext = state.plans[0]
-    ? `Neste økt: ${escapeHtml(state.plans[0].title)}`
-    : "Ingen planer ennå — trykk + for å logge";
+
+  // Koblingen synlig i selve døra: et lært-men-utrent tema løftes som forslag,
+  // så valget «inn i felt» bærer med seg det du nettopp lærte.
+  const learnedUntrained = modules.find((m) => state.completed.includes(m.id) && !(logsByModule[m.id] > 0));
+  const fieldNext = learnedUntrained
+    ? `Klar til felt: prøv ${escapeHtml(short(learnedUntrained))}`
+    : state.plans[0]
+      ? `Neste økt: ${escapeHtml(state.plans[0].title)}`
+      : "Ingen planer ennå — trykk + for å logge";
 
   grid.innerHTML = `
     <button class="door door-learning" data-view-jump="learn" type="button" aria-label="Åpne læringsmodulen">
       <span class="domain-pill domain-pill-learning">Læringsmodul</span>
       <h3>Lær</h3>
+      <p class="door-sub">Les fagkort, svar på kontrollspørsmål, følg løypa</p>
       <p class="door-status">${done} av ${modules.length} temaer mestret</p>
       <div class="progress-bar" aria-hidden="true"><span style="width:${progressL}%"></span></div>
       <p class="door-next">${learnNext}</p>
@@ -212,38 +203,12 @@ function renderDoors() {
     <button class="door door-field" data-view-jump="training" type="button" aria-label="Åpne feltmodulen">
       <span class="domain-pill domain-pill-field">Praktisk verktøy</span>
       <h3>Felt</h3>
+      <p class="door-sub">Planlegg økt, loggfør trening, se historikk</p>
       <p class="door-status">${logCount} ${logCount === 1 ? "økt" : "økter"} · ${trained} av ${modules.length} temaer trent</p>
       <div class="progress-bar" aria-hidden="true"><span style="width:${progressF}%"></span></div>
       <p class="door-next">${fieldNext}</p>
       <span class="door-arrow" aria-hidden="true">→</span>
     </button>`;
-}
-
-function renderHomeProgress() {
-  const body = $("#homeProgressBody");
-  if (!body) return;
-  const done = state.completed.length;
-  const progress = Math.round((done / modules.length) * 100);
-  const logsByModule = computeModuleLogCredit();
-  const trained = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
-  const ready = modules.filter((m) => {
-    const c = moduleChecks(m, logsByModule);
-    return c.isRead && c.quizOk && c.hasLog;
-  }).length;
-  // Broen: teori og praksis samlet, med antall temaer som er både lært og trent.
-  body.innerHTML = `
-    <div class="bridge-grid">
-      <div class="bridge-cell is-learning">
-        <span class="bridge-num">${done}/${modules.length}</span>
-        <span class="bridge-label">temaer mestret (læring)</span>
-      </div>
-      <div class="bridge-cell is-field">
-        <span class="bridge-num">${trained}/${modules.length}</span>
-        <span class="bridge-label">temaer trent (felt)</span>
-      </div>
-    </div>
-    <p class="home-progress-line"><strong>${ready} av ${modules.length}</strong> temaer er både lært og trent · <strong>${state.logs.length}</strong> ${state.logs.length === 1 ? "økt" : "økter"} logget</p>
-    <div class="progress-bar" aria-hidden="true"><span style="width:${progress}%"></span></div>`;
 }
 
 // Diskret påminnelse om sikkerhetskopi: all data bor i localStorage, som kan
@@ -770,153 +735,6 @@ function nextMiniQuiz() {
   miniQuizState.optionMap = shuffle(question.options.map((_, i) => i));
   miniQuizState.askedCount += 1;
   renderMiniQuiz();
-}
-
-function computeNextStep() {
-  const completed = state.completed || [];
-  const plans = state.plans || [];
-  const logs = state.logs || [];
-  const firstUnreadModule = modules.find((m) => !completed.includes(m.id));
-  const newestLog = logs.length ? [...logs].sort((a, b) => logTimestamp(b) - logTimestamp(a))[0] : null;
-  const daysSinceLog = newestLog && logTimestamp(newestLog)
-    ? Math.floor((Date.now() - logTimestamp(newestLog)) / (1000 * 60 * 60 * 24))
-    : null;
-
-  // Resume: aktiv modul som ikke er fullført — kun hvis ikke ny bruker
-  const activeMod = state.activeModule ? modules.find((m) => m.id === state.activeModule) : null;
-  const hasActiveResume = activeMod && !completed.includes(activeMod.id) && (completed.length || logs.length || plans.length);
-
-  // Helt ny bruker
-  if (!completed.length && !plans.length && !logs.length) {
-    return {
-      tone: "welcome",
-      eyebrow: "Velkommen til SporLab",
-      title: "Aldri gått spor med hunden før?",
-      body: "Start med en kort guide som tar deg gjennom kartlegging av hunden, valg av startmetode og hvordan en helt første sporøkt kan se ut. Hentet rett fra leseheftet.",
-      actionLabel: "Åpne «Før første spor»",
-      actionData: 'data-next-action="open-getstarted"',
-      secondary: { label: "Jeg har trent spor før — start Modul 1", data: 'data-next-action="start-module"' },
-      footnote: "Du kan komme tilbake hit når som helst.",
-    };
-  }
-
-  // Resume — kommer før andre forslag hvis bruker satt midt i en modul
-  if (hasActiveResume) {
-    const shortTitle = activeMod.title.replace(/^\d+\.\s*/, "");
-    return {
-      tone: "primary",
-      eyebrow: "Fortsett der du var",
-      title: `Du leste ${shortTitle} sist`,
-      body: activeMod.summary,
-      actionLabel: "Fortsett modulen",
-      actionData: 'data-next-action="resume-module"',
-      secondary: plans.length
-        ? { label: "Eller loggfør en gjennomført økt", data: `data-next-action="log-from-plan" data-plan-id="${escapeHtml(plans[0].id)}"` }
-        : { label: "Eller planlegg en økt", data: 'data-next-action="open-planner"' },
-      footnote: `${activeMod.minutes} min · ${activeMod.pages}`,
-    };
-  }
-
-  // Koblingen teori → praksis: et tema er lært, men ikke trent på ennå. Pek til
-  // feltmodulen med konkret fokus, så sirkelen mellom modulene lukkes.
-  const logsByModule = computeModuleLogCredit();
-  const learnedUntrained = modules.find((m) => completed.includes(m.id) && !(logsByModule[m.id] > 0));
-  if (learnedUntrained) {
-    const shortTitle = learnedUntrained.title.replace(/^\d+\.\s*/, "");
-    const focus = focusForModule(learnedUntrained.id);
-    // Finnes det allerede en plan for dette temaet? Da er neste steg å loggføre
-    // den — ikke å lage en ny. Slik lukkes sirkelen med færrest mulig trykk.
-    const planForModule = plans.find((p) => planBlueprints[p.focus]?.module === learnedUntrained.id);
-    if (planForModule) {
-      return {
-        tone: "primary",
-        eyebrow: "Fra teori til felt",
-        title: `Du har en plan for ${shortTitle} — loggfør økta`,
-        body: `Du har lært ${shortTitle} og laget planen «${planForModule.title}». Når dere har trent, loggfør den — da markeres temaet som «trent» og koblingen lukkes.`,
-        actionLabel: "Loggfør gjennomført",
-        actionData: `data-next-action="log-from-plan" data-plan-id="${escapeHtml(planForModule.id)}"`,
-        secondary: { label: "Eller fortsett i løypa", data: 'data-next-action="continue-learning"' },
-      };
-    }
-    return {
-      tone: "primary",
-      eyebrow: "Fra teori til felt",
-      title: `Du har lært ${shortTitle} — prøv det ute`,
-      body: `Du har mestret ${shortTitle} i læringsmodulen, men ikke trent på det i felt ennå. Planlegg en økt på dette, så markeres temaet som «trent» og koblingen lukkes.`,
-      actionLabel: `Planlegg ${shortTitle}`,
-      actionData: focus ? `data-drill-plan="${escapeHtml(focus)}"` : 'data-next-action="open-planner"',
-      secondary: firstUnreadModule
-        ? { label: "Eller fortsett i løypa", data: 'data-next-action="continue-learning"' }
-        : { label: "Eller repeter svake spørsmål", data: 'data-next-action="weak-quiz"' },
-    };
-  }
-
-  // Har lest noe, ingen plan ennå
-  if (completed.length && !plans.length) {
-    const nextModuleHint = firstUnreadModule ? ` Når dere kommer tilbake fra felt: ${firstUnreadModule.title.replace(/^\d+\.\s*/, "")} står for tur.` : "";
-    return {
-      tone: "primary",
-      eyebrow: "Klar for første økt?",
-      title: "Planlegg en økt — det tar 10 minutter",
-      body: `Du har fullført ${completed.length} ${completed.length === 1 ? "modul" : "moduler"}. Nå er det på tide å bygge en konkret økt og prøve det ute.${nextModuleHint}`,
-      actionLabel: "Start planleggeren",
-      actionData: 'data-next-action="open-planner"',
-      secondary: firstUnreadModule ? { label: `Les videre i løypa først`, data: 'data-next-action="continue-learning"' } : null,
-    };
-  }
-
-  // Har plan, ingen logg
-  if (plans.length && !logs.length) {
-    return {
-      tone: "primary",
-      eyebrow: "Planen ligger klar",
-      title: "Tren med planen og logg det dere så",
-      body: `Du har «${plans[0].title}» klar. Når dere har trent, loggfør de tre observasjonspunktene — det er der læringen festes.`,
-      actionLabel: "Loggfør gjennomført",
-      actionData: `data-next-action="log-from-plan" data-plan-id="${escapeHtml(plans[0].id)}"`,
-      secondary: { label: "Vis planen", data: 'data-next-action="open-planner"' },
-    };
-  }
-
-  // Inaktivitet (siste logg > 7 dager)
-  if (daysSinceLog !== null && daysSinceLog >= 7) {
-    return {
-      tone: "primary",
-      eyebrow: "Tid for ny økt",
-      title: `Det er ${daysSinceLog} dager siden sist`,
-      body: firstUnreadModule
-        ? `Repetisjon holder hunden skarp. Planlegg en ny økt — eller fortsett læringsløypa med ${firstUnreadModule.title.replace(/^\d+\.\s*/, "")}.`
-        : "Repetisjon holder hunden skarp. Planlegg en ny økt.",
-      actionLabel: "Planlegg ny økt",
-      actionData: 'data-next-action="open-planner"',
-      secondary: firstUnreadModule ? { label: "Les neste modul", data: 'data-next-action="continue-learning"' } : null,
-    };
-  }
-
-  // Har logg, fortsatt moduler igjen
-  if (firstUnreadModule) {
-    return {
-      tone: "primary",
-      eyebrow: "Neste i løypa",
-      title: firstUnreadModule.title,
-      body: firstUnreadModule.summary,
-      actionLabel: "Åpne modulen",
-      actionData: 'data-next-action="continue-learning"',
-      secondary: { label: "Planlegg en økt", data: 'data-next-action="open-planner"' },
-      footnote: `${firstUnreadModule.minutes} min lesing · ${firstUnreadModule.pages}`,
-    };
-  }
-
-  // Alle moduler er fullført
-  return {
-    tone: "success",
-    eyebrow: "Du har gått hele løypa",
-    title: "Hold formen — planlegg neste økt",
-    body: "Alle åtte moduler er fullført. Nå handler det om å bruke det i felt og loggføre observasjonene.",
-    actionLabel: "Planlegg ny økt",
-    actionData: 'data-next-action="open-planner"',
-    secondary: { label: "Repeter svake quiz-spørsmål", data: 'data-next-action="weak-quiz"' },
-  };
 }
 
 function renderLearn() {

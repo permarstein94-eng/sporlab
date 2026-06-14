@@ -4971,3 +4971,61 @@ body[data-domain="field"] #viewEyebrow { color: var(--domain-field); }
 }
 .door-learning .progress-bar span { background: var(--domain-learning); }
 .door-field .progress-bar span { background: var(--domain-field); }
+
+/* ============================================================
+   Hjem som ren valgskjerm: kun de to dørene. Brukeren tar et
+   aktivt valg inn i lærings- eller feltmodulen.
+   ============================================================ */
+.home-chooser {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 60vh;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+.home-chooser-head {
+  text-align: center;
+}
+.home-chooser-logo {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 12px;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+}
+.home-chooser-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.home-chooser-head h2 {
+  margin: 6px 0 6px;
+  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+}
+.home-chooser-lede {
+  max-width: 30rem;
+  margin: 0 auto;
+  color: var(--muted);
+}
+.home-chooser-foot {
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* Større, mer prominente dører på valgskjermen */
+.door-grid-hero .door {
+  min-height: 188px;
+  padding: 24px 22px 26px;
+}
+.door-grid-hero .door h3 {
+  font-size: 1.9rem;
+  margin: 8px 0 0;
+}
+.door-sub {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  padding-right: 26px;
+}
