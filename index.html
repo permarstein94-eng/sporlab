@@ -38,16 +38,8 @@
         <section class="view is-visible" id="dashboardView" aria-labelledby="viewTitle">
           <article class="next-step-hero" id="nextStepHero" aria-live="polite"></article>
 
-          <section class="panel dashboard-secondary">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Neste trening</p>
-                <h3>Neste økt</h3>
-              </div>
-              <button class="text-button" data-next-action="open-planner" type="button">Planlegg ny</button>
-            </div>
-            <div id="nextPlan"></div>
-          </section>
+          <p class="doors-lede small">To moduler som forsterker hverandre. Velg hvor du vil jobbe — du kan alltid bytte herfra.</p>
+          <div class="door-grid" id="doorGrid"></div>
 
           <button class="panel home-progress-card" id="homeProgressCard" type="button" data-view-jump="progress">
             <div class="home-progress-text">
@@ -61,6 +53,7 @@
         </section>
 
         <section class="view" id="trainingView" aria-labelledby="viewTitle">
+          <button class="view-back" data-view-jump="dashboard" type="button">← Hjem</button>
           <section class="panel">
             <div class="section-head">
               <div>
@@ -416,21 +409,13 @@
       </main>
     </div>
 
-    <nav class="bottom-nav" id="bottomNav" aria-label="Hovednavigasjon">
+    <nav class="bottom-nav bottom-nav-doors" id="bottomNav" aria-label="Hovednavigasjon">
       <button class="bottom-nav-item is-active" data-view="dashboard" type="button">
         <span class="bottom-nav-icon" data-icon="dashboard" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Oversikt</span>
-      </button>
-      <button class="bottom-nav-item nav-domain-learning" data-view="learn" type="button">
-        <span class="bottom-nav-icon" data-icon="learn" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Lær</span>
+        <span class="bottom-nav-label">Hjem</span>
       </button>
       <button class="bottom-nav-action" id="navActionButton" type="button" aria-label="Ny økt — planlegg eller loggfør" aria-haspopup="true" aria-expanded="false">
         <span aria-hidden="true">+</span>
-      </button>
-      <button class="bottom-nav-item nav-domain-field" data-view="training" type="button">
-        <span class="bottom-nav-icon" data-icon="planner" aria-hidden="true"></span>
-        <span class="bottom-nav-label">Felt</span>
       </button>
       <button class="bottom-nav-item" data-view="reference" type="button">
         <span class="bottom-nav-icon" data-icon="reference" aria-hidden="true"></span>
@@ -476,10 +461,10 @@
         </div>
 
         <div class="welcome-about" id="welcomeAbout">
-          <p>SporLab er bygget på leseheftet for E8 Sporoppsøk og E9 Spor, og har to likeverdige deler som forsterker hverandre.</p>
+          <p>SporLab er bygget på leseheftet for E8 Sporoppsøk og E9 Spor. På <strong>Hjem</strong> velger du mellom to likeverdige dører som forsterker hverandre.</p>
           <p><span class="domain-pill domain-pill-learning">Lær</span> <strong>Læringsmodulen</strong> er et kurs du jobber deg gjennom: les fagkort, svar på kontrollspørsmål og se hvor du er i løypa.</p>
           <p><span class="domain-pill domain-pill-field">Felt</span> <strong>Praktisk verktøy</strong> er for trening ute: planlegg økt med <strong>+</strong>, loggfør raskt og følg progresjonen.</p>
-          <p><strong>Koblingen er kjernen:</strong> en logget økt markerer temaet som «trent på», og et lest tema foreslås som fokus i neste økt. <strong>Oversikt</strong> viser begge deler samlet.</p>
+          <p><strong>Koblingen er kjernen:</strong> en logget økt markerer temaet som «trent på», og et lest tema foreslås som fokus i neste økt. <strong>Hjem</strong> viser begge deler samlet.</p>
           <p>Alt lagres lokalt på din enhet — ingen konto, alltid offline.</p>
         </div>
 

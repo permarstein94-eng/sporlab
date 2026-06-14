@@ -24,9 +24,11 @@ og så åpne adressen som vises (typisk http://localhost:3000).
 ## Innhold
 
 Appen er bygget rundt to likeverdige moduler som forsterker hverandre, koblet
-i data og pedagogikk. Bunnmenyen har fem mål — **Oversikt · Lær · + · Felt ·
-Oppslag** — der «+» åpner planlegging eller hurtiglogg. Du vet alltid om du er
-i lærings- eller feltmodus (farget topplinje og fane).
+i data og pedagogikk. **Hjem** er en hub med to store dører — **Lær** og
+**Felt** — som du går inn i én om gangen. Bunnmenyen er bevisst minimal:
+**Hjem · + · Oppslag**, der «+» alltid er tilgjengelig for rask planlegging og
+hurtiglogg i felt. Du vet alltid om du er i lærings- eller feltmodus (farget
+topplinje), og «← Hjem» tar deg tilbake til huben.
 
 **Læringsmodul (Lær)** — et interaktivt kurs du jobber deg gjennom:
 
@@ -48,8 +50,9 @@ i lærings- eller feltmodus (farget topplinje og fane).
 
 - En logget økt krediterer riktig tema og markerer det som «trent på»
 - Et lest-men-utrent tema foreslås øverst som fokus når du planlegger
-- **Oversikt** viser teori og praksis samlet (broen), med full progresjonsside
-  (grafer, eksamensklarhet og instruktørdeling)
+- **Hjem** viser de to dørene med hver sin status og teori + praksis samlet
+  (broen), med snarvei til full progresjonsside (grafer, eksamensklarhet og
+  instruktørdeling)
 
 **Oppslag** støtter begge: søkbare fagkort med sidehenvisninger, i detaljark
 med snarvei til modulen.
