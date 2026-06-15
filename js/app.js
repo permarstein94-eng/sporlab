@@ -768,7 +768,7 @@ function renderLearn() {
   const shell = $("#learnShell");
   if (!shell) return;
   if (state.activeGuide === "getting-started") {
-    shell.innerHTML = renderGettingStarted();
+    shell.innerHTML = renderGettingStarted(state.gettingStartedAnswers);
     initGettingStartedStepper();
   } else if (state.activeModule) {
     shell.innerHTML = renderLearnModule(state.activeModule);
@@ -3653,6 +3653,48 @@ function initGettingStartedStepper() {
   // Mål kortet etter at det er lagt ut, ellers blir høyden 0 ved første tegning.
   requestAnimationFrame(() => setGsStep(gsStep));
   initGsSwipe();
+
+  // Avkryssing/radio for kartleggingsspørsmålene lagres umiddelbart.
+  track.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-gs-question]");
+    if (input) {
+      const id = input.dataset.gsQuestion;
+      const option = input.dataset.gsOption;
+      const multi = input.dataset.gsMulti === "1";
+      const answers = state.gettingStartedAnswers;
+      const entry = answers[id] || {};
+      const current = entry.options || [];
+      const next = multi
+        ? input.checked
+          ? [...current, option]
+          : current.filter((o) => o !== option)
+        : [option];
+      answers[id] = { ...entry, options: next };
+      saveState();
+    }
+  });
+
+  // Når et metodekort åpnes/lukkes endres kortets høyde. "toggle" bobler ikke
+  // i alle nettlesere, så vi lytter med capture på selve treet.
+  track.addEventListener(
+    "toggle",
+    () => {
+      setGsStep(gsStep);
+    },
+    true
+  );
+
+  // Fritekstnotater lagres mens brukeren skriver, og høyden måles på nytt
+  // siden tekstfeltet kan vokse (resize: vertical).
+  track.addEventListener("input", (event) => {
+    const note = event.target.closest("[data-gs-note]");
+    if (!note) return;
+    const id = note.dataset.gsNote;
+    const answers = state.gettingStartedAnswers;
+    answers[id] = { ...(answers[id] || {}), note: note.value };
+    saveState();
+    setGsStep(gsStep);
+  });
 }
 
 function setGsStep(index) {

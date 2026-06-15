@@ -4072,16 +4072,65 @@ html[data-theme="dark"] .heat-0 {
   background: linear-gradient(180deg, rgba(0, 119, 218, 0.05), var(--surface));
 }
 
-.gs-questions {
-  margin: 0;
-  padding-left: 20px;
+.gs-question-list {
   display: grid;
-  gap: 6px;
+  gap: 16px;
+}
+
+.gs-question {
+  display: grid;
+  gap: 8px;
+}
+
+.gs-question-text {
+  margin: 0;
   line-height: 1.5;
 }
 
-.gs-questions li {
-  list-style: "→  ";
+.gs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gs-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.gs-option input {
+  accent-color: var(--blue);
+}
+
+.gs-option:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--light-blue);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.gs-note {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.gs-note:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
 }
 
 .start-methods {
@@ -4240,19 +4289,6 @@ html[data-theme="dark"] .heat-0 {
 
 .gs-hint {
   color: var(--muted);
-}
-
-.gs-method-suits {
-  color: var(--muted);
-}
-
-.gs-method-suits strong {
-  color: var(--ink);
-}
-
-.gs-card-dashed {
-  border-style: dashed;
-  background: var(--surface-strong);
 }
 
 .gs-card-callout {
