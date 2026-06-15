@@ -135,6 +135,8 @@ export function sanitizeLog(raw) {
     planId: asText(raw.planId, 64),
     planTitle: asText(raw.planTitle, 200),
     planPages: asText(raw.planPages, 100),
+    ...(raw.planFocus ? { planFocus: asText(raw.planFocus, 64) } : {}),
+    ...(raw.module ? { module: asText(raw.module, 64) } : {}),
     ...(Number(raw.updatedAt) ? { updatedAt: Number(raw.updatedAt) } : {}),
   };
 }

@@ -92,6 +92,42 @@ test("migrateState v4 → v5", async (t) => {
   });
 });
 
+test("migrateState v6 → v7 (kobling læring ↔ praksis)", async (t) => {
+  await t.test("backfyller module/planFocus fra plantittel", async () => {
+    const { migrateState } = await loadApp();
+    const migrated = migrateState({
+      schemaVersion: 6,
+      logs: [{ id: "l1", planTitle: "Spor med lang liggetid", type: "Spor" }],
+    });
+    assert.equal(migrated.logs[0].planFocus, "gamle-spor");
+    assert.equal(migrated.logs[0].module, "gamle");
+  });
+
+  await t.test("backfyller module fra økt-type når plan mangler", async () => {
+    const { migrateState } = await loadApp();
+    const migrated = migrateState({
+      schemaVersion: 6,
+      logs: [
+        { id: "l1", type: "Sporoppsøk" },
+        { id: "l2", type: "Momenttrening" },
+      ],
+    });
+    assert.equal(migrated.logs[0].module, "oppsok");
+    // Momenttrening er tvetydig uten plan → ikke kreditert til ett tema.
+    assert.ok(!migrated.logs[1].module);
+  });
+
+  await t.test("rører ikke logger som allerede har module", async () => {
+    const { migrateState } = await loadApp();
+    const migrated = migrateState({
+      schemaVersion: 6,
+      logs: [{ id: "l1", type: "Spor", module: "retning", planFocus: "retning" }],
+    });
+    assert.equal(migrated.logs[0].module, "retning");
+    assert.equal(migrated.logs[0].planFocus, "retning");
+  });
+});
+
 test("importSnapshot", async (t) => {
   await t.test("kaster på ugyldig fil", async () => {
     const api = await loadApp();
@@ -138,6 +174,15 @@ test("importSnapshot", async (t) => {
     assert.equal(log.id, "ok-id_1");
     assert.equal(log.rating, "5");
     assert.equal(log.type, "");
+
+    // Koblingsfeltene skal overleve sanitering når de finnes.
+    const coupled = api.importSnapshot({
+      logs: [{ id: "coupled_1", date: "2026-02-02", module: "gamle", planFocus: "gamle-spor" }],
+    });
+    assert.deepEqual(coupled, { plans: 0, logs: 1 });
+    const couplingLog = api.getState().logs.find((l) => l.id === "coupled_1");
+    assert.equal(couplingLog.module, "gamle");
+    assert.equal(couplingLog.planFocus, "gamle-spor");
 
     assert.deepEqual(state.completed, ["grunnlag"]);
     assert.deepEqual(Object.keys(state.mastery), [api.quizQuestions[0].id]);

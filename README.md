@@ -23,19 +23,39 @@ og så åpne adressen som vises (typisk http://localhost:3000).
 
 ## Innhold
 
-Appen har fire faner — Hjem, Trening, Lær og Oppslag — pluss en sentral
-«+»-knapp som åpner planlegging eller hurtiglogg:
+Appen er bygget rundt to likeverdige moduler som forsterker hverandre, koblet
+i data og pedagogikk. **Hjem** er en hub med to store dører — **Lær** og
+**Felt** — som du går inn i én om gangen. Bunnmenyen er bevisst minimal:
+**Hjem · + · Oppslag**, der «+» alltid er tilgjengelig for rask planlegging og
+hurtiglogg i felt. Du vet alltid om du er i lærings- eller feltmodus (farget
+topplinje), og «← Hjem» tar deg tilbake til huben.
 
-- **Hjem**: neste anbefalte steg, neste økt og progresjonskort (åpner full
-  progresjonsside med grafer, eksamensklarhet og instruktørdeling)
-- **Trening**: lagrede øktplaner (med feltmodus, utskrift og QR-deling) og
-  hele treningsloggen med filtre
-- **Lær**: læringsløype med åtte moduler, teoridykk, «Dagens spørsmål» og
-  quiz (alle moduler / svake spørsmål / per modul)
-- **Oppslag**: søkbare fagkort med sidehenvisninger til heftet, åpnes i
-  detaljark med snarvei til modulen
-- **Hurtiglogg**: stegvis loggføring bygget for felt (store treffflater,
-  ett tema per skjerm, «logg neste hund» for lagstrening)
+**Læringsmodul (Lær)** — et interaktivt kurs du jobber deg gjennom:
+
+- Læringsløype med åtte temaer i myk rekkefølge: progresjonsring, tydelig
+  «hvor er du» og «neste steg»
+- Hvert tema har Kjernen, Teoridykk, Ute i felt og Refleksjon, kontrollspørsmål
+  (quiz) og «marker som mestret»
+- Tre statuslys per tema: **Lest** (teori), **Quiz** (kontroll) og **Trent**
+  (felt) — det siste kommer fra feltmodulen
+
+**Praktisk verktøy (Felt)** — planlegging og loggføring av reell trening:
+
+- Lagrede øktplaner (med feltmodus, utskrift og QR-deling)
+- Hurtiglogg bygget for felt: store treffflater, ett tema per skjerm, «logg
+  neste hund» for lagstrening
+- Hele treningsloggen med filtre
+
+**Koblingen mellom modulene er kjernen:**
+
+- En logget økt krediterer riktig tema og markerer det som «trent på»
+- Et lest-men-utrent tema foreslås øverst som fokus når du planlegger
+- **Hjem** viser de to dørene med hver sin status og teori + praksis samlet
+  (broen), med snarvei til full progresjonsside (grafer, eksamensklarhet og
+  instruktørdeling)
+
+**Oppslag** støtter begge: søkbare fagkort med sidehenvisninger, i detaljark
+med snarvei til modulen.
 
 Data lagres lokalt i nettleseren.
 
