@@ -37,7 +37,7 @@ Du tester om appen er:
 ### På mobil (anbefalt):
 
 1. Åpne nettleseren (Chrome på Android, Safari på iPhone)
-2. Gå til: **https://sporhandboka.netlify.app/**
+2. Gå til: **https://sporlab.per-marstein-94.workers.dev/**
 3. Du får et velkomstvindu. Følg intro-guiden.
 4. **Legg til på hjemskjermen:**
    - **iPhone:** Trykk på Del-ikonet → "Legg til på Hjem-skjerm"

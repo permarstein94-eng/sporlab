@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Netlify Dev (matcher prod)",
+      "name": "Wrangler dev (matcher prod – Cloudflare Workers)",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["netlify-cli", "dev", "--dir", ".", "--port", "8888"],
-      "port": 8888
+      "runtimeArgs": ["wrangler", "dev"],
+      "port": 8787
     },
     {
       "name": "npx serve (rask, ingen headers)",
