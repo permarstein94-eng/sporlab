@@ -1509,9 +1509,6 @@ export function renderGettingStarted(answers = {}) {
       </div>
     </div>`);
 
-  const slidesHtml = slides.map((s) => `<article class="gs-slide" role="group" aria-roledescription="kort">${s}</article>`).join("");
-  const dotsHtml = slides.map((_, i) => `<span class="gs-dot${i === 0 ? " is-active" : ""}"></span>`).join("");
-
   return `
     <section class="getting-started gs-carousel">
       <button class="text-button gs-back" type="button" data-close-getstarted>◀ Tilbake til løypa</button>
@@ -1519,20 +1516,29 @@ export function renderGettingStarted(answers = {}) {
         <p class="eyebrow">Før første spor · ${escapeHtml(g.pages)}</p>
         <h3>Aller første sporøkt med hunden</h3>
       </header>
-
-      <div class="gs-viewport" id="gsViewport">
-        <div class="gs-track" id="gsTrack">${slidesHtml}</div>
-      </div>
-
-      <div class="gs-cardfooter">
-        <div class="gs-dots" id="gsDots" aria-hidden="true">${dotsHtml}</div>
-        <p class="gs-progress" id="gsProgress" aria-live="polite">Kort 1 av ${slides.length}</p>
-        <div class="gs-nav">
-          <button class="text-button gs-prev" id="gsPrev" type="button" hidden>← Forrige</button>
-          <button class="primary-button gs-next" id="gsNext" type="button">Neste</button>
-        </div>
-      </div>
+      ${renderCardCarousel(slides)}
     </section>`;
+}
+
+// Felles karusell-markup (track/viewport/prikker/navigasjon) for en liste med
+// kort-HTML. Brukes av både «Aller første sporøkt» og læringsmodulene, slik at
+// de deler samme bla-gjennom-mønster og stepper-logikk (se initCardStepper i app.js).
+export function renderCardCarousel(slides) {
+  const slidesHtml = slides.map((s) => `<article class="gs-slide" role="group" aria-roledescription="kort">${s}</article>`).join("");
+  const dotsHtml = slides.map((_, i) => `<span class="gs-dot${i === 0 ? " is-active" : ""}"></span>`).join("");
+
+  return `
+    <div class="gs-viewport" id="gsViewport">
+      <div class="gs-track" id="gsTrack">${slidesHtml}</div>
+    </div>
+    <div class="gs-cardfooter">
+      <div class="gs-dots" id="gsDots" aria-hidden="true">${dotsHtml}</div>
+      <p class="gs-progress" id="gsProgress" aria-live="polite">Kort 1 av ${slides.length}</p>
+      <div class="gs-nav">
+        <button class="text-button gs-prev" id="gsPrev" type="button" hidden>← Forrige</button>
+        <button class="primary-button gs-next" id="gsNext" type="button">Neste</button>
+      </div>
+    </div>`;
 }
 
 export const focusOrder = [
