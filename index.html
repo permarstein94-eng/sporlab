@@ -451,31 +451,68 @@
 
     <div class="welcome-overlay" id="welcomeOverlay" hidden aria-hidden="true">
       <div class="welcome-backdrop" data-close-welcome></div>
-      <div class="welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" aria-describedby="welcomeAbout">
+      <div class="welcome-dialog welcome-intro" role="dialog" aria-modal="true" aria-label="Introduksjon til SporLab">
         <button class="welcome-close" data-close-welcome type="button" aria-label="Lukk introduksjon">✕</button>
-        <div class="welcome-brand">
-          <div class="brand-logo-card">
-            <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
-          </div>
-          <div class="welcome-brand-text">
-            <p class="eyebrow">E8 / E9</p>
-            <h2 id="welcomeTitle">Velkommen til SporLab</h2>
+
+        <div class="intro-viewport" id="introViewport">
+          <div class="intro-track" id="introTrack">
+
+            <section class="intro-slide" role="group" aria-roledescription="lysbilde" aria-label="Steg 1 av 3">
+              <div class="brand-logo-card intro-logo">
+                <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
+              </div>
+              <p class="eyebrow">SporLab · E8 / E9</p>
+              <h2 class="intro-title">To dører inn — du velger</h2>
+              <div class="intro-doors" aria-hidden="true">
+                <div class="intro-door intro-door-learning">
+                  <span class="intro-door-icon" data-icon="learn"></span>
+                  <span class="domain-pill domain-pill-learning">Lær</span>
+                </div>
+                <div class="intro-door intro-door-field">
+                  <span class="intro-door-icon" data-icon="planner"></span>
+                  <span class="domain-pill domain-pill-field">Felt</span>
+                </div>
+              </div>
+              <p class="intro-caption"><strong>Lær</strong> er kurset du leser deg gjennom. <strong>Felt</strong> er verktøyet for trening ute. To likeverdige dører — start der du vil.</p>
+            </section>
+
+            <section class="intro-slide" role="group" aria-roledescription="lysbilde" aria-label="Steg 2 av 3">
+              <div class="intro-link-art" aria-hidden="true">
+                <span class="domain-pill domain-pill-learning">Lær</span>
+                <span class="intro-link-arrows">⇄</span>
+                <span class="domain-pill domain-pill-field">Felt</span>
+              </div>
+              <h2 class="intro-title">De to henger sammen</h2>
+              <ul class="intro-points">
+                <li><span class="intro-point-icon" data-icon="log" aria-hidden="true"></span> Loggfør en økt, og temaet blir markert som <strong>trent på</strong>.</li>
+                <li><span class="intro-point-icon" data-icon="learn" aria-hidden="true"></span> Les et tema, og det foreslås som <strong>fokus</strong> i neste økt.</li>
+              </ul>
+              <p class="intro-caption">Hjem viser begge deler samlet, så du alltid ser neste steg.</p>
+            </section>
+
+            <section class="intro-slide" role="group" aria-roledescription="lysbilde" aria-label="Steg 3 av 3">
+              <div class="intro-private-art" aria-hidden="true">🔒</div>
+              <h2 class="intro-title">Alt bor på din enhet</h2>
+              <p class="intro-caption intro-caption-lead">Ingen konto, ingen innlogging. Dataene dine lagres lokalt, og appen virker offline — også ute i skogen.</p>
+              <p class="intro-caption">Klar? Vi tar deg gjennom det aller første sporet.</p>
+            </section>
+
           </div>
         </div>
 
-        <div class="welcome-about" id="welcomeAbout">
-          <p>SporLab er bygget på leseheftet for E8 Sporoppsøk og E9 Spor. På <strong>Hjem</strong> velger du mellom to likeverdige dører som forsterker hverandre.</p>
-          <p><span class="domain-pill domain-pill-learning">Lær</span> <strong>Læringsmodulen</strong> er et kurs du jobber deg gjennom: les fagkort, svar på kontrollspørsmål og se hvor du er i løypa.</p>
-          <p><span class="domain-pill domain-pill-field">Felt</span> <strong>Praktisk verktøy</strong> er for trening ute: planlegg økt med <strong>+</strong>, loggfør raskt og følg progresjonen.</p>
-          <p><strong>Koblingen er kjernen:</strong> en logget økt markerer temaet som «trent på», og et lest tema foreslås som fokus i neste økt. <strong>Hjem</strong> viser begge deler samlet.</p>
-          <p>Alt lagres lokalt på din enhet — ingen konto, alltid offline.</p>
+        <div class="intro-footer">
+          <div class="intro-dots" id="introDots" aria-hidden="true">
+            <span class="intro-dot is-active"></span>
+            <span class="intro-dot"></span>
+            <span class="intro-dot"></span>
+          </div>
+          <p class="intro-progress visually-hidden" id="introProgress" aria-live="polite">Steg 1 av 3</p>
+          <div class="intro-nav">
+            <button class="text-button intro-back" id="introBack" type="button" hidden>← Tilbake</button>
+            <button class="primary-button intro-next" id="introNext" type="button">Neste</button>
+          </div>
+          <button class="text-button intro-skip" id="introSkip" data-close-welcome type="button">Hopp inn i appen →</button>
         </div>
-
-        <div class="welcome-actions">
-          <button class="primary-button" id="welcomeGetStarted" type="button">Ny med spor? Åpne «Før første spor»</button>
-          <button class="text-button" data-close-welcome type="button">Hopp inn i appen →</button>
-        </div>
-        <p class="small welcome-footnote">Du finner denne siden igjen via «?» øverst.</p>
       </div>
     </div>
 

@@ -3462,8 +3462,63 @@ function initActionSheet() {
 
 /* ---------- Introduksjon (énskjerms velkomst) ---------- */
 
-function openWelcome() {
+// Stegvis intro: tre sveipbare kort. Vi husker hvem som åpnet den, så
+// fokus kan føres tilbake når den lukkes (tastaturvennlig dialog).
+const INTRO_COUNT = 3;
+let introStep = 0;
+let welcomeOpener = null;
+
+function openWelcome(event) {
+  welcomeOpener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+  setIntroStep(0);
   openOverlay($("#welcomeOverlay"));
+  // Flytt fokus inn i dialogen så piltaster og Tab oppfører seg som ventet.
+  requestAnimationFrame(() => $("#introNext")?.focus());
+}
+
+function setIntroStep(index) {
+  const track = $("#introTrack");
+  if (!track) return;
+  introStep = Math.max(0, Math.min(INTRO_COUNT - 1, index));
+  track.style.transform = `translateX(-${introStep * 100}%)`;
+
+  $all("#introDots .intro-dot").forEach((dot, i) => {
+    dot.classList.toggle("is-active", i === introStep);
+  });
+
+  const isLast = introStep === INTRO_COUNT - 1;
+  const back = $("#introBack");
+  if (back) back.hidden = introStep === 0;
+  const next = $("#introNext");
+  if (next) next.textContent = isLast ? "Åpne «Før første spor» →" : "Neste";
+  const skip = $("#introSkip");
+  if (skip) skip.textContent = isLast ? "Hopp inn i appen →" : "Hopp over";
+  const progress = $("#introProgress");
+  if (progress) progress.textContent = `Steg ${introStep + 1} av ${INTRO_COUNT}`;
+}
+
+function introNext() {
+  if (introStep >= INTRO_COUNT - 1) {
+    startGettingStarted();
+    return;
+  }
+  haptic();
+  setIntroStep(introStep + 1);
+}
+
+function introPrev() {
+  if (introStep === 0) return;
+  haptic();
+  setIntroStep(introStep - 1);
+}
+
+// Siste steg leder rett inn i en konkret handling: «Før første spor».
+function startGettingStarted() {
+  state.activeGuide = "getting-started";
+  state.activeModule = null;
+  saveState();
+  closeWelcome();
+  setView("learn");
 }
 
 function closeWelcome() {
@@ -3473,6 +3528,8 @@ function closeWelcome() {
     saveState();
   }
   closeOverlay($("#welcomeOverlay"));
+  welcomeOpener?.focus?.();
+  welcomeOpener = null;
   // Rett etter introen er et naturlig tidspunkt å foreslå installasjon.
   if (wasFirstTime) {
     const mode = deferredInstallPrompt ? "prompt" : isIosDevice() ? "ios" : null;
@@ -3489,16 +3546,26 @@ function initWelcome() {
       closeWelcome();
       return;
     }
-    if (event.target.closest("#welcomeGetStarted")) {
-      state.activeGuide = "getting-started";
-      state.activeModule = null;
-      saveState();
-      closeWelcome();
-      setView("learn");
+    if (event.target.closest("#introNext")) {
+      introNext();
+      return;
+    }
+    if (event.target.closest("#introBack")) {
+      introPrev();
     }
   });
 
+  initIntroSwipe();
+
   document.addEventListener("keydown", (event) => {
+    const welcomeOpen = $("#welcomeOverlay")?.classList.contains("is-open");
+    // Piltaster blar mellom kortene mens introen er åpen.
+    if (welcomeOpen && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
+      event.preventDefault();
+      if (event.key === "ArrowRight") setIntroStep(introStep + 1);
+      else setIntroStep(introStep - 1);
+      return;
+    }
     if (event.key !== "Escape") return;
     if ($("#qrOverlay")?.classList.contains("is-open")) {
       closeQr();
@@ -3510,10 +3577,44 @@ function initWelcome() {
       closeQuickLog();
     } else if ($("#fieldOverlay")?.classList.contains("is-open")) {
       closeFieldMode();
-    } else if ($("#welcomeOverlay")?.classList.contains("is-open")) {
+    } else if (welcomeOpen) {
       closeWelcome();
     }
   });
+}
+
+// Lett horisontal sveip mellom kortene (føles som en native karusell).
+function initIntroSwipe() {
+  const viewport = $("#introViewport");
+  if (!viewport) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  viewport.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) return;
+      tracking = true;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  viewport.addEventListener(
+    "touchend",
+    (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      // Bare reager på tydelig horisontale drag.
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+      haptic();
+      setIntroStep(introStep + (dx < 0 ? 1 : -1));
+    },
+    { passive: true }
+  );
 }
 
 /* ---------- Installasjonscoach (legg appen på Hjem-skjerm) ---------- */

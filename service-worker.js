@@ -1,4 +1,4 @@
-const CACHE_NAME = "sporlab-e8-e9-v23";
+const CACHE_NAME = "sporlab-e8-e9-v24";
 const APP_SHELL = [
   "./",
   "./index.html",

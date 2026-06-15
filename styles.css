@@ -3056,9 +3056,240 @@ body.overlay-open {
   color: var(--muted);
 }
 
+/* ---------- Stegvis intro (sveipbare kort) ---------- */
+.welcome-intro {
+  padding: 22px 0 18px;
+  overflow: hidden;
+}
+
+.intro-viewport {
+  overflow: hidden;
+  width: 100%;
+}
+
+.intro-track {
+  display: flex;
+  align-items: stretch;
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.intro-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  padding: 4px 28px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.intro-logo {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.intro-logo img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.intro-title {
+  margin: 2px 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.intro-caption {
+  margin: 0;
+  max-width: 30rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.intro-caption-lead {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.intro-caption strong {
+  color: var(--ink);
+}
+
+/* Kort 1: to likeverdige dører vist side om side. */
+.intro-doors {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 24rem;
+  margin: 4px 0;
+}
+
+.intro-door {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.intro-door-learning {
+  border-top: 4px solid var(--domain-learning);
+  background: linear-gradient(165deg, var(--domain-learning-soft), var(--surface) 70%);
+}
+
+.intro-door-field {
+  border-top: 4px solid var(--domain-field);
+  background: linear-gradient(165deg, var(--domain-field-soft), var(--surface) 70%);
+}
+
+.intro-door-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.intro-door-learning .intro-door-icon { color: var(--domain-learning); }
+.intro-door-field .intro-door-icon { color: var(--domain-field); }
+
+/* Kort 2: koblingen mellom Lær og Felt. */
+.intro-link-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 6px 0 2px;
+}
+
+.intro-link-arrows {
+  font-size: 1.6rem;
+  color: var(--muted);
+}
+
+.intro-points {
+  list-style: none;
+  margin: 2px 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  max-width: 28rem;
+  text-align: left;
+}
+
+.intro-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.intro-points strong {
+  color: var(--ink);
+}
+
+.intro-point-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--ink);
+}
+
+.intro-point-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* Kort 3: lokal lagring. */
+.intro-private-art {
+  font-size: 3rem;
+  line-height: 1;
+  margin: 8px 0 2px;
+}
+
+/* Footer: prikker + navigasjon. */
+.intro-footer {
+  padding: 0 24px;
+  margin-top: 6px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.intro-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.intro-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 200ms ease, transform 200ms ease;
+}
+
+.intro-dot.is-active {
+  background: var(--blue);
+  transform: scale(1.25);
+}
+
+.intro-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.intro-nav .intro-back {
+  flex: 0 0 auto;
+}
+
+.intro-nav .intro-next {
+  flex: 1 1 auto;
+  max-width: 22rem;
+}
+
+.intro-skip {
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-track {
+    transition: none;
+  }
+  .intro-dot {
+    transition: none;
+  }
+}
+
 @media (max-width: 520px) {
   .welcome-dialog {
     padding: 22px 16px 18px;
+  }
+  .welcome-intro {
+    padding: 20px 0 16px;
+  }
+  .intro-slide {
+    padding: 4px 20px 6px;
+  }
+  .intro-footer {
+    padding: 0 18px;
   }
 }
 
