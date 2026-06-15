@@ -312,6 +312,24 @@ button {
 
 .view.is-visible {
   display: block;
+  animation: view-enter 0.26s ease both;
+}
+
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view.is-visible {
+    animation: none;
+  }
 }
 
 .dashboard-grid {
@@ -1214,8 +1232,52 @@ button,
 .module-card,
 .star,
 .fab {
-  -webkit-tap-highlight-color: rgba(0, 119, 218, 0.18);
+  /* Ingen blå blink ved trykk — det er den tydeligste «nettside»-tellen. */
+  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* App-følelse: ikke la knapper og navigasjon kunne markeres/dra-velges som
+   tekst. Innhold brukeren faktisk vil kopiere (skjemafelt, fagtekst) får
+   markering tilbake under. */
+button,
+.nav-item,
+.bottom-nav-item,
+.bottom-nav-action,
+.sheet-item,
+.action-sheet-item,
+.chip-button,
+.protocol-item,
+.field-card,
+.module-card,
+.star,
+.fab,
+.topbar,
+.bottom-nav,
+.eyebrow,
+.door,
+.view-back {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"],
+.ref-sheet-body,
+.theory-deepdive,
+.fact-card,
+.log-card,
+.observation-body {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Demp gummibånd/pull-to-refresh på selve appskallet, men la lister scrolle. */
+html,
+body {
+  overscroll-behavior-y: none;
 }
 
 /* === Komponenter lagt til i P1/P2-runden === */
@@ -3960,6 +4022,92 @@ html[data-theme="dark"] .heat-0 {
 }
 @media (min-width: 901px) {
   .storage-warning {
+    bottom: 24px;
+  }
+}
+
+/* ---------- Installasjonscoach (legg på Hjem-skjerm) ---------- */
+.install-coach {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 205;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(440px, calc(100vw - 24px));
+  padding: 12px 14px;
+  background: var(--dark-blue, #0a2850);
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(10, 40, 80, 0.32);
+  transform: translateX(-50%) translateY(16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.install-coach.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.install-coach-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--blue, #0077da);
+  color: #fff;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.install-coach-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.84rem;
+  line-height: 1.3;
+}
+.install-coach-text strong {
+  font-size: 0.92rem;
+}
+.install-coach-text span {
+  color: rgba(255, 255, 255, 0.82);
+}
+.install-coach-share {
+  display: inline-block;
+  transform: translateY(1px);
+  font-weight: 700;
+}
+.install-coach-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  background: var(--blue, #0077da);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.install-coach-dismiss {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px 4px;
+}
+@media (min-width: 901px) {
+  .install-coach {
     bottom: 24px;
   }
 }

@@ -104,6 +104,33 @@ function closeOverlay(overlay) {
   }, 200);
 }
 
+/* ---------- Native finpuss: standalone-deteksjon, haptikk, bevegelse ---------- */
+
+// Kjører appen som installert app (ikke i en nettleserfane)?
+function isStandalone() {
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    window.matchMedia?.("(display-mode: window-controls-overlay)").matches ||
+    // iOS Safari bruker en egen, ikke-standardisert flagg.
+    /** @type {any} */ (window.navigator).standalone === true
+  );
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+}
+
+// Lett haptisk respons der enheten støtter det. Holdes kort og diskret, og
+// hoppes over når brukeren har bedt om mindre bevegelse.
+function haptic(pattern = 8) {
+  if (prefersReducedMotion()) return;
+  try {
+    navigator.vibrate?.(pattern);
+  } catch (error) {
+    // vibrate kan kaste i enkelte innebygde nettlesere — trygt å ignorere.
+  }
+}
+
 function setView(view) {
   if (!ALL_VIEWS.includes(view)) view = "dashboard";
   state.view = view;
@@ -2614,7 +2641,10 @@ function collectForm(form) {
 function initEvents() {
   $("#bottomNav")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-view]");
-    if (button) setView(button.dataset.view);
+    if (button) {
+      haptic();
+      setView(button.dataset.view);
+    }
   });
 
   document.addEventListener("click", (event) => {
@@ -3406,6 +3436,7 @@ function initActionSheet() {
   $("#navActionButton")?.addEventListener("click", () => {
     const sheet = $("#actionSheet");
     if (!sheet) return;
+    haptic();
     if (sheet.classList.contains("is-open")) closeActionSheet();
     else openActionSheet();
   });
@@ -3417,6 +3448,7 @@ function initActionSheet() {
     }
     const item = event.target.closest("[data-sheet-action]");
     if (!item) return;
+    haptic();
     closeActionSheet();
     if (item.dataset.sheetAction === "plan") {
       state.wizardStep = state.currentPlan ? state.wizardStep || 0 : 0;
@@ -3435,11 +3467,17 @@ function openWelcome() {
 }
 
 function closeWelcome() {
-  if (!state.hasSeenWelcome) {
+  const wasFirstTime = !state.hasSeenWelcome;
+  if (wasFirstTime) {
     state.hasSeenWelcome = true;
     saveState();
   }
   closeOverlay($("#welcomeOverlay"));
+  // Rett etter introen er et naturlig tidspunkt å foreslå installasjon.
+  if (wasFirstTime) {
+    const mode = deferredInstallPrompt ? "prompt" : isIosDevice() ? "ios" : null;
+    if (mode) setTimeout(() => maybeShowInstallCoach(mode), 600);
+  }
 }
 
 function initWelcome() {
@@ -3478,6 +3516,133 @@ function initWelcome() {
   });
 }
 
+/* ---------- Installasjonscoach (legg appen på Hjem-skjerm) ---------- */
+
+// Chrome/Android/desktop gir oss et beforeinstallprompt-event vi kan utløse
+// senere via en egen knapp. iOS Safari gir ingenting — der må vi vise tekst.
+let deferredInstallPrompt = null;
+
+function isIosDevice() {
+  const ua = navigator.userAgent || "";
+  const iOSClassic = /iphone|ipad|ipod/i.test(ua);
+  // iPadOS 13+ later som macOS, men har berøringsskjerm.
+  const iPadOS = /macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+  return iOSClassic || iPadOS;
+}
+
+function dismissInstallCoach() {
+  const coach = document.getElementById("installCoach");
+  if (coach) {
+    coach.classList.remove("is-visible");
+    setTimeout(() => coach.remove(), 250);
+  }
+  state.installCoachDismissed = true;
+  saveState();
+}
+
+function renderInstallCoach(mode) {
+  if (document.getElementById("installCoach")) return;
+  const coach = document.createElement("div");
+  coach.id = "installCoach";
+  coach.className = "install-coach";
+  coach.setAttribute("role", "dialog");
+  coach.setAttribute("aria-label", "Installer SporLab");
+
+  if (mode === "ios") {
+    // iOS har ingen automatisk prompt — vis nøyaktig hvor delingsknappen er.
+    coach.innerHTML = `
+      <span class="install-coach-icon" aria-hidden="true">＋</span>
+      <div class="install-coach-text">
+        <strong>Få SporLab som app</strong>
+        <span>Trykk <span class="install-coach-share" aria-hidden="true">⎙</span> Del nederst, og velg «Legg til på Hjem-skjerm».</span>
+      </div>
+      <button class="install-coach-dismiss" type="button" data-install-dismiss aria-label="Lukk">✕</button>`;
+  } else {
+    coach.innerHTML = `
+      <span class="install-coach-icon" aria-hidden="true">＋</span>
+      <div class="install-coach-text">
+        <strong>Få SporLab som app</strong>
+        <span>Installer den på enheten for full skjerm og rask tilgang — uten nettleserlinje.</span>
+      </div>
+      <button class="install-coach-btn" type="button" data-install-accept>Installer</button>
+      <button class="install-coach-dismiss" type="button" data-install-dismiss aria-label="Lukk">✕</button>`;
+  }
+
+  coach.addEventListener("click", async (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (target.closest("[data-install-dismiss]")) {
+      haptic();
+      dismissInstallCoach();
+      return;
+    }
+    if (target.closest("[data-install-accept]") && deferredInstallPrompt) {
+      haptic();
+      const promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      promptEvent.prompt();
+      try {
+        await promptEvent.userChoice;
+      } catch (error) {
+        // Brukeren lukket dialogen — ingenting å gjøre.
+      }
+      dismissInstallCoach();
+    }
+  });
+
+  document.body.appendChild(coach);
+  requestAnimationFrame(() => coach.classList.add("is-visible"));
+}
+
+function maybeShowInstallCoach(mode) {
+  if (isStandalone()) return; // allerede installert
+  if (state.installCoachDismissed) return; // brukeren har takket nei
+  if (!state.hasSeenWelcome) return; // ikke avbryt førstegangs-introen
+  renderInstallCoach(mode);
+}
+
+function initInstallCoach() {
+  if (isStandalone()) return;
+
+  // Allerede installert? Da rydder vi opp og lar være å mase igjen.
+  window.addEventListener("appinstalled", () => {
+    state.installCoachDismissed = true;
+    saveState();
+    document.getElementById("installCoach")?.remove();
+  });
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    // Vent litt så banneret ikke kolliderer med velkomsten.
+    setTimeout(() => maybeShowInstallCoach("prompt"), 1200);
+  });
+
+  // iOS får aldri beforeinstallprompt — vis tekstinstruksjonen i stedet.
+  if (isIosDevice()) {
+    setTimeout(() => maybeShowInstallCoach("ios"), 1600);
+  }
+}
+
+/* ---------- Snarveier fra app-ikonet (manifest shortcuts) ---------- */
+
+// Langtrykk på app-ikonet kan åpne «Logg» eller «Planlegg» direkte via
+// ?handling=... Vi rydder bort parameteren etterpå så den ikke henger igjen.
+function handleLaunchShortcut() {
+  const params = new URLSearchParams(window.location.search);
+  const handling = params.get("handling");
+  if (!handling) return;
+  params.delete("handling");
+  const clean = window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash;
+  window.history.replaceState({}, "", clean);
+  if (handling === "logg") {
+    openQuickLog(null);
+  } else if (handling === "plan") {
+    state.wizardStep = state.currentPlan ? state.wizardStep || 0 : 0;
+    saveState();
+    setView("planner");
+  }
+}
+
 function init() {
   setDefaults();
   paintIcons();
@@ -3491,8 +3656,10 @@ function init() {
   handleSharedImport();
   setView(state.view || "dashboard");
   registerServiceWorker();
+  initInstallCoach();
   // Første gang: vis den korte introduksjonen.
   if (!state.hasSeenWelcome) openWelcome();
+  handleLaunchShortcut();
 }
 
 function showUpdateToast() {

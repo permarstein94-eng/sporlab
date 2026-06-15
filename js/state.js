@@ -124,6 +124,7 @@ export const MAX_LOGS = 2000;
  * @property {Object<string, MasteryEntry>} mastery Nøklet på spørsmåls-id.
  * @property {QuizSession} quiz
  * @property {boolean} hasSeenWelcome
+ * @property {boolean} installCoachDismissed
  * @property {?string} activeGuide
  * @property {number} lastExportLogCount
  */
@@ -155,6 +156,7 @@ export const defaultState = () => ({
   mastery: {},
   quiz: defaultQuizState(),
   hasSeenWelcome: false,
+  installCoachDismissed: false,
   activeGuide: null,
   lastExportLogCount: 0,
 });
