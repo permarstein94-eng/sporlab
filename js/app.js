@@ -3597,7 +3597,7 @@ function initWelcome() {
 
 // E-postadressen som tilbakemeldinger åpnes mot. Appen er statisk og sender
 // aldri noe selv – mailto-lenken bare forhåndsfyller en e-post.
-const FEEDBACK_EMAIL = "per.marstein@icloud.com";
+const FEEDBACK_EMAIL = "per.marstein@nrh.no";
 let feedbackType = "Generell henvendelse";
 let feedbackOpener = null;
 
