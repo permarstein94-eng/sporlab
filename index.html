@@ -31,6 +31,7 @@
           </div>
           <div class="topbar-actions">
             <button class="topbar-help" id="openWelcome" type="button" aria-label="Om appen og hvordan du bruker den" title="Om SporLab">?</button>
+            <button class="topbar-help" id="openFeedback" type="button" aria-label="Gi tilbakemelding" title="Gi tilbakemelding"><span class="nav-icon" data-icon="feedback" aria-hidden="true"></span></button>
             <button class="topbar-help topbar-settings" data-view-jump="settings" type="button" aria-label="Innstillinger" title="Innstillinger"><span class="nav-icon" data-icon="settings" aria-hidden="true"></span></button>
           </div>
         </header>
@@ -152,6 +153,7 @@
               <p class="small">SporLab er et hjelpeverktøy for NRH Romerike og erstatter ikke instruktør eller heftet.</p>
               <div class="button-row">
                 <button class="ghost-button" id="settingsShowIntro" type="button">Vis introduksjonen</button>
+                <button class="ghost-button" id="settingsShowFeedback" type="button">Send tilbakemelding</button>
               </div>
             </article>
           </div>
@@ -568,6 +570,31 @@
           <button class="ghost-button" id="qrCopyLink" type="button">Kopier lenke i stedet</button>
         </div>
         <p class="small status-line" id="qrStatus" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div class="feedback-overlay" id="feedbackOverlay" hidden aria-hidden="true">
+      <div class="feedback-backdrop" data-close-feedback></div>
+      <div class="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+        <button class="welcome-close" data-close-feedback type="button" aria-label="Lukk">✕</button>
+        <p class="eyebrow">Gi oss en tilbakemelding</p>
+        <h2 id="feedbackTitle">Hva gjelder det?</h2>
+        <form id="feedbackForm">
+          <div class="chip-row" id="feedbackTypeRow" role="group" aria-label="Hva gjelder tilbakemeldingen">
+            <button type="button" class="chip-button is-selected" data-feedback-type="Generell henvendelse" aria-pressed="true">Generell henvendelse</button>
+            <button type="button" class="chip-button" data-feedback-type="Teknisk feil" aria-pressed="false">Teknisk feil</button>
+            <button type="button" class="chip-button" data-feedback-type="Forslag til forbedring" aria-pressed="false">Forslag til forbedring</button>
+            <button type="button" class="chip-button" data-feedback-type="Faglig innhold" aria-pressed="false">Faglig innhold</button>
+          </div>
+          <label class="feedback-message-label">
+            Beskriv kort hva det gjelder
+            <textarea id="feedbackMessage" rows="5" placeholder="Hva skjedde, hva forventet du, og hvor i appen var du? Ikke skriv navn eller annen sensitiv informasjon."></textarea>
+          </label>
+          <p class="small">Tilbakemeldingen åpnes som en e-post til utvikler. Ingenting sendes automatisk fra appen.</p>
+          <div class="button-row">
+            <button class="primary-button" id="feedbackSend" type="submit">Send tilbakemelding</button>
+          </div>
+        </form>
       </div>
     </div>
 

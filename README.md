@@ -13,13 +13,16 @@ npx serve .
 
 og så åpne adressen som vises (typisk http://localhost:3000).
 
-## Publiser på Netlify
+## Publiser på Cloudflare
 
-1. Gå til Netlify og velg å legge ut et nytt nettsted.
-2. Dra hele denne mappen inn i Netlify sin manuelle deploy, eller koble mappen til et Git-repo.
-3. Netlify skal bruke `.` som publiseringsmappe. Det er allerede satt i `netlify.toml`.
-4. Når Netlify gir deg en nettadresse, kan den deles direkte eller som QR-kode.
-5. På mobil kan brukerne åpne lenken og velge "Legg til på hjemskjerm".
+Appen kjøres som Cloudflare Workers (Static Assets). Se `DEPLOY.md` for
+build- og deploy-kommandoer (`bash build.sh` + `npx wrangler deploy`).
+
+1. Cloudflare bygger og publiserer `dist/` automatisk ved push til `main`
+   (se `DEPLOY.md` og `wrangler.jsonc`).
+2. Når Cloudflare gir deg en nettadresse (`*.workers.dev` eller eget domene),
+   kan den deles direkte eller som QR-kode.
+3. På mobil kan brukerne åpne lenken og velge "Legg til på hjemskjerm".
 
 ## Innhold
 

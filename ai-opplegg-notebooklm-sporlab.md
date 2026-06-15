@@ -10,7 +10,7 @@ Last opp disse som kilder:
 2. `NRH_Profilmanual_liten3 (1).pdf`
 3. `opplaeringsvideo-sporlab.md`
 4. `README.md`
-5. Netlify-lenken til appen når den er publisert
+5. Lenken til appen på Cloudflare når den er publisert (https://sporlab.per-marstein-94.workers.dev/)
 
 Hvis du lager skjermbilder fra appen, kan de også lastes opp som visuell støtte.
 
@@ -179,5 +179,5 @@ Gi konkrete forbedringsforslag.
 
 - Be alltid AI-en bruke kildene og ikke finne på nye NRH-regler.
 - Be om sidehenvisninger når fagstoffet bygger på leseheftet.
-- Bruk ekte app-lenke fra Netlify når den finnes.
+- Bruk ekte app-lenke fra Cloudflare (https://sporlab.per-marstein-94.workers.dev/) når den finnes.
 - Ikke last opp sensitive treningslogger eller personopplysninger.
