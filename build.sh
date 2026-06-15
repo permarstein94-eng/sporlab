@@ -15,4 +15,12 @@ cp index.html styles.css content.js service-worker.js manifest.webmanifest _head
 cp -R js dist/
 cp -R assets dist/
 
-echo "dist/ bygget med $(find dist -type f | wc -l | tr -d ' ') filer."
+# Cache-versjonering: erstatt placeholderen i service-worker.js med en hash av
+# app-innholdet (alt unntatt service-worker.js selv). Da endrer SW-filens
+# bytes seg automatisk når noe annet endres, og brukerne får "ny versjon"-
+# varselet uten at noen må huske å bumpe et versjonsnummer manuelt.
+HASH=$(find dist -type f ! -name service-worker.js -print0 | sort -z | xargs -0 cat | sha256sum | cut -c1-12)
+sed -i.bak "s/__BUILD_HASH__/${HASH}/" dist/service-worker.js
+rm -f dist/service-worker.js.bak
+
+echo "dist/ bygget med $(find dist -type f | wc -l | tr -d ' ') filer. SW-cache: sporlab-e8-e9-${HASH}"

@@ -1,4 +1,7 @@
-const CACHE_NAME = "sporlab-e8-e9-v25";
+// Settes til en innholdshash av app-filene av build.sh. Lokalt (uten build)
+// står placeholderen igjen — det er fortsatt en gyldig cache-nøkkel, bare
+// uten automatisk versjonering.
+const CACHE_NAME = "sporlab-e8-e9-__BUILD_HASH__";
 const APP_SHELL = [
   "./",
   "./index.html",
