@@ -769,6 +769,7 @@ function renderLearn() {
   if (!shell) return;
   if (state.activeGuide === "getting-started") {
     shell.innerHTML = renderGettingStarted();
+    initGettingStartedStepper();
   } else if (state.activeModule) {
     shell.innerHTML = renderLearnModule(state.activeModule);
   } else {
@@ -2665,6 +2666,7 @@ function initEvents() {
       if (action === "open-getstarted") {
         state.activeGuide = "getting-started";
         state.activeModule = null;
+        gsStep = 0;
         saveState();
         setView("learn");
         return;
@@ -2719,6 +2721,7 @@ function initEvents() {
     if (event.target.closest("[data-open-getstarted]")) {
       state.activeGuide = "getting-started";
       state.activeModule = null;
+      gsStep = 0;
       saveState();
       setView("learn");
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2730,6 +2733,22 @@ function initEvents() {
       saveState();
       renderLearn();
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (event.target.closest("#gsNext")) {
+      gsNext();
+      return;
+    }
+    if (event.target.closest("#gsPrev")) {
+      gsPrev();
+      return;
+    }
+    const gsDot = event.target.closest("#gsDots .gs-dot");
+    if (gsDot) {
+      const dots = $all("#gsDots .gs-dot");
+      const idx = dots.indexOf(gsDot);
+      if (idx >= 0) setGsStep(idx);
       return;
     }
 
@@ -3617,6 +3636,118 @@ function initIntroSwipe() {
   );
 }
 
+/* ---------- Læringsmodul som kortbunke («Aller første sporøkt») ---------- */
+
+// Samme prinsipp som velkomstintroen: én fordøyelig bit per kort, med bla-knapper,
+// prikker, sveip og piltaster. Steget huskes på tvers av re-render, men nullstilles
+// når brukeren åpner modulen på nytt (se åpne-handlerne).
+let gsStep = 0;
+
+function gsSlides() {
+  return $all("#gsTrack .gs-slide");
+}
+
+function initGettingStartedStepper() {
+  const track = $("#gsTrack");
+  if (!track) return;
+  // Mål kortet etter at det er lagt ut, ellers blir høyden 0 ved første tegning.
+  requestAnimationFrame(() => setGsStep(gsStep));
+  initGsSwipe();
+}
+
+function setGsStep(index) {
+  const track = $("#gsTrack");
+  if (!track) return;
+  const slides = gsSlides();
+  const count = slides.length;
+  if (!count) return;
+  gsStep = Math.max(0, Math.min(count - 1, index));
+  track.style.transform = `translateX(-${gsStep * 100}%)`;
+
+  // Viewporten følger høyden til det aktive kortet, så korte kort ikke etterlater
+  // et stort tomrom (slik et «strekk-til-høyeste»-flexoppsett ville gjort).
+  const active = slides[gsStep];
+  if (active) track.style.height = `${active.offsetHeight}px`;
+
+  $all("#gsDots .gs-dot").forEach((dot, i) => dot.classList.toggle("is-active", i === gsStep));
+
+  const progress = $("#gsProgress");
+  if (progress) progress.textContent = `Kort ${gsStep + 1} av ${count}`;
+
+  const prev = $("#gsPrev");
+  if (prev) prev.hidden = gsStep === 0;
+  const next = $("#gsNext");
+  // Siste kort har sin egen handling (lag plan / tilbake), så «Neste» skjules der.
+  if (next) next.hidden = gsStep === count - 1;
+}
+
+function gsNext() {
+  const count = gsSlides().length;
+  if (gsStep >= count - 1) return;
+  haptic();
+  setGsStep(gsStep + 1);
+}
+
+function gsPrev() {
+  if (gsStep === 0) return;
+  haptic();
+  setGsStep(gsStep - 1);
+}
+
+// Globale lyttere som bare skal settes opp én gang (piltaster + responsiv høyde).
+function initGettingStartedGlobal() {
+  document.addEventListener("keydown", (event) => {
+    if (state.activeGuide !== "getting-started") return;
+    if (!$("#gsTrack")) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      gsNext();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      gsPrev();
+    }
+  });
+  // Når bredden endres, må høyden på det aktive kortet måles på nytt.
+  window.addEventListener("resize", () => {
+    if (state.activeGuide === "getting-started" && $("#gsTrack")) setGsStep(gsStep);
+  });
+}
+
+// Lett horisontal sveip mellom kortene — føles som en native karusell.
+function initGsSwipe() {
+  const viewport = $("#gsViewport");
+  if (!viewport) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  viewport.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) return;
+      tracking = true;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  viewport.addEventListener(
+    "touchend",
+    (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+      setGsStep(gsStep + (dx < 0 ? 1 : -1));
+      haptic();
+    },
+    { passive: true }
+  );
+}
+
 /* ---------- Installasjonscoach (legg appen på Hjem-skjerm) ---------- */
 
 // Chrome/Android/desktop gir oss et beforeinstallprompt-event vi kan utløse
@@ -3750,6 +3881,7 @@ function init() {
   applyTheme();
   initEvents();
   initWelcome();
+  initGettingStartedGlobal();
   initActionSheet();
   initQuickLog();
   initShare();

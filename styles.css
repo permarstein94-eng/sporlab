@@ -4169,6 +4169,179 @@ html[data-theme="dark"] .heat-0 {
   flex: 1 1 auto;
 }
 
+/* ---------- Læringsmodul som kortbunke (stegvis «Aller første sporøkt») ---------- */
+.gs-carousel {
+  gap: 12px;
+}
+
+.gs-carousel .gs-head h3 {
+  margin: 2px 0 0;
+}
+
+.gs-viewport {
+  overflow: hidden;
+  width: 100%;
+}
+
+.gs-track {
+  display: flex;
+  align-items: flex-start;
+  /* Høyden settes per kort i JS, så korte kort ikke etterlater tomrom. */
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1), height 220ms ease;
+  will-change: transform, height;
+}
+
+.gs-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+}
+
+.gs-card {
+  flex: 1 1 auto;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 220px;
+  padding: 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.gs-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gs-card-head h4 {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.gs-card-head .small {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.gs-card-title {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.gs-card p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.gs-hint {
+  color: var(--muted);
+}
+
+.gs-method-suits {
+  color: var(--muted);
+}
+
+.gs-method-suits strong {
+  color: var(--ink);
+}
+
+.gs-card-dashed {
+  border-style: dashed;
+  background: var(--surface-strong);
+}
+
+.gs-card-callout {
+  border-left: 4px solid var(--blue);
+  background: var(--surface-strong);
+}
+
+.gs-callout-big {
+  font-size: 1.25rem;
+  font-weight: 740;
+  line-height: 1.35;
+  color: var(--blue);
+}
+
+.gs-card-amber {
+  border-left: 4px solid var(--amber);
+  background: var(--surface-strong);
+}
+
+.gs-card-cta {
+  align-content: center;
+  text-align: center;
+}
+
+.gs-card-cta .gs-cta {
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.gs-cardfooter {
+  margin-top: 4px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.gs-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+.gs-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  cursor: pointer;
+  transition: background 200ms ease, transform 200ms ease;
+}
+
+.gs-dot.is-active {
+  background: var(--blue);
+  transform: scale(1.25);
+}
+
+.gs-progress {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.gs-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.gs-nav .gs-prev {
+  flex: 0 0 auto;
+}
+
+.gs-nav .gs-next {
+  flex: 1 1 auto;
+  max-width: 22rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-track {
+    transition: height 220ms ease;
+  }
+  .gs-dot {
+    transition: none;
+  }
+}
+
 /* ---------- SW oppdateringsvarsel ---------- */
 .update-toast {
   position: fixed;
