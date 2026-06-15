@@ -127,6 +127,7 @@ export const MAX_LOGS = 2000;
  * @property {boolean} installCoachDismissed
  * @property {?string} activeGuide
  * @property {number} lastExportLogCount
+ * @property {Object<string, {options?: string[], note?: string}>} gettingStartedAnswers Svar på kartleggingsspørsmålene i «Aller første sporøkt», nøklet på spørsmåls-id.
  */
 /** @returns {QuizSession} */
 export const defaultQuizState = () => ({
@@ -159,6 +160,7 @@ export const defaultState = () => ({
   installCoachDismissed: false,
   activeGuide: null,
   lastExportLogCount: 0,
+  gettingStartedAnswers: {},
 });
 
 export let state = loadState();
@@ -254,6 +256,9 @@ export function migrateState(stored) {
   }
   if (typeof base.mastery !== "object" || base.mastery === null) {
     base.mastery = {};
+  }
+  if (typeof base.gettingStartedAnswers !== "object" || base.gettingStartedAnswers === null) {
+    base.gettingStartedAnswers = {};
   }
   if (!base.learnAccordion) base.learnAccordion = "learn";
   // Eksisterende brukere med data skal ikke avbrytes av startmenyen — kun nye/tomme installasjoner.

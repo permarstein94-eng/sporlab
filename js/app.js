@@ -12,6 +12,7 @@ import {
   quizQuestions,
   references,
   reflectionLibrary,
+  renderCardCarousel,
   renderGettingStarted,
   theoryDeepDives,
   theoryForFocus,
@@ -768,9 +769,11 @@ function renderLearn() {
   const shell = $("#learnShell");
   if (!shell) return;
   if (state.activeGuide === "getting-started") {
-    shell.innerHTML = renderGettingStarted();
+    shell.innerHTML = renderGettingStarted(state.gettingStartedAnswers);
+    initCardStepper();
   } else if (state.activeModule) {
     shell.innerHTML = renderLearnModule(state.activeModule);
+    initCardStepper();
   } else {
     shell.innerHTML = renderLearnIntro();
     renderMiniQuiz();
@@ -901,49 +904,47 @@ function renderLearnModule(moduleId) {
   const moduleIndex = modules.findIndex((m) => m.id === module.id);
   const prevModule = moduleIndex > 0 ? modules[moduleIndex - 1] : null;
   const nextModule = moduleIndex < modules.length - 1 ? modules[moduleIndex + 1] : null;
-  const open = state.learnAccordion || "learn";
 
-  const accordionItem = (id, title, contentHtml) => `
-    <article class="accordion-item" data-open="${open === id}" data-accordion="${id}">
-      <button class="accordion-trigger" type="button" data-accordion-toggle="${id}" aria-expanded="${open === id}">
-        <span>${escapeHtml(title)}</span>
-        <span class="accordion-chevron" aria-hidden="true">▾</span>
-      </button>
-      <div class="accordion-panel">${contentHtml}</div>
-    </article>`;
+  const slides = [];
 
-  const learnHtml = `<ul>${module.learn.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
-  const deepHtml = deepDive.length
-    ? `
-        <div class="theory-search">
-          <label class="visually-hidden" for="theorySearch">Søk i teoridykk</label>
-          <input id="theorySearch" type="search" placeholder="Søk i teoridykk for denne modulen…" autocomplete="off" />
-          <p class="small theory-search-hint">Klikk på en bolk for å lese hele teksten fra leseheftet (E8/E9).</p>
-        </div>
-        <div class="theory-stack" id="theoryStack">${deepDive
-          .map((item) => {
-            const paragraphs = (item.full || item.text)
-              .split(/\n\n+/)
-              .map((p) => `<p>${escapeHtml(p)}</p>`)
-              .join("");
-            const pageBadge = item.pages
-              ? `<span class="theory-pages">${escapeHtml(item.pages)}</span>`
-              : "";
-            return `<details class="theory-card" data-theory-card>
-              <summary>
-                <div class="theory-card-head">
-                  <h5>${escapeHtml(item.title)}</h5>
-                  ${pageBadge}
-                </div>
-                <p class="theory-preview">${escapeHtml(item.text)}</p>
-                <span class="theory-expand-cue">Les hele <span aria-hidden="true">▾</span></span>
-              </summary>
-              <div class="theory-body">${paragraphs}</div>
-            </details>`;
-          })
-          .join("")}</div>
-        <p class="small theory-empty" id="theorySearchEmpty" hidden>Ingen bolker matchet søket.</p>`
-    : `<p class="small">Ingen ekstra teori for denne modulen.</p>`;
+  // Kort 1: sammendrag + koblingen til feltmodulen.
+  slides.push(`
+    <div class="gs-card gs-card-intro">
+      <p class="eyebrow">Om dette temaet</p>
+      <p>${escapeHtml(module.summary)}</p>
+      ${couplingBand}
+    </div>`);
+
+  // Kort 2: kjernen — de korte, viktigste punktene.
+  slides.push(`
+    <div class="gs-card">
+      <p class="eyebrow">Kjernen</p>
+      <h4 class="gs-card-title">Det viktigste fra dette temaet</h4>
+      <ul class="gs-progression">${module.learn.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </div>`);
+
+  // Kort 3..N: ett teoridykk per kort, med «Les hele» som utvider kortet.
+  deepDive.forEach((item) => {
+    const paragraphs = (item.full || item.text)
+      .split(/\n\n+/)
+      .map((p) => `<p>${escapeHtml(p)}</p>`)
+      .join("");
+    const readMore = item.full && item.full !== item.text
+      ? `<details class="gs-readmore">
+          <summary>Les hele <span aria-hidden="true">▾</span></summary>
+          <div class="gs-readmore-body">${paragraphs}</div>
+        </details>`
+      : "";
+    slides.push(`
+      <div class="gs-card">
+        <p class="eyebrow">Teoridykk${item.pages ? ` · ${escapeHtml(item.pages)}` : ""}</p>
+        <h4 class="gs-card-title">${escapeHtml(item.title)}</h4>
+        <p>${escapeHtml(item.text)}</p>
+        ${readMore}
+      </div>`);
+  });
+
+  // Kort: ute i felt — hva du tar med deg ut, pluss diagram hvis modulen har et.
   const moduleDiagram = diagrams.find((d) => d.module === module.id);
   const diagramHtml = moduleDiagram
     ? `<article class="diagram-card">
@@ -952,13 +953,52 @@ function renderLearnModule(moduleId) {
         <p>${escapeHtml(moduleDiagram.text)}</p>
       </article>`
     : "";
-  const fieldHtml = `<div class="callout"><p>${escapeHtml(module.field)}</p></div>${diagramHtml}`;
-  const reflectionHtml = `
-    <ul class="reflection-list">${reflections.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
-    <p class="small">Velg ett spørsmål per økt, eller la treningsgruppa svare på ett hver.</p>`;
+  slides.push(`
+    <div class="gs-card">
+      <p class="eyebrow">Ute i felt</p>
+      <h4 class="gs-card-title">Ta det med deg ut</h4>
+      <div class="callout"><p>${escapeHtml(module.field)}</p></div>
+      ${diagramHtml}
+    </div>`);
+
+  // Kort: drillforslag (hvis modulen har en).
+  if (module.drill) {
+    slides.push(`
+      <div class="gs-card gs-step-highlight">
+        <p class="eyebrow">Prøv dette i felt · ${escapeHtml(module.drill.duration)}</p>
+        <h4 class="gs-card-title">${escapeHtml(module.drill.title)}</h4>
+        <p>${escapeHtml(module.drill.description)}</p>
+        <div class="gs-cta">
+          <button class="primary-button" type="button" data-drill-plan="${escapeHtml(module.drill.focus)}">Planlegg denne økta nå →</button>
+        </div>
+      </div>`);
+  }
+
+  // Kort: refleksjon for laget.
+  slides.push(`
+    <div class="gs-card">
+      <p class="eyebrow">Refleksjon for laget</p>
+      <h4 class="gs-card-title">Snakk om dette etter økta</h4>
+      <ul class="reflection-list">${reflections.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+      <p class="small">Velg ett spørsmål per økt, eller la treningsgruppa svare på ett hver.</p>
+    </div>`);
+
+  // Siste kort: fullføring, quiz og videre navigasjon.
+  slides.push(`
+    <div class="gs-card gs-card-cta">
+      <h4 class="gs-card-title">${done ? "Du har markert dette som fullført" : "Klar for neste steg?"}</h4>
+      <div class="gs-cta">
+        <button class="primary-button" id="toggleComplete" type="button">${done ? "Marker som åpen" : "Marker som fullført"}</button>
+        <button class="ghost-button" data-start-module-quiz="${module.id}" type="button">Quiz denne modulen</button>
+      </div>
+      <div class="gs-module-nav">
+        <button type="button" data-module-nav="${prevModule ? prevModule.id : ""}" ${prevModule ? "" : "disabled"} aria-label="Forrige modul">◀ Forrige modul</button>
+        <button type="button" data-module-nav="${nextModule ? nextModule.id : ""}" ${nextModule ? "" : "disabled"} aria-label="Neste modul">Neste modul ▶</button>
+      </div>
+    </div>`);
 
   return `
-    <div class="learn-module">
+    <div class="learn-module gs-carousel">
       <header class="learn-module-head">
         <button class="learn-back-button" type="button" data-learn-back>← Løypa</button>
         <div>
@@ -969,33 +1009,7 @@ function renderLearnModule(moduleId) {
           </div>
         </div>
       </header>
-
-      <p>${escapeHtml(module.summary)}</p>
-
-      ${couplingBand}
-
-      <div class="learn-accordion">
-        ${accordionItem("learn", "Kjernen", learnHtml)}
-        ${accordionItem("deep", "Teoridykk", deepHtml)}
-        ${accordionItem("field", "Ute i felt", fieldHtml)}
-        ${accordionItem("reflection", "Refleksjon for laget", reflectionHtml)}
-      </div>
-
-      ${module.drill ? `<section class="module-drill">
-        <p class="eyebrow">Prøv dette i felt</p>
-        <h4>${escapeHtml(module.drill.title)} <span class="drill-duration">· ${escapeHtml(module.drill.duration)}</span></h4>
-        <p>${escapeHtml(module.drill.description)}</p>
-        <button class="primary-button" type="button" data-drill-plan="${escapeHtml(module.drill.focus)}">Planlegg denne økta nå →</button>
-      </section>` : ""}
-
-      <div class="learn-actions">
-        <button class="primary-button" id="toggleComplete" type="button">${done ? "Marker som åpen" : "Marker som fullført"}</button>
-        <button class="ghost-button" data-start-module-quiz="${module.id}" type="button">Quiz denne modulen</button>
-        <span class="nav-pill">
-          <button type="button" data-module-nav="${prevModule ? prevModule.id : ""}" ${prevModule ? "" : "disabled"} aria-label="Forrige modul">◀ Forrige</button>
-          <button type="button" data-module-nav="${nextModule ? nextModule.id : ""}" ${nextModule ? "" : "disabled"} aria-label="Neste modul">Neste ▶</button>
-        </span>
-      </div>
+      ${renderCardCarousel(slides)}
     </div>`;
 }
 
@@ -2658,6 +2672,7 @@ function initEvents() {
         state.activeModule = modules[0].id;
         state.activeGuide = null;
         state.learnAccordion = "learn";
+        gsStep = 0;
         saveState();
         setView("learn");
         return;
@@ -2665,6 +2680,7 @@ function initEvents() {
       if (action === "open-getstarted") {
         state.activeGuide = "getting-started";
         state.activeModule = null;
+        gsStep = 0;
         saveState();
         setView("learn");
         return;
@@ -2673,6 +2689,7 @@ function initEvents() {
         const firstUnread = modules.find((m) => !state.completed.includes(m.id));
         state.activeModule = firstUnread ? firstUnread.id : modules[0].id;
         state.learnAccordion = "learn";
+        gsStep = 0;
         saveState();
         setView("learn");
         return;
@@ -2705,6 +2722,7 @@ function initEvents() {
       state.activeModule = moduleOpen.dataset.moduleOpen;
       state.activeGuide = null;
       state.learnAccordion = "learn";
+      gsStep = 0;
       saveState();
       renderLearn();
     }
@@ -2719,6 +2737,7 @@ function initEvents() {
     if (event.target.closest("[data-open-getstarted]")) {
       state.activeGuide = "getting-started";
       state.activeModule = null;
+      gsStep = 0;
       saveState();
       setView("learn");
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2733,27 +2752,30 @@ function initEvents() {
       return;
     }
 
+    if (event.target.closest("#gsNext")) {
+      gsNext();
+      return;
+    }
+    if (event.target.closest("#gsPrev")) {
+      gsPrev();
+      return;
+    }
+    const gsDot = event.target.closest("#gsDots .gs-dot");
+    if (gsDot) {
+      const dots = $all("#gsDots .gs-dot");
+      const idx = dots.indexOf(gsDot);
+      if (idx >= 0) setGsStep(idx);
+      return;
+    }
+
     const moduleNav = event.target.closest("[data-module-nav]");
     if (moduleNav && moduleNav.dataset.moduleNav) {
       state.activeModule = moduleNav.dataset.moduleNav;
       state.learnAccordion = "learn";
+      gsStep = 0;
       saveState();
       renderLearn();
       window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    const accToggle = event.target.closest("[data-accordion-toggle]");
-    if (accToggle) {
-      const id = accToggle.dataset.accordionToggle;
-      state.learnAccordion = state.learnAccordion === id ? null : id;
-      saveState();
-      // Bare oppdater accordion-tilstand uten å re-rendre alt
-      $all(".accordion-item").forEach((item) => {
-        const isOpen = item.dataset.accordion === state.learnAccordion;
-        item.dataset.open = String(isOpen);
-        const trigger = item.querySelector(".accordion-trigger");
-        if (trigger) trigger.setAttribute("aria-expanded", String(isOpen));
-      });
     }
 
     if (event.target.id === "toggleComplete") {
@@ -3290,6 +3312,7 @@ function initEvents() {
       state.activeModule = refModule.dataset.refModule;
       state.activeGuide = null;
       state.learnAccordion = "learn";
+      gsStep = 0;
       saveState();
       setView("learn");
       return;
@@ -3298,23 +3321,6 @@ function initEvents() {
     if (event.target.closest("[data-quick-log]")) {
       openQuickLog(null);
       return;
-    }
-  });
-
-  document.addEventListener("input", (event) => {
-    if (event.target && event.target.id === "theorySearch") {
-      const query = event.target.value.trim().toLowerCase();
-      const stack = document.getElementById("theoryStack");
-      const empty = document.getElementById("theorySearchEmpty");
-      if (!stack) return;
-      let visible = 0;
-      stack.querySelectorAll("[data-theory-card]").forEach((card) => {
-        const haystack = card.textContent.toLowerCase();
-        const match = !query || haystack.includes(query);
-        /** @type {HTMLElement} */ (card).hidden = !match;
-        if (match) visible += 1;
-      });
-      if (empty) empty.hidden = visible > 0 || !query;
     }
   });
 }
@@ -3617,6 +3623,161 @@ function initIntroSwipe() {
   );
 }
 
+/* ---------- Læringsmodul som kortbunke («Aller første sporøkt») ---------- */
+
+// Samme prinsipp som velkomstintroen: én fordøyelig bit per kort, med bla-knapper,
+// prikker, sveip og piltaster. Steget huskes på tvers av re-render, men nullstilles
+// når brukeren åpner modulen på nytt (se åpne-handlerne).
+let gsStep = 0;
+
+function gsSlides() {
+  return $all("#gsTrack .gs-slide");
+}
+
+function initCardStepper() {
+  const track = $("#gsTrack");
+  if (!track) return;
+  // Mål kortet etter at det er lagt ut, ellers blir høyden 0 ved første tegning.
+  requestAnimationFrame(() => setGsStep(gsStep));
+  initGsSwipe();
+
+  // Avkryssing/radio for kartleggingsspørsmålene lagres umiddelbart.
+  track.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-gs-question]");
+    if (input) {
+      const id = input.dataset.gsQuestion;
+      const option = input.dataset.gsOption;
+      const multi = input.dataset.gsMulti === "1";
+      const answers = state.gettingStartedAnswers;
+      const entry = answers[id] || {};
+      const current = entry.options || [];
+      const next = multi
+        ? input.checked
+          ? [...current, option]
+          : current.filter((o) => o !== option)
+        : [option];
+      answers[id] = { ...entry, options: next };
+      saveState();
+    }
+  });
+
+  // Når et metodekort åpnes/lukkes endres kortets høyde. "toggle" bobler ikke
+  // i alle nettlesere, så vi lytter med capture på selve treet.
+  track.addEventListener(
+    "toggle",
+    () => {
+      setGsStep(gsStep);
+    },
+    true
+  );
+
+  // Fritekstnotater lagres mens brukeren skriver, og høyden måles på nytt
+  // siden tekstfeltet kan vokse (resize: vertical).
+  track.addEventListener("input", (event) => {
+    const note = event.target.closest("[data-gs-note]");
+    if (!note) return;
+    const id = note.dataset.gsNote;
+    const answers = state.gettingStartedAnswers;
+    answers[id] = { ...(answers[id] || {}), note: note.value };
+    saveState();
+    setGsStep(gsStep);
+  });
+}
+
+function setGsStep(index) {
+  const track = $("#gsTrack");
+  if (!track) return;
+  const slides = gsSlides();
+  const count = slides.length;
+  if (!count) return;
+  gsStep = Math.max(0, Math.min(count - 1, index));
+  track.style.transform = `translateX(-${gsStep * 100}%)`;
+
+  // Viewporten følger høyden til det aktive kortet, så korte kort ikke etterlater
+  // et stort tomrom (slik et «strekk-til-høyeste»-flexoppsett ville gjort).
+  const active = slides[gsStep];
+  if (active) track.style.height = `${active.offsetHeight}px`;
+
+  $all("#gsDots .gs-dot").forEach((dot, i) => dot.classList.toggle("is-active", i === gsStep));
+
+  const progress = $("#gsProgress");
+  if (progress) progress.textContent = `Kort ${gsStep + 1} av ${count}`;
+
+  const prev = $("#gsPrev");
+  if (prev) prev.hidden = gsStep === 0;
+  const next = $("#gsNext");
+  // Siste kort har sin egen handling (lag plan / tilbake), så «Neste» skjules der.
+  if (next) next.hidden = gsStep === count - 1;
+}
+
+function gsNext() {
+  const count = gsSlides().length;
+  if (gsStep >= count - 1) return;
+  haptic();
+  setGsStep(gsStep + 1);
+}
+
+function gsPrev() {
+  if (gsStep === 0) return;
+  haptic();
+  setGsStep(gsStep - 1);
+}
+
+// Globale lyttere som bare skal settes opp én gang (piltaster + responsiv høyde).
+// Gjelder både «Aller første sporøkt» og læringsmodulene, siden begge bruker
+// samme #gsTrack-karusell (kun én er i DOM-en samtidig).
+function initCardStepperGlobal() {
+  document.addEventListener("keydown", (event) => {
+    if (!$("#gsTrack")) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      gsNext();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      gsPrev();
+    }
+  });
+  // Når bredden endres, må høyden på det aktive kortet måles på nytt.
+  window.addEventListener("resize", () => {
+    if ($("#gsTrack")) setGsStep(gsStep);
+  });
+}
+
+// Lett horisontal sveip mellom kortene — føles som en native karusell.
+function initGsSwipe() {
+  const viewport = $("#gsViewport");
+  if (!viewport) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  viewport.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) return;
+      tracking = true;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  viewport.addEventListener(
+    "touchend",
+    (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+      setGsStep(gsStep + (dx < 0 ? 1 : -1));
+      haptic();
+    },
+    { passive: true }
+  );
+}
+
 /* ---------- Installasjonscoach (legg appen på Hjem-skjerm) ---------- */
 
 // Chrome/Android/desktop gir oss et beforeinstallprompt-event vi kan utløse
@@ -3750,6 +3911,7 @@ function init() {
   applyTheme();
   initEvents();
   initWelcome();
+  initCardStepperGlobal();
   initActionSheet();
   initQuickLog();
   initShare();

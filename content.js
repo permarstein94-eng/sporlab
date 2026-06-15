@@ -1260,11 +1260,32 @@ export const gettingStartedGuide = {
     intro:
       "Treningen går mye lettere når hunden er konsentrert. For å forme konsentrasjonen må du ha kartlagt hunden før du legger en plan.",
     questions: [
-      "Hva er den beste forsterkeren? Ball/Kong, godbiter, eller det å finne folk?",
-      "Er hunden selvstendig eller veldig avhengig av deg som fører?",
-      "Er hunden svært nysgjerrig, moderat eller lite nysgjerrig?",
-      "Hvilken intensitet viser den når den leter etter leken sin?",
-      "Er det andre forhold (helse, alder, tidligere erfaring) du må ta hensyn til?",
+      {
+        id: "forsterker",
+        text: "Hva er den beste forsterkeren? Ball/Kong, godbiter, eller det å finne folk?",
+        options: ["Ball/Kong", "Godbiter", "Finne folk"],
+        multi: true,
+      },
+      {
+        id: "selvstendighet",
+        text: "Er hunden selvstendig eller veldig avhengig av deg som fører?",
+        options: ["Selvstendig", "Litt av begge", "Avhengig av fører"],
+      },
+      {
+        id: "nysgjerrighet",
+        text: "Er hunden svært nysgjerrig, moderat eller lite nysgjerrig?",
+        options: ["Svært nysgjerrig", "Moderat nysgjerrig", "Lite nysgjerrig"],
+      },
+      {
+        id: "intensitet",
+        text: "Hvilken intensitet viser den når den leter etter leken sin?",
+        options: ["Høy intensitet", "Middels intensitet", "Lav intensitet"],
+      },
+      {
+        id: "andre-forhold",
+        text: "Er det andre forhold (helse, alder, tidligere erfaring) du må ta hensyn til?",
+        note: true,
+      },
     ],
   },
   metoder: {
@@ -1347,9 +1368,66 @@ export const gettingStartedGuide = {
   },
 };
 
-export function renderGettingStarted() {
+// Render ett spørsmål i kartleggingskortet: avkrysningsbokser/radioknapper for
+// faste alternativer, og/eller et fritekstfelt. `saved` er brukerens lagrede
+// svar for dette spørsmålet (eller undefined hvis ubesvart).
+function renderGsQuestion(q, saved) {
+  const savedOptions = saved?.options || [];
+  const optionsHtml = (q.options || [])
+    .map((opt) => {
+      const type = q.multi ? "checkbox" : "radio";
+      const checked = savedOptions.includes(opt) ? " checked" : "";
+      return `<label class="gs-option">
+          <input type="${type}" name="gsq-${escapeHtml(q.id)}" data-gs-question="${escapeHtml(q.id)}" data-gs-option="${escapeHtml(opt)}" data-gs-multi="${q.multi ? "1" : "0"}"${checked} />
+          <span>${escapeHtml(opt)}</span>
+        </label>`;
+    })
+    .join("");
+  const noteHtml = q.note
+    ? `<textarea class="gs-note" data-gs-note="${escapeHtml(q.id)}" rows="2" placeholder="Skriv inn notater …">${escapeHtml(saved?.note || "")}</textarea>`
+    : "";
+  return `
+    <div class="gs-question">
+      <p class="gs-question-text">→ ${escapeHtml(q.text)}</p>
+      ${optionsHtml ? `<div class="gs-options">${optionsHtml}</div>` : ""}
+      ${noteHtml}
+    </div>`;
+}
+
+// Læringsmodulen vises som en stegvis kortbunke — én fordøyelig bit av gangen,
+// likt velkomstintroen. All informasjonen fra heftet er bevart, bare delt opp i
+// mindre kort slik at brukeren blar seg gjennom én tanke om gangen.
+// `answers` er brukerens lagrede svar på kartleggingsspørsmålene, nøklet på spørsmåls-id.
+export function renderGettingStarted(answers = {}) {
   const g = gettingStartedGuide;
-  const questionsHtml = g.kartlegging.questions.map((q) => `<li>${escapeHtml(q)}</li>`).join("");
+  const stepLi = (s, i) => `<li><span class="step-index">${i + 1}</span><span>${escapeHtml(s)}</span></li>`;
+
+  const slides = [];
+
+  // Kort 1: rammen rundt det hele.
+  slides.push(`
+    <div class="gs-card gs-card-intro">
+      <p class="eyebrow">Slik kommer du i gang</p>
+      <h4 class="gs-card-title">Før du legger første spor</h4>
+      <p>${escapeHtml(g.lead)}</p>
+      <p class="small gs-hint">Bla deg gjennom — ett kort om gangen.</p>
+    </div>`);
+
+  // Steg 1: kartlegg hunden — intro og spørsmål delt i to kort.
+  slides.push(`
+    <div class="gs-card">
+      <header class="gs-card-head"><span class="gs-step-pill">1</span><div><h4>${escapeHtml(g.kartlegging.title.replace(/^1\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.kartlegging.pages)}</p></div></header>
+      <p>${escapeHtml(g.kartlegging.intro)}</p>
+    </div>`);
+  slides.push(`
+    <div class="gs-card">
+      <p class="eyebrow">Kartlegg hunden · ${escapeHtml(g.kartlegging.pages)}</p>
+      <h4 class="gs-card-title">Tenk gjennom dette først</h4>
+      <div class="gs-question-list">${g.kartlegging.questions.map((q) => renderGsQuestion(q, answers[q.id])).join("")}</div>
+      <p class="small gs-hint">Svarene lagres på denne enheten.</p>
+    </div>`);
+
+  // Steg 2: velg metode — intro, så alle metodene som en utvidbar liste på samme kort.
   const methodsHtml = g.metoder.items
     .map(
       (m) => `<details class="start-method">
@@ -1361,69 +1439,106 @@ export function renderGettingStarted() {
       </details>`
     )
     .join("");
-  const stepsHtml = g.forsteOkt.steps
-    .map((s, i) => `<li><span class="step-index">${i + 1}</span><span>${escapeHtml(s)}</span></li>`)
-    .join("");
-  const progressionHtml = g.progresjon.items.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+  slides.push(`
+    <div class="gs-card">
+      <header class="gs-card-head"><span class="gs-step-pill">2</span><div><h4>${escapeHtml(g.metoder.title.replace(/^2\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.metoder.pages)}</p></div></header>
+      <p>${escapeHtml(g.metoder.intro)}</p>
+      <div class="start-methods">${methodsHtml}</div>
+      <details class="start-method start-method-extra">
+        <summary>
+          <span class="start-method-name">${escapeHtml(g.metoder.extra.name)}</span>
+          <span class="start-method-suits">Tilleggsteknikk</span>
+        </summary>
+        <p>${escapeHtml(g.metoder.extra.how)}</p>
+      </details>
+    </div>`);
 
-  return `
-    <section class="getting-started">
-      <button class="text-button gs-back" type="button" data-close-getstarted>◀ Tilbake til løypa</button>
-      <header class="gs-head">
-        <p class="eyebrow">Før første spor · ${escapeHtml(g.pages)}</p>
-        <h3>Aller første sporøkt med hunden</h3>
-        <p class="gs-lead">${escapeHtml(g.lead)}</p>
-      </header>
+  // Steg 3: arbeidstegn.
+  slides.push(`
+    <div class="gs-card">
+      <header class="gs-card-head"><span class="gs-step-pill">3</span><div><h4>${escapeHtml(g.arbeidstegn.title.replace(/^3\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.arbeidstegn.pages)}</p></div></header>
+      <p>${escapeHtml(g.arbeidstegn.text)}</p>
+    </div>`);
 
-      <article class="gs-step">
-        <header><span class="gs-step-pill">1</span><div><h4>${escapeHtml(g.kartlegging.title.replace(/^1\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.kartlegging.pages)}</p></div></header>
-        <p>${escapeHtml(g.kartlegging.intro)}</p>
-        <ul class="gs-questions">${questionsHtml}</ul>
-      </article>
+  // Steg 4: selve økta — intro, så oppskriften delt i «gjør klar» og «gjennomfør».
+  slides.push(`
+    <div class="gs-card gs-step-highlight">
+      <header class="gs-card-head"><span class="gs-step-pill">4</span><div><h4>${escapeHtml(g.forsteOkt.title.replace(/^4\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.forsteOkt.pages)}</p></div></header>
+      <p>${escapeHtml(g.forsteOkt.intro)}</p>
+    </div>`);
+  slides.push(`
+    <div class="gs-card gs-step-highlight">
+      <p class="eyebrow">Aller første sporøkt · gjør klar</p>
+      <h4 class="gs-card-title">Slik gjør du det</h4>
+      <ol class="plan-steps gs-steps">${g.forsteOkt.steps.slice(0, 4).map((s, i) => stepLi(s, i)).join("")}</ol>
+    </div>`);
+  slides.push(`
+    <div class="gs-card gs-step-highlight">
+      <p class="eyebrow">Aller første sporøkt · gjennomfør og avslutt</p>
+      <ol class="plan-steps gs-steps">${g.forsteOkt.steps.slice(4).map((s, i) => stepLi(s, i + 4)).join("")}</ol>
+    </div>`);
 
-      <article class="gs-step">
-        <header><span class="gs-step-pill">2</span><div><h4>${escapeHtml(g.metoder.title.replace(/^2\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.metoder.pages)}</p></div></header>
-        <p>${escapeHtml(g.metoder.intro)}</p>
-        <div class="start-methods">${methodsHtml}</div>
-        <details class="start-method start-method-extra">
-          <summary>
-            <span class="start-method-name">${escapeHtml(g.metoder.extra.name)}</span>
-          </summary>
-          <p>${escapeHtml(g.metoder.extra.how)}</p>
-        </details>
-      </article>
+  // Steg 5: progresjon.
+  slides.push(`
+    <div class="gs-card">
+      <header class="gs-card-head"><span class="gs-step-pill">5</span><div><h4>${escapeHtml(g.progresjon.title.replace(/^5\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.progresjon.pages)}</p></div></header>
+      <ul class="gs-progression">${g.progresjon.items.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
+    </div>`);
 
-      <article class="gs-step">
-        <header><span class="gs-step-pill">3</span><div><h4>${escapeHtml(g.arbeidstegn.title.replace(/^3\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.arbeidstegn.pages)}</p></div></header>
-        <p>${escapeHtml(g.arbeidstegn.text)}</p>
-      </article>
+  // Sirkelen og instruktør-påminnelsen som egne, korte kort.
+  slides.push(`
+    <div class="gs-card gs-card-callout">
+      <p class="eyebrow">${escapeHtml(g.sirkel.title)} · ${escapeHtml(g.sirkel.pages)}</p>
+      <p class="gs-callout-big">Tenk → Planlegg → Tren →&nbsp;…</p>
+      <p>${escapeHtml(g.sirkel.text)}</p>
+    </div>`);
+  slides.push(`
+    <div class="gs-card gs-card-amber">
+      <p class="eyebrow">Viktig</p>
+      <p>${escapeHtml(g.instruktor.text)}</p>
+    </div>`);
 
-      <article class="gs-step gs-step-highlight">
-        <header><span class="gs-step-pill">4</span><div><h4>${escapeHtml(g.forsteOkt.title.replace(/^4\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.forsteOkt.pages)}</p></div></header>
-        <p>${escapeHtml(g.forsteOkt.intro)}</p>
-        <ol class="plan-steps gs-steps">${stepsHtml}</ol>
-      </article>
-
-      <article class="gs-step">
-        <header><span class="gs-step-pill">5</span><div><h4>${escapeHtml(g.progresjon.title.replace(/^5\.\s*/, ""))}</h4><p class="small">${escapeHtml(g.progresjon.pages)}</p></div></header>
-        <ul class="gs-progression">${progressionHtml}</ul>
-      </article>
-
-      <aside class="gs-callout">
-        <p class="eyebrow">${escapeHtml(g.sirkel.title)}</p>
-        <p>${escapeHtml(g.sirkel.text)}</p>
-        <p class="small">${escapeHtml(g.sirkel.pages)}</p>
-      </aside>
-
-      <aside class="gs-callout gs-callout-amber">
-        <p>${escapeHtml(g.instruktor.text)}</p>
-      </aside>
-
+  // Siste kort: handlingen.
+  slides.push(`
+    <div class="gs-card gs-card-cta">
+      <h4 class="gs-card-title">Klar til å lage en plan?</h4>
+      <p>Du har vært gjennom hele oppstarten. Lag en kort plan for den aller første økta — så er du klar til å gå ut.</p>
       <div class="gs-cta">
         <button class="primary-button" data-drill-plan="forste-spor" type="button">Lag plan for aller første økt</button>
         <button class="ghost-button" type="button" data-close-getstarted>Tilbake til løypa</button>
       </div>
+    </div>`);
+
+  return `
+    <section class="getting-started gs-carousel">
+      <button class="text-button gs-back" type="button" data-close-getstarted>◀ Tilbake til løypa</button>
+      <header class="gs-head">
+        <p class="eyebrow">Før første spor · ${escapeHtml(g.pages)}</p>
+        <h3>Aller første sporøkt med hunden</h3>
+      </header>
+      ${renderCardCarousel(slides)}
     </section>`;
+}
+
+// Felles karusell-markup (track/viewport/prikker/navigasjon) for en liste med
+// kort-HTML. Brukes av både «Aller første sporøkt» og læringsmodulene, slik at
+// de deler samme bla-gjennom-mønster og stepper-logikk (se initCardStepper i app.js).
+export function renderCardCarousel(slides) {
+  const slidesHtml = slides.map((s) => `<article class="gs-slide" role="group" aria-roledescription="kort">${s}</article>`).join("");
+  const dotsHtml = slides.map((_, i) => `<span class="gs-dot${i === 0 ? " is-active" : ""}"></span>`).join("");
+
+  return `
+    <div class="gs-viewport" id="gsViewport">
+      <div class="gs-track" id="gsTrack">${slidesHtml}</div>
+    </div>
+    <div class="gs-cardfooter">
+      <div class="gs-dots" id="gsDots" aria-hidden="true">${dotsHtml}</div>
+      <p class="gs-progress" id="gsProgress" aria-live="polite">Kort 1 av ${slides.length}</p>
+      <div class="gs-nav">
+        <button class="text-button gs-prev" id="gsPrev" type="button" hidden>← Forrige</button>
+        <button class="primary-button gs-next" id="gsNext" type="button">Neste</button>
+      </div>
+    </div>`;
 }
 
 export const focusOrder = [
