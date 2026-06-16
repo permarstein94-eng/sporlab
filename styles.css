@@ -3829,60 +3829,48 @@ html[data-theme="dark"] .heat-0 {
 }
 
 /* ---------- "Før første spor"-kort på Lær-oversikten ---------- */
-.getting-started-card {
+/* Slank startguide-lenke: bevisst nedtonet så den ikke stjeler oppmerksomhet. */
+.gs-link {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  padding: 16px 18px;
-  margin-bottom: 18px;
-  border: 1px solid var(--blue);
+  padding: 9px 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, rgba(0, 119, 218, 0.08), rgba(0, 119, 218, 0.02));
-  color: var(--ink);
+  background: var(--surface);
+  color: var(--muted);
   text-align: left;
   cursor: pointer;
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  transition: border-color 140ms ease, color 140ms ease;
 }
-
-.getting-started-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
+.gs-link:hover {
+  border-color: var(--blue);
+  color: var(--ink);
 }
-
-.gs-card-icon {
+.gs-link-icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--blue);
   color: #fff;
-  font-size: 1rem;
+  font-size: 0.6rem;
 }
-
-.gs-card-body {
+.gs-link-text {
   flex: 1;
   min-width: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
 }
-
-.gs-card-body h4 {
-  margin: 4px 0 4px;
-  font-size: 1.1rem;
-}
-
-.gs-card-body p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.4;
-}
-
-.gs-card-arrow {
+.gs-link-text b { color: var(--ink); font-weight: 600; }
+.gs-link-arrow {
   flex: none;
-  font-size: 1.4rem;
   color: var(--blue);
+  font-size: 1.1rem;
 }
 
 /* ---------- "Før første spor"-guiden ---------- */
@@ -5328,53 +5316,166 @@ body[data-domain="field"] #viewEyebrow { color: var(--domain-field); }
 .loype-next .eyebrow { color: var(--domain-learning); }
 .loype-next h4 { margin: 2px 0 8px; }
 
-/* Stegene i løypa: vertikal sti med statuslys per tema. */
-.loype-list { display: flex; flex-direction: column; gap: 10px; }
-.loype-step {
-  display: grid;
-  grid-template-columns: 36px 1fr;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  cursor: pointer;
+/* ---------- Læringsstien: buktende sti med en node per etappe ---------- */
+.trail-section { margin-top: 4px; }
+.trail {
   position: relative;
+  width: 100%;
+  margin-top: 14px;
 }
-.loype-step:hover { border-color: var(--domain-learning); }
-.loype-step[data-state="current"] {
-  border-color: var(--domain-learning);
-  box-shadow: 0 0 0 2px var(--domain-learning-soft);
+/* SVG-stien ligger bak nodene og strekkes til å fylle hele .trail. */
+.trail-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
-.loype-step-num {
-  width: 32px;
-  height: 32px;
+.trail-line-base {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 1 14;
+  vector-effect: non-scaling-stroke;
+}
+.trail-line-progress {
+  fill: none;
+  stroke: var(--domain-learning, var(--blue));
+  stroke-width: 6;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  transition: stroke-dasharray 600ms ease;
+}
+
+/* Hver etappe er et 0×0 ankerpunkt på kurven; barna posisjoneres rundt det. */
+.trail-stage {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.trail-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   font-weight: 700;
-  background: var(--domain-learning-soft);
-  color: var(--domain-learning);
-}
-.loype-step[data-state="done"] .loype-step-num {
-  background: var(--domain-learning);
-  color: #fff;
-}
-.loype-step-body h4 { margin: 0 0 2px; font-size: 1rem; }
-.loype-step-body p { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
-.loype-lights { display: flex; flex-wrap: wrap; gap: 6px; }
-.loype-light {
-  font-size: 0.74rem;
-  padding: 2px 8px;
-  border-radius: 999px;
+  font-size: 1rem;
+  cursor: pointer;
+  border: 3px solid var(--surface);
   background: var(--surface-strong);
   color: var(--muted);
-  white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--line), 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+  z-index: 2;
 }
-.loype-light.is-ok { background: var(--domain-learning-soft); color: var(--domain-learning); font-weight: 600; }
-.loype-light.is-trained.is-ok { background: var(--domain-field-soft); color: var(--domain-field); }
+.trail-dot:hover { transform: translate(-50%, -50%) scale(1.08); }
+.trail-stage[data-state="done"] .trail-dot {
+  background: var(--domain-learning, var(--blue));
+  color: #fff;
+  box-shadow: 0 0 0 1px var(--domain-learning, var(--blue)), 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.trail-stage[data-state="current"] .trail-dot {
+  background: var(--surface);
+  color: var(--domain-learning, var(--blue));
+  box-shadow: 0 0 0 3px var(--domain-learning, var(--blue)), 0 2px 10px rgba(0, 0, 0, 0.16);
+  animation: trail-pulse 2.4s ease-in-out infinite;
+}
+@keyframes trail-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--domain-learning, var(--blue)), 0 2px 10px rgba(0, 0, 0, 0.16); }
+  50% { box-shadow: 0 0 0 6px var(--domain-learning-soft, rgba(0, 119, 218, 0.18)), 0 2px 10px rgba(0, 0, 0, 0.16); }
+}
+
+/* Etikett ved siden av noden, på motsatt side av der kurven svinger. */
+.trail-label {
+  position: absolute;
+  top: 0;
+  transform: translateY(-50%);
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+}
+.trail-stage[data-side="r"] .trail-label { left: 30px; text-align: left; }
+.trail-stage[data-side="l"] .trail-label { right: 30px; text-align: right; }
+.trail-label-eyebrow {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 700;
+}
+.trail-label b { font-size: 0.92rem; color: var(--ink); }
+.trail-stage[data-state="upcoming"] .trail-label b { color: var(--muted); }
+.trail-pips { display: flex; gap: 5px; }
+.trail-stage[data-side="l"] .trail-pips { justify-content: flex-end; }
+.trail-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.6rem;
+  line-height: 1;
+  color: #fff;
+  background: transparent;
+  border: 1.5px solid var(--line);
+}
+.trail-pip.is-ok {
+  background: var(--domain-learning, var(--blue));
+  border-color: var(--domain-learning, var(--blue));
+}
+/* Trent-merket (siste pip) får feltfargen når det er bestått. */
+.trail-pip:last-child.is-ok {
+  background: var(--domain-field, #2f9e7a);
+  border-color: var(--domain-field, #2f9e7a);
+}
+
+/* Start- og mål-markører i hver ende av stien. */
+.trail-cap {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+}
+.trail-start span {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.trail-goal {
+  flex-direction: column;
+  gap: 2px;
+}
+.trail-goal .trail-flag {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+.trail-goal b {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-stage[data-state="current"] .trail-dot { animation: none; }
+  .trail-line-progress { transition: none; }
+}
 
 /* Koblingsbånd: viser praksis-status og lenke til felt inne i en modul. */
 .coupling-band {
