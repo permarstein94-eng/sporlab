@@ -3974,6 +3974,11 @@ html[data-theme="dark"] .heat-0 {
 }
 
 .gs-option input {
+  flex: none;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
   accent-color: var(--blue);
 }
 
@@ -3982,6 +3987,47 @@ html[data-theme="dark"] .heat-0 {
   background: var(--light-blue);
   color: var(--blue);
   font-weight: 700;
+}
+
+/* Skalaspak for ordinale kartleggingsspørsmål (selvstendighet, nysgjerrighet,
+   intensitet) — tydeligere enn radioknapper og tåler lange etiketter. */
+.gs-scale {
+  display: grid;
+  gap: 6px;
+  padding: 2px 2px 0;
+}
+.gs-scale-value {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.gs-scale.is-answered .gs-scale-value {
+  color: var(--blue);
+}
+.gs-scale-input {
+  width: 100%;
+  margin: 2px 0;
+  accent-color: var(--line);
+  cursor: pointer;
+}
+.gs-scale.is-answered .gs-scale-input {
+  accent-color: var(--blue);
+}
+.gs-scale-input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.gs-scale-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.gs-scale-ends span:last-child {
+  text-align: right;
 }
 
 .gs-note {

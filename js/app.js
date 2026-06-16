@@ -3758,9 +3758,11 @@ function initCardStepper() {
   initGsSwipe();
 
   // Avkryssing/radio for kartleggingsspørsmålene lagres umiddelbart.
+  // Skalaspaken har også data-gs-question, men ingen data-gs-option — den
+  // håndteres på «input» under, så vi hopper over den her.
   track.addEventListener("change", (event) => {
     const input = event.target.closest("[data-gs-question]");
-    if (input) {
+    if (input && input.dataset.gsOption !== undefined) {
       const id = input.dataset.gsQuestion;
       const option = input.dataset.gsOption;
       const multi = input.dataset.gsMulti === "1";
@@ -3788,15 +3790,39 @@ function initCardStepper() {
   );
 
   // Fritekstnotater lagres mens brukeren skriver, og høyden måles på nytt
-  // siden tekstfeltet kan vokse (resize: vertical).
+  // siden tekstfeltet kan vokse (resize: vertical). Skalaspaken oppdaterer
+  // verdietiketten live mens den dras og lagrer valgt alternativ.
   track.addEventListener("input", (event) => {
     const note = event.target.closest("[data-gs-note]");
-    if (!note) return;
-    const id = note.dataset.gsNote;
-    const answers = state.gettingStartedAnswers;
-    answers[id] = { ...(answers[id] || {}), note: note.value };
-    saveState();
-    setGsStep(gsStep);
+    if (note) {
+      const id = note.dataset.gsNote;
+      const answers = state.gettingStartedAnswers;
+      answers[id] = { ...(answers[id] || {}), note: note.value };
+      saveState();
+      setGsStep(gsStep);
+      return;
+    }
+
+    const range = event.target.closest(".gs-scale-input[data-gs-question]");
+    if (range) {
+      const scale = range.closest(".gs-scale");
+      const id = range.dataset.gsQuestion;
+      let options = [];
+      try {
+        options = JSON.parse(scale?.dataset.gsOptions || "[]");
+      } catch {
+        options = [];
+      }
+      const option = options[Number(range.value)];
+      if (option === undefined) return;
+      scale.classList.add("is-answered");
+      const valueEl = scale.querySelector(".gs-scale-value");
+      if (valueEl) valueEl.textContent = option;
+      range.setAttribute("aria-valuetext", option);
+      const answers = state.gettingStartedAnswers;
+      answers[id] = { ...(answers[id] || {}), options: [option] };
+      saveState();
+    }
   });
 }
 
