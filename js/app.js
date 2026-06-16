@@ -784,38 +784,94 @@ function renderLearnIntro() {
   const doneCount = state.completed.length;
   const progress = Math.round((doneCount / modules.length) * 100);
   const logsByModule = computeModuleLogCredit();
-  const trainedAt = lastTrainedByModule();
   const trainedCount = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
 
   // Myk rekkefølge: neste steg er det første uleste temaet, men alt er åpent.
   const nextModule = modules.find((m) => !state.completed.includes(m.id));
   const shortTitle = (m) => m.title.replace(/^\d+\.\s*/, "");
-  const fmtDay = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
 
-  const steps = modules
-    .map((module, i) => {
-      const c = moduleChecks(module, logsByModule);
-      const stepState = c.isRead ? "done" : nextModule && module.id === nextModule.id ? "current" : "upcoming";
-      const trained = (logsByModule[module.id] || 0) > 0;
-      const trainedLabel = trained && trainedAt[module.id] ? `Trent · ${fmtDay(trainedAt[module.id])}` : "Trent";
-      const lights = [
-        { ok: c.isRead, label: "Lest", cls: "" },
-        { ok: c.quizOk, label: `Quiz ${c.masteredQs}/${c.totalQs}`, cls: "" },
-        { ok: trained, label: trainedLabel, cls: "is-trained" },
-      ]
-        .map((s) => `<span class="loype-light ${s.cls} ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
-        .join("");
+  // Læringsstien: en buktende sti der hver modul er en etappe-node langs kurven.
+  // Posisjonene regnes ut her, så SVG-stien og nodene er perfekt synkronisert
+  // uten å måtte måle layouten etter render.
+  const n = modules.length;
+  const AMP = 30; // hvor langt stien svinger ut til hver side (i % av bredden)
+  const FREQ = 0.9; // hvor «tett» svingene ligger
+  const STEP = 96; // vertikal avstand mellom etappene (px)
+  const PAD_TOP = 52;
+  const PAD_BOT = 70;
+  const trailHeight = PAD_TOP + n * STEP + PAD_BOT;
+
+  const trailNodes = modules.map((module, i) => {
+    const c = moduleChecks(module, logsByModule);
+    const trained = (logsByModule[module.id] || 0) > 0;
+    const stepState = c.isRead ? "done" : nextModule && module.id === nextModule.id ? "current" : "upcoming";
+    const x = 50 + AMP * Math.sin(i * FREQ); // 0..100, prosent av bredden
+    const y = PAD_TOP + (i + 0.5) * STEP; // px
+    return { module, c, trained, stepState, x, y, i };
+  });
+
+  const smoothPath = (pts) => {
+    if (pts.length < 2) return "";
+    let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+    }
+    return d;
+  };
+
+  const goalY = trailHeight - PAD_BOT * 0.5;
+  const pathPoints = [
+    { x: trailNodes[0].x, y: PAD_TOP * 0.45 },
+    ...trailNodes.map((p) => ({ x: p.x, y: p.y })),
+    { x: trailNodes[n - 1].x, y: goalY },
+  ];
+  const trailPath = smoothPath(pathPoints);
+
+  const nodesHtml = trailNodes
+    .map(({ module, c, trained, stepState, x, y, i }) => {
+      const side = x < 50 ? "r" : "l";
+      const num = c.isRead ? "✓" : i + 1;
+      const pip = (ok, label) =>
+        `<span class="trail-pip ${ok ? "is-ok" : ""}" title="${escapeHtml(label)}" aria-hidden="true">${ok ? "✓" : ""}</span>`;
+      const stateLabel = stepState === "done" ? "Mestret" : stepState === "current" ? "Neste steg" : "Ikke startet";
+      const aria = `Etappe ${i + 1}: ${module.title}. ${stateLabel}. ${c.isRead ? "Lest" : "ikke lest"}, quiz ${c.masteredQs} av ${c.totalQs}, ${trained ? "trent i felt" : "ikke trent i felt"}.`;
       return `
-        <button class="loype-step" data-state="${stepState}" data-module-open="${module.id}" type="button">
-          <span class="loype-step-num">${c.isRead ? "✓" : i + 1}</span>
-          <span class="loype-step-body">
-            <h4>${escapeHtml(module.title)}</h4>
-            <p>${escapeHtml(module.summary)}</p>
-            <span class="loype-lights">${lights}</span>
+        <div class="trail-stage" data-side="${side}" data-state="${stepState}" style="left:${x.toFixed(2)}%;top:${y}px;">
+          <button class="trail-dot" data-module-open="${module.id}" type="button" aria-label="${escapeHtml(aria)}">
+            <span>${num}</span>
+          </button>
+          <span class="trail-label">
+            <span class="trail-label-eyebrow">Etappe ${i + 1}</span>
+            <b>${escapeHtml(shortTitle(module))}</b>
+            <span class="trail-pips">${pip(c.isRead, "Lest")}${pip(c.quizOk, "Quiz bestått")}${pip(trained, "Trent i felt")}</span>
           </span>
-        </button>`;
+        </div>`;
     })
     .join("");
+
+  const goalSide = trailNodes[n - 1].x < 50 ? "r" : "l";
+  const trailHtml = `
+    <div class="trail" style="height:${trailHeight}px;">
+      <svg class="trail-svg" viewBox="0 0 100 ${trailHeight}" preserveAspectRatio="none" aria-hidden="true">
+        <path class="trail-line-base" d="${trailPath}" />
+        <path class="trail-line-progress" d="${trailPath}" pathLength="100" style="stroke-dasharray:${progress} 100;" />
+      </svg>
+      <div class="trail-cap trail-start" style="left:${trailNodes[0].x.toFixed(2)}%;top:${(PAD_TOP * 0.45).toFixed(0)}px;">
+        <span>Start</span>
+      </div>
+      ${nodesHtml}
+      <div class="trail-cap trail-goal" data-side="${goalSide}" style="left:${trailNodes[n - 1].x.toFixed(2)}%;top:${goalY.toFixed(0)}px;">
+        <span class="trail-flag" aria-hidden="true">🏁</span><b>Mål</b>
+      </div>
+    </div>`;
 
   const nextStepHtml = nextModule
     ? `<section class="loype-next">
@@ -851,23 +907,19 @@ function renderLearnIntro() {
       </div>
     </header>
 
-    <button class="getting-started-card" type="button" data-open-getstarted>
-      <div class="gs-card-icon" aria-hidden="true">▶</div>
-      <div class="gs-card-body">
-        <p class="eyebrow">Før du starter</p>
-        <h4>Aldri gått spor med hunden før?</h4>
-        <p>Les en kort guide som tar deg gjennom kartlegging, valg av startmetode og hvordan en helt første sporøkt kan se ut. Hentet fra leseheftet s. 7-11.</p>
-      </div>
-      <span class="gs-card-arrow" aria-hidden="true">→</span>
+    <button class="gs-link" type="button" data-open-getstarted>
+      <span class="gs-link-icon" aria-hidden="true">▶</span>
+      <span class="gs-link-text"><b>Aldri gått spor før?</b> Kort startguide — kartlegging og første økt (s. 7–11)</span>
+      <span class="gs-link-arrow" aria-hidden="true">→</span>
     </button>
 
     ${nextStepHtml}
 
-    <section>
+    <section class="trail-section">
       <p class="eyebrow">Hele løypa</p>
       <h3 class="visually-hidden">Temaene i løypa</h3>
-      <p class="small">Hvert tema viser tre lys: <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Trykk på et tema for å lese, jobbe og markere som mestret.</p>
-      <div class="loype-list">${steps}</div>
+      <p class="small">Følg stien fra grunnlag til mål. Hver etappe har tre merker — <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Trykk på en etappe for å lese, jobbe og markere som mestret.</p>
+      ${trailHtml}
     </section>
 
     <section class="panel learn-quiz-panel">
