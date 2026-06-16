@@ -1269,19 +1269,19 @@ export const gettingStartedGuide = {
       {
         id: "selvstendighet",
         text: "Er hunden selvstendig eller veldig avhengig av deg som fører?",
-        options: ["Selvstendig", "Litt av begge", "Avhengig av fører"],
+        options: ["Avhengig av fører", "Litt av begge", "Selvstendig"],
         scale: true,
       },
       {
         id: "nysgjerrighet",
         text: "Er hunden svært nysgjerrig, moderat eller lite nysgjerrig?",
-        options: ["Svært nysgjerrig", "Moderat nysgjerrig", "Lite nysgjerrig"],
+        options: ["Lite nysgjerrig", "Moderat nysgjerrig", "Svært nysgjerrig"],
         scale: true,
       },
       {
         id: "intensitet",
         text: "Hvilken intensitet viser den når den leter etter leken sin?",
-        options: ["Høy intensitet", "Middels intensitet", "Lav intensitet"],
+        options: ["Lav intensitet", "Middels intensitet", "Høy intensitet"],
         scale: true,
       },
       {

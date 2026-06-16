@@ -3897,6 +3897,12 @@ function initGsSwipe() {
   viewport.addEventListener(
     "touchstart",
     (event) => {
+      // Drag som starter på en slider eller et tekstfelt skal styre kontrollen,
+      // ikke bla mellom kortene — ellers «hopper» appen til neste kort.
+      if (event.target.closest("input, textarea, .gs-scale")) {
+        tracking = false;
+        return;
+      }
       if (event.touches.length !== 1) return;
       tracking = true;
       startX = event.touches[0].clientX;
