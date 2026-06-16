@@ -1270,16 +1270,19 @@ export const gettingStartedGuide = {
         id: "selvstendighet",
         text: "Er hunden selvstendig eller veldig avhengig av deg som fører?",
         options: ["Selvstendig", "Litt av begge", "Avhengig av fører"],
+        scale: true,
       },
       {
         id: "nysgjerrighet",
         text: "Er hunden svært nysgjerrig, moderat eller lite nysgjerrig?",
         options: ["Svært nysgjerrig", "Moderat nysgjerrig", "Lite nysgjerrig"],
+        scale: true,
       },
       {
         id: "intensitet",
         text: "Hvilken intensitet viser den når den leter etter leken sin?",
         options: ["Høy intensitet", "Middels intensitet", "Lav intensitet"],
+        scale: true,
       },
       {
         id: "andre-forhold",
@@ -1373,23 +1376,46 @@ export const gettingStartedGuide = {
 // svar for dette spørsmålet (eller undefined hvis ubesvart).
 function renderGsQuestion(q, saved) {
   const savedOptions = saved?.options || [];
-  const optionsHtml = (q.options || [])
-    .map((opt) => {
-      const type = q.multi ? "checkbox" : "radio";
-      const checked = savedOptions.includes(opt) ? " checked" : "";
-      return `<label class="gs-option">
+  let controlHtml = "";
+
+  if (q.scale && q.options && q.options.length) {
+    // Ordinale skalaspørsmål vises som en spak: tydeligere enn radioknapper og
+    // unngår at lange etiketter brytes over to linjer.
+    const n = q.options.length;
+    const selIdx = q.options.indexOf(savedOptions[0]);
+    const answered = selIdx >= 0;
+    const value = answered ? selIdx : Math.floor((n - 1) / 2);
+    const valueLabel = answered ? escapeHtml(q.options[value]) : "Dra spaken for å vurdere";
+    controlHtml = `
+      <div class="gs-scale${answered ? " is-answered" : ""}" data-gs-options="${escapeHtml(JSON.stringify(q.options))}">
+        <p class="gs-scale-value">${valueLabel}</p>
+        <input type="range" class="gs-scale-input" min="0" max="${n - 1}" step="1" value="${value}" data-gs-question="${escapeHtml(q.id)}" aria-label="${escapeHtml(q.text)}"${answered ? ` aria-valuetext="${escapeHtml(q.options[value])}"` : ""} />
+        <div class="gs-scale-ends">
+          <span>${escapeHtml(q.options[0])}</span>
+          <span>${escapeHtml(q.options[n - 1])}</span>
+        </div>
+      </div>`;
+  } else if (q.options && q.options.length) {
+    const optionsHtml = q.options
+      .map((opt) => {
+        const type = q.multi ? "checkbox" : "radio";
+        const checked = savedOptions.includes(opt) ? " checked" : "";
+        return `<label class="gs-option">
           <input type="${type}" name="gsq-${escapeHtml(q.id)}" data-gs-question="${escapeHtml(q.id)}" data-gs-option="${escapeHtml(opt)}" data-gs-multi="${q.multi ? "1" : "0"}"${checked} />
           <span>${escapeHtml(opt)}</span>
         </label>`;
-    })
-    .join("");
+      })
+      .join("");
+    controlHtml = `<div class="gs-options">${optionsHtml}</div>`;
+  }
+
   const noteHtml = q.note
     ? `<textarea class="gs-note" data-gs-note="${escapeHtml(q.id)}" rows="2" placeholder="Skriv inn notater …">${escapeHtml(saved?.note || "")}</textarea>`
     : "";
   return `
     <div class="gs-question">
       <p class="gs-question-text">→ ${escapeHtml(q.text)}</p>
-      ${optionsHtml ? `<div class="gs-options">${optionsHtml}</div>` : ""}
+      ${controlHtml}
       ${noteHtml}
     </div>`;
 }
