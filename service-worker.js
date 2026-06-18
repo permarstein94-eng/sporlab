@@ -1,4 +1,4 @@
-const CACHE_NAME = "sporlab-e8-e9-v24";
+const CACHE_NAME = "sporlab-e8-e9-v25";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -16,6 +16,11 @@ const APP_SHELL = [
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
   "./assets/icons/apple-touch-icon.png",
+  "./assets/fonts/bebas-neue-400.woff2",
+  "./assets/fonts/source-sans-3-400.woff2",
+  "./assets/fonts/source-sans-3-600.woff2",
+  "./assets/fonts/source-sans-3-700.woff2",
+  "./assets/fonts/source-sans-3-900.woff2",
 ];
 
 self.addEventListener("install", (event) => {
