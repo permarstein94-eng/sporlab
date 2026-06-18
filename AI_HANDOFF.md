@@ -68,65 +68,92 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** TODO  
-**Owner/agent:** TODO  
-**Branch:** TODO  
-**Started:** TODO  
-**Status:** Not started  
+**Task title:** Redesign Fase 1a — struktur for læringsplattform  
+**Owner/agent:** Claude Code  
+**Branch:** `redesign/fase-1a`  
+**Started:** 2026-06-18  
+**Status:** Komplett (5/5 leveranser, verifisert). Klar for review/merge.  
 
 ### Scope
 
-TODO: What should be changed?
+5-fanes bunnmeny, Hjem-hub (kursvei + neste-steg + aktivitet), Lær-stepper,
+Felt mørk modus, ny intro. Rent presentasjonslag.
 
 ### Out of scope
 
-TODO: What must not be touched?
+`content.js`, `js/state.js`, `js/quiz.js`, `js/snapshot.js`, `service-worker.js`,
+`wrangler.jsonc`, `build.sh`. Ingen localStorage-skjemaendring. Fase 1b/1c.
 
 ---
 
 ## Latest handoff
 
 **Date/time:** 2026-06-18  
-**Agent:** ChatGPT setup  
-**Branch:** TODO  
+**Agent:** Claude Code  
+**Branch:** `redesign/fase-1a`  
+
+### Task
+
+Redesign-spec Fase 1a — strukturen for læringsplattformen. Spec:
+`docs/superpowers/specs/2026-06-18-sporlab-redesign-design.md`.
 
 ### What changed
 
-- Created AI handoff system for Claude Code and Codex.
-- System is customized for SporLab's static JS/PWA structure.
-- Added strict rules for branches, checks, handoff, review and deployment safety.
+5 leveranser, hver i sin commit på `redesign/fase-1a`:
+
+1. **Ny 5-fanes bunnmeny** (Hjem · Lær · Felt-FAB · Fremgang · Oppslag). Droppet
+   `bottom-nav-doors`; CSS-en hadde allerede 5-kolonners grid. Felt-FAB navigerer
+   til Felt-fanen (training). `navTabForView` remappet. Nye ikoner trees/chart.
+2. **Hjem som progresjons-hub**: kursvei-stripe (8 punkter, fullført/aktiv/låst),
+   neste-steg-kort (tre statuslinjer + evoluerende CTA), siste-aktivitet.
+3. **Lær-modul som 4-trinns stepper** (Les → Quiz → Til skogen → Mester), bygd på
+   eksisterende accordion-infra. Nye ikoner check/minus.
+4. **Felt-fane mørk modus** (#042C53): palett-variabler re-scopet på `.main-panel`
+   ved `body[data-domain="field"]`, 250ms cross-fade, 56px treffflater.
+5. **Intro skrevet om** til læringsplattform-modellen (kjerneløkken + bro).
+
+Modell-beslutning: «fullført» = lest + quiz + trent (alle tre lysene), utledet
+rent fra eksisterende state. `state.completed` = «Teori lest»-flagget. Ingen
+skjemaendring. Se AI_DECISION_LOG.
 
 ### Files changed
 
-- `CLAUDE.md`
-- `AGENTS.md`
-- `AI_HANDOFF.md`
-- `AI_DECISION_LOG.md`
-- `AI_TASK_TEMPLATE.md`
-- `README_AI_SYSTEM.md`
-- `scripts/ai-status.ps1`
-- `scripts/ai-new-task.ps1`
-- `scripts/ai-checkpoint.ps1`
-- `scripts/ai-review.ps1`
-- `scripts/ai-finish-task.ps1`
-- `.github/pull_request_template.md`
+- `index.html` (bunnmeny, Hjem-shell, intro-slides)
+- `js/app.js` (nav, renderHome + zoner, stepper, ikoner, data-module-open→setView)
+- `styles.css` (Hjem-hub, stepper, Felt mørk modus, intro-loop)
+
+Ikke rørt (per spec): `content.js`, `js/state.js`, `js/quiz.js`,
+`js/snapshot.js`, `service-worker.js`, `wrangler.jsonc`, `build.sh`.
 
 ### Commands run
 
 ```bash
-# After installing, run:
-node --test
-npx -p typescript tsc -p jsconfig.json
-bash build.sh
+node --test                                 # 27 pass (før og etter hver leveranse)
+npx -p typescript tsc -p jsconfig.json      # ren (exit 0)
 ```
+
+Verifisert visuelt i preview (npx serve, port 3000, mobil-viewport): alle 5
+faner ruter riktig, Hjem-hub med done/active/locked, stepper, Felt mørk modus
+(training + planlegger), ny intro slide 1+2. Ingen console-feil.
 
 ### Results
 
-- TODO: Fill after first local run.
+- Alle eksisterende tester passerer (27/27). Typecheck ren.
+- Fase 1a komplett og verifisert. Ingen regresjoner observert på tvers av visninger.
 
-### Known issues
+### Known issues / scope-grenser
 
-- TODO: Fill after first local run.
+- **Lær-moduloversikten** (`renderLearnIntro`-løypa) er IKKE bygd om til det
+  låste modul-grid-et fra spec Seksjon 2 — den bruker fortsatt den eksisterende
+  «alt åpent»-løypelista. Kursvei-låsing på Hjem er derfor visuell veiledning;
+  modulene kan fortsatt åpnes via Lær-fanen. Vurder å samkjøre i neste runde.
+- **Død CSS/markup**: gammel `.door`/`.home-chooser`/`.intro-door`-CSS og
+  handlingsarket (`#actionSheet`) er inerte men gjenstår — rydd i fase 1c.
+- **Fase 1b/1c gjenstår**: fullføring-seremoni, bro-overlay, kursvei-inn-animasjon
+  (1b); glassmorfisme, ambient-video, mikrointeraksjoner (1c).
+- **PWA-cache**: service-worker (v25) cacher aggressivt. Under lokal preview måtte
+  SW avregistreres + cache tømmes for å se endringer. Ved deploy må SW-versjon
+  bumpes (egen deploy-oppgave, ikke rørt her).
 
 ### Risks
 
@@ -137,10 +164,10 @@ bash build.sh
 
 ### Recommended next step
 
-- Install these files in repo root.
-- Run `powershell -ExecutionPolicy Bypass -File .\scripts\ai-status.ps1`.
-- Commit as `Add AI agent handoff system`.
-- Start all future AI tasks from task branches.
+- Få Per til å se gjennom `redesign/fase-1a` (5 commits) i preview.
+- Deretter: enten fase 1b (animasjoner/seremoni) eller bygge om Lær-moduloversikten
+  til det låste grid-et for full konsistens med kursvei-låsingen.
+- Ved merge til main: bump service-worker-versjon som egen deploy-oppgave.
 
 ---
 
@@ -184,6 +211,20 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-18 — Claude Code — branch `redesign/fase-1a`
+
+**Task:** Implementer redesign Fase 1a (5 leveranser) fra godkjent spec.
+
+**Summary:**
+- 5-fanes bunnmeny, Hjem-progresjons-hub, Lær-stepper, Felt mørk modus, ny intro.
+- Rent presentasjonslag — ingen endring i state-skjema, quiz, content, SW, deploy.
+- «Fullført» definert som lest + quiz + trent (utledet); se DECISION_LOG.
+- 5 commits (0c872ce, 62aac55, 08d53d9, 5319b41, f65a61a).
+
+**Checks:** `node --test` 27/27 pass; `tsc` ren. Verifisert i preview.
+
+**Next step:** Review i preview; deretter fase 1b eller låst modul-grid i Lær.
 
 ### 2026-06-18 — ChatGPT setup — branch unknown
 
