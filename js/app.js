@@ -66,17 +66,18 @@ const viewDomain = {
   log: "field",
 };
 
-// Todelt «to dører»-modell: bunnmenyen har bare Hjem, + og Oppslag.
-// Lærings- og feltmodulen nås via de to dørene på Hjem, så de markerer ingen
-// fane (modus vises i stedet via topplinjefarge og «← Hjem»).
+// Sammenhengende læringsplattform: bunnmenyen har fem faner —
+// Hjem · Lær · Felt (sentrert FAB) · Fremgang · Oppslag. Hver visning markerer
+// fanen den hører hjemme i, så brukeren alltid vet hvor i appen de er.
+// Felt-FAB-en («training») dekker planlegger og hurtiglogg.
 const navTabForView = {
   dashboard: "dashboard",
-  progress: "dashboard",
-  training: "",
-  planner: "",
-  log: "",
-  learn: "",
-  quiz: "",
+  progress: "progress",
+  training: "training",
+  planner: "training",
+  log: "training",
+  learn: "learn",
+  quiz: "learn",
   reference: "reference",
   settings: "",
 };
@@ -149,6 +150,14 @@ function setView(view) {
       item.removeAttribute("aria-current");
     }
   });
+  // Felt-FAB-en er en egen knapp (ikke .bottom-nav-item) og markeres separat.
+  const fab = $("#navActionButton");
+  if (fab) {
+    const fabActive = fab.dataset.view === activeTab;
+    fab.classList.toggle("is-active", fabActive);
+    if (fabActive) fab.setAttribute("aria-current", "page");
+    else fab.removeAttribute("aria-current");
+  }
   const [eyebrow, title] = viewMeta[view] || ["", view];
   $("#viewEyebrow").textContent = eyebrow;
   $("#viewTitle").textContent = title;
@@ -383,7 +392,7 @@ function renderPlanList() {
   if (!el) return;
   const plans = state.plans || [];
   if (!plans.length) {
-    el.innerHTML = emptyState("Ingen planer ennå. Trykk «Planlegg ny» eller bruk +-knappen.");
+    el.innerHTML = emptyState("Ingen planer ennå. Trykk «Planlegg ny» for å lage en øktplan.");
     return;
   }
   const [first, ...rest] = plans;
@@ -3426,6 +3435,10 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1.1"/><circle cx="4" cy="12" r="1.1"/><circle cx="4" cy="18" r="1.1"/></svg>',
   reference:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.2"/><path d="m20 20-3.6-3.6"/></svg>',
+  trees:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3 4.5 10.5h9L9 3Z"/><path d="M9 8 5.5 14h7L9 8Z"/><path d="M9 14v6"/><path d="m16.5 6-3 5h6l-3-5Z"/><path d="M16.5 11v9"/></svg>',
+  chart:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h15"/><path d="m7.5 14 3-3.5 2.5 2.5 4.5-5"/></svg>',
   quiz:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-1.5 2-2.5 2.5"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg>',
   settings:
@@ -3452,14 +3465,9 @@ function closeActionSheet() {
 }
 
 function initActionSheet() {
-  $("#navActionButton")?.addEventListener("click", () => {
-    const sheet = $("#actionSheet");
-    if (!sheet) return;
-    haptic();
-    if (sheet.classList.contains("is-open")) closeActionSheet();
-    else openActionSheet();
-  });
-
+  // Felt-FAB-en navigerer nå til Felt-fanen (data-view="training"), håndtert av
+  // #bottomNav-delegasjonen. Handlingsarket beholdes for plan/logg-snarveier
+  // som kan gjenbrukes, men åpnes ikke lenger fra bunnmenyen.
   $("#actionSheet")?.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-sheet]")) {
       closeActionSheet();

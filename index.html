@@ -414,13 +414,21 @@
       </main>
     </div>
 
-    <nav class="bottom-nav bottom-nav-doors" id="bottomNav" aria-label="Hovednavigasjon">
+    <nav class="bottom-nav" id="bottomNav" aria-label="Hovednavigasjon">
       <button class="bottom-nav-item is-active" data-view="dashboard" type="button">
         <span class="bottom-nav-icon" data-icon="dashboard" aria-hidden="true"></span>
         <span class="bottom-nav-label">Hjem</span>
       </button>
-      <button class="bottom-nav-action" id="navActionButton" type="button" aria-label="Ny økt — planlegg eller loggfør" aria-haspopup="true" aria-expanded="false">
-        <span aria-hidden="true">+</span>
+      <button class="bottom-nav-item" data-view="learn" type="button">
+        <span class="bottom-nav-icon" data-icon="learn" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Lær</span>
+      </button>
+      <button class="bottom-nav-action" id="navActionButton" data-view="training" type="button" aria-label="Felt — planlegg og loggfør økter">
+        <span class="bottom-nav-icon" data-icon="trees" aria-hidden="true"></span>
+      </button>
+      <button class="bottom-nav-item" data-view="progress" type="button">
+        <span class="bottom-nav-icon" data-icon="chart" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Fremgang</span>
       </button>
       <button class="bottom-nav-item" data-view="reference" type="button">
         <span class="bottom-nav-icon" data-icon="reference" aria-hidden="true"></span>
