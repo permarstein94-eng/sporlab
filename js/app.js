@@ -1008,22 +1008,11 @@ function renderLearnIntro() {
 
 function renderLearnModule(moduleId) {
   const module = modules.find((item) => item.id === moduleId) || modules[0];
-  const done = state.completed.includes(module.id);
   // Koblingen til feltmodulen: er dette temaet trent på, og hvordan planlegges det?
   const couplingFocus = focusForModule(module.id);
   const trainedCount = computeModuleLogCredit()[module.id] || 0;
   const trainedTs = lastTrainedByModule()[module.id];
   const fmtTrained = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
-  const couplingBand = `
-    <div class="coupling-band">
-      <span class="coupling-text">
-        <span class="domain-pill domain-pill-field">Felt</span>
-        ${trainedCount
-          ? `<strong>Trent på ✓</strong> — sist ${escapeHtml(fmtTrained(trainedTs))} · ${trainedCount} ${trainedCount === 1 ? "økt" : "økter"} logget på dette temaet.`
-          : `<strong>Ikke trent i felt ennå.</strong> Når teorien sitter: prøv det ute, så markeres temaet som trent her.`}
-      </span>
-      ${couplingFocus ? `<button class="ghost-button small-button" data-drill-plan="${escapeHtml(couplingFocus)}" type="button">Planlegg i felt →</button>` : ""}
-    </div>`;
   const deepDive = theoryDeepDives[module.id] || [];
   const reflections = reflectionLibrary[module.id] || [module.reflection];
   const moduleIndex = modules.findIndex((m) => m.id === module.id);
@@ -1031,16 +1020,6 @@ function renderLearnModule(moduleId) {
   const nextModule = moduleIndex < modules.length - 1 ? modules[moduleIndex + 1] : null;
   const open = state.learnAccordion || "learn";
 
-  const accordionItem = (id, title, contentHtml) => `
-    <article class="accordion-item" data-open="${open === id}" data-accordion="${id}">
-      <button class="accordion-trigger" type="button" data-accordion-toggle="${id}" aria-expanded="${open === id}">
-        <span>${escapeHtml(title)}</span>
-        <span class="accordion-chevron" aria-hidden="true">▾</span>
-      </button>
-      <div class="accordion-panel">${contentHtml}</div>
-    </article>`;
-
-  const learnHtml = `<ul>${module.learn.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   const deepHtml = deepDive.length
     ? `
         <div class="theory-search">
@@ -1080,17 +1059,99 @@ function renderLearnModule(moduleId) {
         <p>${escapeHtml(moduleDiagram.text)}</p>
       </article>`
     : "";
-  const fieldHtml = `<div class="callout"><p>${escapeHtml(module.field)}</p></div>${diagramHtml}`;
-  const reflectionHtml = `
-    <ul class="reflection-list">${reflections.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
-    <p class="small">Velg ett spørsmål per økt, eller la treningsgruppa svare på ett hver.</p>`;
+  const diagramHtmlBlock = diagramHtml;
+
+  // ---- Status per trinn (samme modell som Hjem: lest + quiz + trent → mestret) ----
+  const logsByModule = computeModuleLogCredit();
+  const checks = moduleChecks(module, logsByModule);
+  const quizOk = checks.totalQs === 0 ? true : checks.quizOk;
+  const mastered = checks.isRead && quizOk && checks.hasLog;
+  const planFocus = (module.drill && module.drill.focus) || couplingFocus;
+
+  // Stepper bygd på den eksisterende accordion-infrastrukturen: hvert trinn er
+  // ett accordion-item med statusbadge. data-accordion-toggle / state.learnAccordion
+  // styrer åpning som før — bare strukturen og innholdet er nytt.
+  const step = (id, n, title, statusText, ok, contentHtml) => {
+    const stepState = ok ? "done" : open === id ? "active" : "todo";
+    return `
+      <article class="accordion-item step-item" data-open="${open === id}" data-accordion="${id}" data-step-state="${stepState}">
+        <button class="accordion-trigger step-trigger" type="button" data-accordion-toggle="${id}" aria-expanded="${open === id}">
+          <span class="step-badge" aria-hidden="true">${ok ? "✓" : n}</span>
+          <span class="step-head-text">
+            <span class="step-title">${escapeHtml(title)}</span>
+            <span class="step-status small">${escapeHtml(statusText)}</span>
+          </span>
+          <span class="accordion-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="accordion-panel">${contentHtml}</div>
+      </article>`;
+  };
+
+  // Trinn 1 — Les (kjernepunkter + teoridykk + marker som lest)
+  const trinn1 = `
+    <ul class="lesson-core">${module.learn.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    ${deepDive.length ? `<p class="eyebrow step-subhead">Teoridykk — for den som vil dypere</p>${deepHtml}` : ""}
+    <div class="step-action">
+      <button class="primary-button" id="toggleComplete" type="button">${checks.isRead ? "Marker som ulest" : "Marker teori som lest ✓"}</button>
+    </div>`;
+
+  // Trinn 2 — Quiz (lenker til modulens kontrollspørsmål; logikk uendret)
+  const quizStatusLine = checks.totalQs
+    ? `${checks.masteredQs} av ${checks.totalQs} spørsmål mestret`
+    : "Ingen kontrollspørsmål for dette temaet ennå.";
+  const trinn2 = `
+    <p>Sjekk forståelsen med korte kontrollspørsmål om dette temaet. Du får forklaring på hvert svar, og består ved minst 60 %.</p>
+    <p class="step-status-line">${escapeHtml(quizStatusLine)}</p>
+    ${checks.totalQs ? `<div class="step-action">
+      <button class="primary-button" data-start-module-quiz="${module.id}" type="button">${quizOk ? "Repeter quiz" : "Ta quiz"} →</button>
+    </div>` : ""}`;
+
+  // Trinn 3 — Til skogen (pre-brief, øvelse, refleksjon, planlegg)
+  const trainedLine = trainedCount
+    ? `<p class="coupling-inline is-trained"><span class="domain-pill domain-pill-field">Felt</span> Trent på ✓ — sist ${escapeHtml(fmtTrained(trainedTs))} · ${trainedCount} ${trainedCount === 1 ? "økt" : "økter"} på dette temaet.</p>`
+    : `<p class="coupling-inline"><span class="domain-pill domain-pill-field">Felt</span> Ikke trent i felt ennå. Når teorien sitter: prøv det ute, så markeres trinnet som trent.</p>`;
+  const trinn3 = `
+    <p class="step-prebrief">Dette skal du se etter ute:</p>
+    <div class="callout"><p>${escapeHtml(module.field)}</p></div>
+    ${diagramHtmlBlock}
+    ${module.drill ? `<section class="module-drill">
+      <p class="eyebrow">Prøv dette i felt</p>
+      <h4>${escapeHtml(module.drill.title)} <span class="drill-duration">· ${escapeHtml(module.drill.duration)}</span></h4>
+      <p>${escapeHtml(module.drill.description)}</p>
+    </section>` : ""}
+    <details class="reflection-expander">
+      <summary>Refleksjon for laget</summary>
+      <ul class="reflection-list">${reflections.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+      <p class="small">Velg ett spørsmål per økt, eller la treningsgruppa svare på ett hver.</p>
+    </details>
+    ${trainedLine}
+    <div class="step-action">
+      <button class="primary-button" type="button" ${planFocus ? `data-drill-plan="${escapeHtml(planFocus)}"` : 'data-next-action="open-planner"'}>Planlegg økt for dette temaet →</button>
+    </div>`;
+
+  // Trinn 4 — Mester (oppsummering av de tre lysene; seremoni kommer i fase 1b)
+  const recap = [
+    { ok: checks.isRead, label: "Teori lest" },
+    { ok: quizOk, label: "Quiz bestått" },
+    { ok: checks.hasLog, label: "Trent i felt" },
+  ]
+    .map((r) => `<li class="${r.ok ? "is-ok" : ""}">${r.ok ? "✓" : "○"} ${escapeHtml(r.label)}</li>`)
+    .join("");
+  const trinn4 = `
+    <ul class="mester-recap">${recap}</ul>
+    ${mastered
+      ? `<p class="mester-done">Temaet er mestret 🎉</p>
+         ${nextModule
+           ? `<div class="step-action"><button class="primary-button" data-module-open="${nextModule.id}" type="button">Gå til ${escapeHtml(shortModuleTitle(nextModule))} →</button></div>`
+           : `<p class="small">Du har gått hele løypa — bruk det i felt og hold kunnskapen skarp.</p>`}`
+      : `<p class="small">Fullfør de tre trinnene over, så er temaet mestret og neste tema låses opp.</p>`}`;
 
   return `
-    <div class="learn-module">
+    <div class="learn-module learn-stepper">
       <header class="learn-module-head">
         <button class="learn-back-button" type="button" data-learn-back>← Løypa</button>
         <div>
-          <p class="eyebrow">${escapeHtml(module.pages)} · ${module.minutes} min</p>
+          <p class="eyebrow">${escapeHtml(module.pages)} · ca. ${module.minutes} min lesing</p>
           <h3>${escapeHtml(module.title)}</h3>
           <div class="lesson-meta">
             ${module.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
@@ -1100,25 +1161,14 @@ function renderLearnModule(moduleId) {
 
       <p>${escapeHtml(module.summary)}</p>
 
-      ${couplingBand}
-
-      <div class="learn-accordion">
-        ${accordionItem("learn", "Kjernen", learnHtml)}
-        ${accordionItem("deep", "Teoridykk", deepHtml)}
-        ${accordionItem("field", "Ute i felt", fieldHtml)}
-        ${accordionItem("reflection", "Refleksjon for laget", reflectionHtml)}
+      <div class="learn-accordion stepper-list">
+        ${step("learn", 1, "Les", checks.isRead ? "Lest" : "Ikke lest ennå", checks.isRead, trinn1)}
+        ${step("quiz", 2, "Quiz", checks.totalQs ? (quizOk ? "Bestått" : "Ikke bestått ennå") : "Ingen spørsmål", quizOk && checks.totalQs > 0, trinn2)}
+        ${step("field", 3, "Til skogen", checks.hasLog ? "Trent" : "Ikke trent ennå", checks.hasLog, trinn3)}
+        ${step("mester", 4, "Mester", mastered ? "Mestret" : "Gjenstår", mastered, trinn4)}
       </div>
 
-      ${module.drill ? `<section class="module-drill">
-        <p class="eyebrow">Prøv dette i felt</p>
-        <h4>${escapeHtml(module.drill.title)} <span class="drill-duration">· ${escapeHtml(module.drill.duration)}</span></h4>
-        <p>${escapeHtml(module.drill.description)}</p>
-        <button class="primary-button" type="button" data-drill-plan="${escapeHtml(module.drill.focus)}">Planlegg denne økta nå →</button>
-      </section>` : ""}
-
-      <div class="learn-actions">
-        <button class="primary-button" id="toggleComplete" type="button">${done ? "Marker som åpen" : "Marker som fullført"}</button>
-        <button class="ghost-button" data-start-module-quiz="${module.id}" type="button">Quiz denne modulen</button>
+      <div class="learn-actions stepper-nav">
         <span class="nav-pill">
           <button type="button" data-module-nav="${prevModule ? prevModule.id : ""}" ${prevModule ? "" : "disabled"} aria-label="Forrige modul">◀ Forrige</button>
           <button type="button" data-module-nav="${nextModule ? nextModule.id : ""}" ${nextModule ? "" : "disabled"} aria-label="Neste modul">Neste ▶</button>

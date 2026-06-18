@@ -5989,3 +5989,124 @@ html[data-theme="dark"] .domain-pill-field { color: var(--dark-blue); }
   text-align: center;
   padding: 2px 0 6px;
 }
+
+/* ============================================================
+   Lær-modul som stepper (redesign fase 1a):
+   Les → Quiz → Til skogen → Mester, bygd på accordion-infra.
+   ============================================================ */
+.stepper-list {
+  gap: 12px;
+}
+.step-trigger {
+  align-items: center;
+  gap: 12px;
+}
+.step-badge {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: var(--surface-strong);
+  color: var(--muted);
+  border: 2px solid var(--line);
+}
+.step-head-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.step-title {
+  font-weight: 700;
+}
+.step-status {
+  color: var(--muted);
+  font-weight: 600;
+}
+.step-item[data-step-state="done"] .step-badge {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.step-item[data-step-state="active"] .step-badge {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--surface);
+}
+.step-item[data-step-state="done"] .step-status {
+  color: var(--blue);
+}
+.step-subhead {
+  margin: 18px 0 6px;
+}
+.step-prebrief {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.step-status-line {
+  font-weight: 600;
+  color: var(--ink);
+}
+.lesson-core {
+  margin: 0;
+}
+.step-action {
+  margin-top: 16px;
+}
+.step-action .primary-button {
+  width: 100%;
+}
+.reflection-expander {
+  margin: 14px 0 0;
+}
+.reflection-expander summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink);
+  padding: 6px 0;
+}
+.coupling-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.coupling-inline.is-trained {
+  background: var(--light-blue);
+}
+.mester-recap {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mester-recap li {
+  font-weight: 600;
+  color: var(--muted);
+}
+.mester-recap li.is-ok {
+  color: var(--blue);
+}
+.mester-done {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--blue);
+  margin: 0 0 12px;
+}
+.stepper-nav {
+  justify-content: flex-end;
+}
