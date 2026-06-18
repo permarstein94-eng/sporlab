@@ -5769,3 +5769,223 @@ html[data-theme="dark"] .domain-pill-field { color: var(--dark-blue); }
   font-size: 0.92rem;
   padding-right: 26px;
 }
+
+/* ============================================================
+   Hjem som progresjons-hub (redesign fase 1a):
+   kursvei-stripe → neste-steg-kort → siste aktivitet.
+   ============================================================ */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+/* Zone 1 — Kursvei-stripe på mørk NRH-bakgrunn */
+.kursvei {
+  background: linear-gradient(150deg, var(--dark-blue) 0%, #042c53 100%);
+  color: #eaf3fc;
+  border-radius: var(--radius-lg);
+  padding: 18px 18px 22px;
+  box-shadow: var(--shadow);
+}
+.kursvei-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.kursvei .eyebrow {
+  color: rgba(234, 243, 252, 0.78);
+}
+.kursvei-count {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #cfe4fa;
+}
+.kursvei-count strong {
+  color: #fff;
+}
+.kursvei-nodes {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.kursvei-node {
+  position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+/* Koblende linje: segmentet inn til et nådd punkt (fullført/aktivt) er blått. */
+.kursvei-node::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  right: 50%;
+  left: -50%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  z-index: 0;
+}
+.kursvei-node:first-child::before {
+  display: none;
+}
+.kursvei-node[data-state="done"]::before,
+.kursvei-node[data-state="active"]::before {
+  background: var(--blue);
+}
+.kursvei-dot {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.16s ease;
+}
+.kursvei-node[data-state="done"] .kursvei-dot {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.kursvei-node[data-state="active"] .kursvei-dot {
+  background: #fff;
+  border-color: var(--amber);
+  color: var(--dark-blue);
+  box-shadow: 0 0 0 3px rgba(244, 197, 66, 0.35);
+}
+.kursvei-node[data-state="locked"] .kursvei-dot {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+}
+.kursvei-dot:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+.kursvei-dot:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Zone 2 — Neste steg-kort */
+.next-step {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.next-step h3 {
+  margin: 4px 0 14px;
+}
+.next-step-status {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.next-step-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.next-step-line.is-ok {
+  color: var(--blue);
+}
+.next-step-tick {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.next-step-tick svg {
+  width: 19px;
+  height: 19px;
+}
+.next-step-cta .primary-button {
+  width: 100%;
+}
+.next-step-done {
+  text-align: center;
+}
+.next-step-badge {
+  display: inline-block;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--amber);
+  margin-bottom: 2px;
+}
+
+/* Zone 3 — Siste aktivitet */
+.home-activity .eyebrow {
+  margin-bottom: 10px;
+}
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.activity-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--light-blue);
+  color: var(--blue);
+  flex-shrink: 0;
+}
+.activity-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.activity-icon-amber {
+  background: rgba(244, 197, 66, 0.22);
+  color: var(--amber-ink);
+}
+.activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.activity-body .small {
+  color: var(--muted);
+}
+.activity-row-nudge .text-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.home-foot {
+  text-align: center;
+  padding: 2px 0 6px;
+}

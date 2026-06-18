@@ -43,7 +43,7 @@ import { importSnapshot, logsToCsv, readFileAsText, shareSnapshot } from "./snap
 import { buildQuizSession, ensureQuizSession, getWeakestQuestionId, questionsById } from "./quiz.js";
 
 const viewMeta = {
-  dashboard: ["Samlet progresjon · teori og praksis", "Oversikt"],
+  dashboard: ["Din læringsplattform · E8 / E9", "Hjem"],
   training: ["Feltmodus · planlegg og loggfør", "Felt"],
   learn: ["Læringsmodus · løype og kontrollspørsmål", "Lær"],
   planner: ["Feltmodus · øktplanlegger", "Planlegg økt"],
@@ -192,59 +192,177 @@ function renderView(view = state.view) {
 }
 
 function renderDashboard() {
-  // Hjem er en ren valgskjerm: kun de to dørene. Brukeren tar et aktivt valg
-  // inn i lærings- eller feltmodulen. Samlet progresjon ligger ett trykk unna.
-  renderDoors();
+  // Hjem er progresjons-huben: kursvei-stripe øverst, neste-steg-kort i midten
+  // og siste aktivitet nederst. Sammen viser de hvor i løypa du er og hva som
+  // er det naturlige neste trykket.
+  renderHome();
   renderBackupNudge();
 }
 
-/* De to dørene på Hjem: lærings- og feltmodulen som likeverdige innganger.
-   Hver dør viser sin egen status, slik at todelingen er umiddelbart tydelig. */
-function renderDoors() {
-  const grid = $("#doorGrid");
-  if (!grid) return;
-  const short = (m) => m.title.replace(/^\d+\.\s*/, "");
+const shortModuleTitle = (m) => (m && m.title ? m.title.replace(/^\d+\.\s*/, "") : "");
+
+// Et tema er fullført når alle tre lysene er grønne: teori lest, quiz bestått
+// og trent i felt. Moduler uten quizspørsmål regnes som quiz-OK, ellers ville
+// de aldri kunne fullføres. Ren utledning fra eksisterende state — ingen
+// skjemaendring.
+function homeModuleStatuses() {
   const logsByModule = computeModuleLogCredit();
+  return modules.map((module) => {
+    const c = moduleChecks(module, logsByModule);
+    const quizOk = c.totalQs === 0 ? true : c.quizOk;
+    const complete = c.isRead && quizOk && c.hasLog;
+    return { module, ...c, quizOk, complete };
+  });
+}
 
-  const done = state.completed.length;
-  const progressL = Math.round((done / modules.length) * 100);
-  const nextModule = modules.find((m) => !state.completed.includes(m.id));
-  const learnNext = nextModule
-    ? `Neste: ${escapeHtml(short(nextModule))}`
-    : "Hele løypa fullført 🎉";
+function renderHome() {
+  const shell = $("#homeShell");
+  if (!shell) return;
+  const statuses = homeModuleStatuses();
+  const doneCount = statuses.filter((s) => s.complete).length;
+  const pct = Math.round((doneCount / modules.length) * 100);
+  // Aktivt tema = første som ennå ikke er fullført. -1 betyr at alt er fullført.
+  const activeIndex = statuses.findIndex((s) => !s.complete);
+  const fmtDay = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
 
-  const trained = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
-  const progressF = Math.round((trained / modules.length) * 100);
-  const logCount = state.logs.length;
+  shell.innerHTML = `
+    ${renderKursvei(statuses, activeIndex, doneCount, pct)}
+    ${renderNextStep(statuses, activeIndex)}
+    ${renderHomeActivity(statuses, fmtDay)}
+    <div class="home-foot">
+      <button class="text-button" data-view-jump="progress" type="button">Se full fremgang →</button>
+    </div>`;
+  // Tegn ikonene som nettopp ble injisert (data-icon males ikke automatisk
+  // for dynamisk innhold — bare for statisk markup ved oppstart).
+  paintIcons(shell);
+}
 
-  // Koblingen synlig i selve døra: et lært-men-utrent tema løftes som forslag,
-  // så valget «inn i felt» bærer med seg det du nettopp lærte.
-  const learnedUntrained = modules.find((m) => state.completed.includes(m.id) && !(logsByModule[m.id] > 0));
-  const fieldNext = learnedUntrained
-    ? `Klar til felt: prøv ${escapeHtml(short(learnedUntrained))}`
-    : state.plans[0]
-      ? `Neste økt: ${escapeHtml(state.plans[0].title)}`
-      : "Ingen planer ennå — trykk + for å logge";
+/* Zone 1 — Kursvei-stripe: ett punkt per modul på mørk NRH-bakgrunn.
+   Koblende linjer mellom punktene fargelegges blå fram til aktivt tema. */
+function renderKursvei(statuses, activeIndex, doneCount, pct) {
+  const nodes = statuses
+    .map((s, i) => {
+      let nodeState = "locked";
+      if (s.complete) nodeState = "done";
+      else if (i === activeIndex) nodeState = "active";
+      else if (activeIndex === -1) nodeState = "done";
+      const locked = nodeState === "locked";
+      const title = escapeHtml(shortModuleTitle(s.module));
+      const suffix = s.complete ? "fullført" : nodeState === "active" ? "aktiv" : "låst";
+      const inner = s.complete ? "✓" : i + 1;
+      return `
+        <li class="kursvei-node" data-state="${nodeState}">
+          <button class="kursvei-dot" type="button"
+            ${locked ? 'disabled aria-disabled="true"' : `data-module-open="${s.module.id}"`}
+            aria-label="Tema ${i + 1}: ${title} (${suffix})">
+            <span aria-hidden="true">${inner}</span>
+          </button>
+        </li>`;
+    })
+    .join("");
+  return `
+    <section class="kursvei" aria-label="Kursvei — ${doneCount} av ${statuses.length} temaer fullført">
+      <div class="kursvei-head">
+        <p class="eyebrow">Din kursvei</p>
+        <p class="kursvei-count"><strong>${doneCount}</strong> av ${statuses.length} fullført · ${pct}%</p>
+      </div>
+      <ol class="kursvei-nodes">${nodes}</ol>
+    </section>`;
+}
 
-  grid.innerHTML = `
-    <button class="door door-learning" data-view-jump="learn" type="button" aria-label="Åpne læringsmodulen">
-      <span class="domain-pill domain-pill-learning">Læringsmodul</span>
-      <h3>Lær</h3>
-      <p class="door-sub">Les fagkort, svar på kontrollspørsmål, følg løypa</p>
-      <p class="door-status">${done} av ${modules.length} temaer mestret</p>
-      <div class="progress-bar" aria-hidden="true"><span style="width:${progressL}%"></span></div>
-      <p class="door-next">${learnNext}</p>
-      <span class="door-arrow" aria-hidden="true">→</span>
-    </button>
-    <button class="door door-field" data-view-jump="training" type="button" aria-label="Åpne feltmodulen">
-      <span class="domain-pill domain-pill-field">Praktisk verktøy</span>
-      <h3>Felt</h3>
-      <p class="door-sub">Planlegg økt, loggfør trening, se historikk</p>
-      <p class="door-status">${logCount} ${logCount === 1 ? "økt" : "økter"} · ${trained} av ${modules.length} temaer trent</p>
-      <div class="progress-bar" aria-hidden="true"><span style="width:${progressF}%"></span></div>
-      <p class="door-next">${fieldNext}</p>
-      <span class="door-arrow" aria-hidden="true">→</span>
-    </button>`;
+/* Zone 2 — Neste steg-kort: aktivt tema med tre statuslinjer og en primærknapp
+   som peker på det som mangler (les → quiz → planlegg). */
+function renderNextStep(statuses, activeIndex) {
+  if (activeIndex === -1) {
+    return `
+      <section class="next-step next-step-done">
+        <span class="next-step-badge" aria-hidden="true">★</span>
+        <p class="eyebrow">Hele løypa fullført</p>
+        <h3>Alle ${statuses.length} temaer er lest, quizet og trent 🎉</h3>
+        <p class="small">Hold kunnskapen skarp — repeter svake spørsmål eller planlegg en ny økt.</p>
+        <div class="button-row">
+          <button class="primary-button" data-next-action="open-planner" type="button">Planlegg en økt</button>
+          <button class="ghost-button" data-learn-quiz="weak" type="button">Repeter svake spørsmål</button>
+        </div>
+      </section>`;
+  }
+  const s = statuses[activeIndex];
+  const lines = [
+    { ok: s.isRead, label: "Teori lest" },
+    { ok: s.quizOk, label: "Quiz bestått" },
+    { ok: s.hasLog, label: "Trent i felt" },
+  ]
+    .map(
+      (l) => `
+        <li class="next-step-line ${l.ok ? "is-ok" : ""}">
+          <span class="next-step-tick" data-icon="${l.ok ? "check" : "minus"}" aria-hidden="true"></span>
+          ${escapeHtml(l.label)}
+        </li>`,
+    )
+    .join("");
+  let cta;
+  if (!s.isRead) {
+    cta = `<button class="primary-button" data-module-open="${s.module.id}" type="button">Les teori →</button>`;
+  } else if (!s.quizOk) {
+    cta = `<button class="primary-button" data-start-module-quiz="${s.module.id}" type="button">Ta quiz →</button>`;
+  } else {
+    const focus = focusForModule(s.module.id);
+    cta = focus
+      ? `<button class="primary-button" data-drill-plan="${escapeHtml(focus)}" type="button">Planlegg økt →</button>`
+      : `<button class="primary-button" data-next-action="open-planner" type="button">Planlegg økt →</button>`;
+  }
+  return `
+    <section class="next-step">
+      <p class="eyebrow">Neste steg · Tema ${activeIndex + 1} av ${statuses.length}</p>
+      <h3>${escapeHtml(shortModuleTitle(s.module))}</h3>
+      <ul class="next-step-status">${lines}</ul>
+      <div class="next-step-cta">${cta}</div>
+    </section>`;
+}
+
+/* Zone 3 — Siste aktivitet: nyeste loggede økter pluss en bro-snarvei for et
+   tema som er lest men ikke trent ennå. */
+function renderHomeActivity(statuses, fmtDay) {
+  const items = [];
+  const recentLogs = [...state.logs]
+    .sort((a, b) => logTimestamp(b) - logTimestamp(a))
+    .slice(0, 3);
+  recentLogs.forEach((log) => {
+    const modId = moduleForLog(log);
+    const found = modId ? modules.find((m) => m.id === modId) : null;
+    const modTitle = found ? ` · ${escapeHtml(shortModuleTitle(found))}` : "";
+    const dog = log.dog ? ` · ${escapeHtml(log.dog)}` : "";
+    const rating = Number(log.rating) > 0 ? ` · ${"★".repeat(Number(log.rating))}` : "";
+    items.push(`
+      <li class="activity-row">
+        <span class="activity-icon" data-icon="log" aria-hidden="true"></span>
+        <span class="activity-body">
+          <strong>${escapeHtml(log.type || "Økt")}${modTitle}</strong>
+          <span class="small">${escapeHtml(fmtDay(logTimestamp(log)))}${dog}${rating}</span>
+        </span>
+      </li>`);
+  });
+  const learnedUntrained = statuses.find((s) => s.isRead && !s.hasLog);
+  if (learnedUntrained) {
+    const focus = focusForModule(learnedUntrained.module.id);
+    items.push(`
+      <li class="activity-row activity-row-nudge">
+        <span class="activity-icon activity-icon-amber" data-icon="trees" aria-hidden="true"></span>
+        <span class="activity-body">
+          <strong>${escapeHtml(shortModuleTitle(learnedUntrained.module))} — lest, ikke trent</strong>
+          <span class="small">Ta teorien med ut i skogen.</span>
+        </span>
+        <button class="text-button" ${focus ? `data-drill-plan="${escapeHtml(focus)}"` : 'data-next-action="open-planner"'} type="button">Planlegg →</button>
+      </li>`);
+  }
+  const body = items.length
+    ? `<ul class="activity-list">${items.slice(0, 3).join("")}</ul>`
+    : `<div class="empty-state"><p>Ingen aktivitet ennå. Les et tema eller logg en økt, så dukker det opp her.</p></div>`;
+  return `
+    <section class="home-activity">
+      <p class="eyebrow">Siste aktivitet</p>
+      ${body}
+    </section>`;
 }
 
 // Diskret påminnelse om sikkerhetskopi: all data bor i localStorage, som kan
@@ -2717,7 +2835,9 @@ function initEvents() {
       state.activeGuide = null;
       state.learnAccordion = "learn";
       saveState();
-      renderLearn();
+      // setView slik at modulen åpnes uansett hvilken fane vi kom fra
+      // (Hjem-kursveien/neste-steg-kortet, ikke bare inne i Lær).
+      setView("learn");
     }
 
     if (event.target.closest("[data-learn-back]")) {
@@ -3439,6 +3559,10 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3 4.5 10.5h9L9 3Z"/><path d="M9 8 5.5 14h7L9 8Z"/><path d="M9 14v6"/><path d="m16.5 6-3 5h6l-3-5Z"/><path d="M16.5 11v9"/></svg>',
   chart:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h15"/><path d="m7.5 14 3-3.5 2.5 2.5 4.5-5"/></svg>',
+  check:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 6.5"/></svg>',
+  minus:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
   quiz:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-1.5 2-2.5 2.5"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg>',
   settings:
