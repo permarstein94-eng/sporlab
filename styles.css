@@ -6110,3 +6110,69 @@ html[data-theme="dark"] .domain-pill-field { color: var(--dark-blue); }
 .stepper-nav {
   justify-content: flex-end;
 }
+
+/* ============================================================
+   Felt-fane: mørk visuell modus (redesign fase 1a).
+   Aktiveres når man står i feltmodulen (training/planner/log) via
+   body[data-domain="field"]. Re-scoper paletten så var-baserte
+   komponenter automatisk leses mot den dype NRH-flaten (#042C53).
+   ============================================================ */
+body,
+.main-panel {
+  transition: background-color 250ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .main-panel {
+    transition: none;
+  }
+}
+body[data-domain="field"] {
+  background-color: #042c53;
+}
+body[data-domain="field"] .main-panel {
+  --bg: #042c53;
+  --surface: #0c3a63;
+  --surface-strong: #114a7e;
+  --ink: #eaf3fc;
+  --muted: #b5d4f4;
+  --line: rgba(154, 190, 226, 0.24);
+  --light-blue: #114a7e;
+  color: var(--ink);
+  background-color: #042c53;
+  /* Subtilt trestruktur-motiv bak feltflaten (jf. spec, opacity ~0.04) */
+  background-image: repeating-linear-gradient(
+    122deg,
+    rgba(255, 255, 255, 0.04) 0 1px,
+    transparent 1px 18px
+  );
+}
+/* Topplinje og modus-stripe leses lyst mot den mørke flaten */
+body[data-domain="field"] #viewEyebrow {
+  color: var(--field-muted);
+}
+body[data-domain="field"] .topbar {
+  border-top-color: rgba(181, 212, 244, 0.45);
+}
+/* Skjemafelt: mørk bakgrunn med lys tekst (var-override treffer ikke #fff) */
+body[data-domain="field"] input,
+body[data-domain="field"] select,
+body[data-domain="field"] textarea {
+  background: #0c3a63;
+  color: var(--field-ink);
+  border-color: rgba(154, 190, 226, 0.3);
+}
+body[data-domain="field"] input::placeholder,
+body[data-domain="field"] textarea::placeholder {
+  color: rgba(181, 212, 244, 0.55);
+}
+/* Store treffflater i felt: 56px på primær- og sekundærknapper */
+body[data-domain="field"] .primary-button,
+body[data-domain="field"] .ghost-button {
+  min-height: 56px;
+}
+/* Tom-tilstander har hardkodet lys flate — mørklegg i felt */
+body[data-domain="field"] .empty-state {
+  background: #0c3a63;
+  border-color: rgba(154, 190, 226, 0.3);
+}
