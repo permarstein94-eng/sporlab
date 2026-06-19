@@ -6060,6 +6060,10 @@ body[data-domain="field"] .empty-state {
   opacity: 0;
   transition: opacity 200ms ease;
 }
+.ceremony-overlay[hidden],
+.bridge-overlay[hidden] {
+  display: none;
+}
 .ceremony-overlay.is-open,
 .bridge-overlay.is-open {
   opacity: 1;

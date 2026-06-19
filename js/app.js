@@ -86,8 +86,18 @@ const navTabForView = {
 
 const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay, #feedbackOverlay";
 
+// Sporer en ev. ventende skjul-timer per overlay, slik at en rask lukk-så-
+// åpne-igjen ikke ender med at den gamle timeren tvangsgjemmer overlayet
+// rett etter at det ble åpnet på nytt.
+const pendingHideTimers = new WeakMap();
+
 function openOverlay(overlay) {
   if (!overlay) return;
+  const pendingHide = pendingHideTimers.get(overlay);
+  if (pendingHide) {
+    clearTimeout(pendingHide);
+    pendingHideTimers.delete(overlay);
+  }
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden", "false");
   document.body.classList.add("overlay-open");
@@ -99,10 +109,16 @@ function closeOverlay(overlay) {
   overlay.classList.remove("is-open");
   const anyOpen = $all(OVERLAY_SELECTOR).some((el) => el.classList.contains("is-open"));
   if (!anyOpen) document.body.classList.remove("overlay-open");
-  setTimeout(() => {
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
-  }, 200);
+  const previousHide = pendingHideTimers.get(overlay);
+  if (previousHide) clearTimeout(previousHide);
+  pendingHideTimers.set(
+    overlay,
+    setTimeout(() => {
+      overlay.hidden = true;
+      overlay.setAttribute("aria-hidden", "true");
+      pendingHideTimers.delete(overlay);
+    }, 200)
+  );
 }
 
 /* ---------- Fullføring-seremoni og bro-bekreftelse (fase 1b) ----------
@@ -3876,25 +3892,6 @@ function initWelcome() {
       }
     });
   }
-
-  // Direct button handlers as fallback - inline logic to ensure it works
-  $("#introNext")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    introNext();
-  });
-  $("#introBack")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    introPrev();
-  });
-  $all("[data-close-welcome]").forEach(el => {
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      closeWelcome();
-    });
-  });
 
   initIntroSwipe();
 
