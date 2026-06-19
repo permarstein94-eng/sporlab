@@ -566,6 +566,35 @@
       </div>
     </div>
 
+    <div class="ceremony-overlay" id="ceremonyOverlay" hidden aria-hidden="true">
+      <div class="ceremony-dialog" role="dialog" aria-modal="true" aria-labelledby="ceremonyTitle">
+        <div class="ceremony-ring-wrap">
+          <svg class="ceremony-ring" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ceremony-ring-track" cx="50" cy="50" r="44" />
+            <circle class="ceremony-ring-fill" cx="50" cy="50" r="44" />
+          </svg>
+          <span class="ceremony-ring-check" data-icon="check" aria-hidden="true"></span>
+          <span class="ceremony-burst" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
+        </div>
+        <p class="eyebrow" id="ceremonyEyebrow">Tema fullført</p>
+        <h2 id="ceremonyTitle"></h2>
+        <p class="ceremony-next" id="ceremonyNext"></p>
+        <button class="primary-button" id="ceremonyAction" type="button">Fortsett</button>
+      </div>
+    </div>
+
+    <div class="bridge-overlay" id="bridgeOverlay" hidden aria-hidden="true">
+      <div class="bridge-dialog" role="dialog" aria-modal="true" aria-labelledby="bridgeTitle">
+        <span class="bridge-check" data-icon="check" aria-hidden="true"></span>
+        <p class="eyebrow">Bro mellom teori og praksis</p>
+        <h2 id="bridgeTitle">Teori møter praksis</h2>
+        <p class="bridge-sub" id="bridgeSub"></p>
+        <button class="primary-button" data-close-bridge type="button">Fortsett</button>
+      </div>
+    </div>
+
     <script src="assets/qrcode.js"></script>
     <script type="module" src="js/app.js"></script>
   </body>

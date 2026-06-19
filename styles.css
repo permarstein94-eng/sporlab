@@ -6213,3 +6213,183 @@ body[data-domain="field"] .empty-state {
   color: var(--blue);
   font-weight: 700;
 }
+
+/* ============================================================
+   Fase 1b — fullføring-seremoni og bro-bekreftelse.
+   Full-screen belønningsøyeblikk. All bevegelse er vaktet av
+   prefers-reduced-motion: reduce (da vises sluttilstanden rolig).
+   ============================================================ */
+.ceremony-overlay,
+.bridge-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 22, 44, 0.74);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.ceremony-overlay.is-open,
+.bridge-overlay.is-open {
+  opacity: 1;
+}
+.ceremony-dialog,
+.bridge-dialog {
+  width: min(360px, 100%);
+  text-align: center;
+  background: linear-gradient(160deg, var(--dark-blue), #042c53);
+  color: #eaf3fc;
+  border-radius: var(--radius-lg);
+  padding: 32px 26px 26px;
+  box-shadow: var(--shadow-lg);
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 300ms ease-out, opacity 300ms ease-out;
+}
+.ceremony-overlay.is-open .ceremony-dialog,
+.bridge-overlay.is-open .bridge-dialog {
+  transform: scale(1);
+  opacity: 1;
+}
+.ceremony-dialog .eyebrow,
+.bridge-dialog .eyebrow {
+  color: rgba(234, 243, 252, 0.8);
+}
+.ceremony-dialog h2,
+.bridge-dialog h2 {
+  margin: 6px 0 8px;
+  color: #fff;
+}
+.ceremony-next,
+.bridge-sub {
+  margin: 0 0 20px;
+  color: #cfe4fa;
+}
+.ceremony-dialog .primary-button,
+.bridge-dialog .primary-button {
+  width: 100%;
+}
+
+/* Animert progresjonsring (NRH-blå), 0 → 100 % */
+.ceremony-ring-wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 16px;
+}
+.ceremony-ring {
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+}
+.ceremony-ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 7;
+}
+.ceremony-ring-fill {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-dasharray: 276.5;
+  stroke-dashoffset: 0; /* standard = full ring (også reduced-motion) */
+}
+.ceremony-ring-check {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--blue);
+}
+.ceremony-ring-check svg {
+  width: 46px;
+  height: 46px;
+}
+/* Burst: 10 prikker som spretter ut fra ringen */
+.ceremony-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ceremony-burst i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--amber);
+  opacity: 0;
+}
+.ceremony-burst i:nth-child(2n) {
+  background: #eaf3fc;
+}
+.ceremony-burst i:nth-child(1) { --bx: 60px; --by: 0; }
+.ceremony-burst i:nth-child(2) { --bx: 48px; --by: 35px; }
+.ceremony-burst i:nth-child(3) { --bx: 19px; --by: 57px; }
+.ceremony-burst i:nth-child(4) { --bx: -19px; --by: 57px; }
+.ceremony-burst i:nth-child(5) { --bx: -48px; --by: 35px; }
+.ceremony-burst i:nth-child(6) { --bx: -60px; --by: 0; }
+.ceremony-burst i:nth-child(7) { --bx: -48px; --by: -35px; }
+.ceremony-burst i:nth-child(8) { --bx: -19px; --by: -57px; }
+.ceremony-burst i:nth-child(9) { --bx: 19px; --by: -57px; }
+.ceremony-burst i:nth-child(10) { --bx: 48px; --by: -35px; }
+
+.ceremony-overlay.is-animating .ceremony-ring-fill {
+  stroke-dashoffset: 276.5;
+  animation: ceremony-ring-fill 600ms ease-out forwards;
+}
+.ceremony-overlay.is-animating .ceremony-burst i {
+  animation: ceremony-burst 700ms ease-out 200ms forwards;
+}
+@keyframes ceremony-ring-fill {
+  from { stroke-dashoffset: 276.5; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes ceremony-burst {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--bx), var(--by)) scale(0.4); opacity: 0; }
+}
+
+/* Bro-bekreftelse: grønn check-ring (jf. spec) */
+.bridge-check {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(46, 204, 113, 0.16);
+  color: #2ecc71;
+  border: 3px solid #2ecc71;
+}
+.bridge-check svg {
+  width: 42px;
+  height: 42px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ceremony-overlay,
+  .bridge-overlay,
+  .ceremony-dialog,
+  .bridge-dialog {
+    transition: none;
+  }
+  .ceremony-dialog,
+  .bridge-dialog {
+    transform: none;
+    opacity: 1;
+  }
+  .ceremony-overlay.is-animating .ceremony-ring-fill,
+  .ceremony-overlay.is-animating .ceremony-burst i {
+    animation: none;
+  }
+  /* Vis sluttilstanden rolig: full ring, ingen burst */
+  .ceremony-burst {
+    display: none;
+  }
+}

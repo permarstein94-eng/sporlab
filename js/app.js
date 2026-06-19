@@ -84,7 +84,7 @@ const navTabForView = {
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
-const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay, #refSheet";
+const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay";
 
 function openOverlay(overlay) {
   if (!overlay) return;
@@ -105,6 +105,92 @@ function closeOverlay(overlay) {
   }, 200);
 }
 
+/* ---------- Fullføring-seremoni og bro-bekreftelse (fase 1b) ----------
+   Belønningsøyeblikkene som binder teori og praksis sammen. Begge respekterer
+   prefers-reduced-motion (ingen ring-/burst-bevegelse, bare en rolig innfade). */
+
+const shortTitleOf = (m) => (m && m.title ? m.title.replace(/^\d+\.\s*/, "") : "");
+
+let ceremonyTimer = null;
+
+function showCeremony(moduleId) {
+  const overlay = $("#ceremonyOverlay");
+  const module = modules.find((m) => m.id === moduleId);
+  if (!overlay || !module) return;
+  const idx = modules.findIndex((m) => m.id === moduleId);
+  const nextModule = idx >= 0 && idx < modules.length - 1 ? modules[idx + 1] : null;
+  $("#ceremonyEyebrow").textContent = `Tema ${idx + 1} av ${modules.length} fullført`;
+  $("#ceremonyTitle").textContent = shortTitleOf(module);
+  const action = $("#ceremonyAction");
+  if (nextModule) {
+    $("#ceremonyNext").textContent = `Neste tema er nå tilgjengelig: ${shortTitleOf(nextModule)}.`;
+    action.textContent = `Gå til ${shortTitleOf(nextModule)} →`;
+    action.dataset.next = nextModule.id;
+  } else {
+    $("#ceremonyNext").textContent = "Du har gått hele løypa — bruk det i felt og hold kunnskapen skarp.";
+    action.textContent = "Fortsett";
+    delete action.dataset.next;
+  }
+  overlay.classList.remove("is-animating");
+  openOverlay(overlay);
+  haptic([10, 40, 10]);
+  if (!prefersReducedMotion()) {
+    // Tving reflow før klassen settes, så ring/burst spilles fra start hver gang.
+    void overlay.offsetWidth;
+    overlay.classList.add("is-animating");
+  }
+  clearTimeout(ceremonyTimer);
+  ceremonyTimer = setTimeout(() => closeCeremony(false), 3000);
+}
+
+function closeCeremony(goNext = false) {
+  clearTimeout(ceremonyTimer);
+  const overlay = $("#ceremonyOverlay");
+  const nextId = $("#ceremonyAction")?.dataset.next;
+  closeOverlay(overlay);
+  overlay?.classList.remove("is-animating");
+  if (goNext && nextId) {
+    state.activeModule = nextId;
+    state.activeGuide = null;
+    state.learnAccordion = "learn";
+    saveState();
+    setView("learn");
+  }
+}
+
+function showBridge(moduleId, dogName) {
+  const overlay = $("#bridgeOverlay");
+  const module = modules.find((m) => m.id === moduleId);
+  if (!overlay || !module) return;
+  const idx = modules.findIndex((m) => m.id === moduleId);
+  const dog = (dogName || "").trim();
+  $("#bridgeSub").textContent = dog
+    ? `Tema ${idx + 1} «${shortTitleOf(module)}» er nå trent på med ${dog}.`
+    : `Tema ${idx + 1} «${shortTitleOf(module)}» er nå trent på.`;
+  openOverlay(overlay);
+  haptic([10, 40, 10]);
+}
+
+// Vurder bro-bekreftelse: fyrer når en logget økt krediterer et tema som var
+// lest, men ikke trent fra før. Kalles ETTER at loggen er lagt til state.
+function maybeShowBridge(moduleId, wasUntrained, dogName) {
+  if (moduleId && wasUntrained) showBridge(moduleId, dogName);
+}
+
+// Var temaet lest men utrent rett før en ny logg ble lagret? (Sjekkes på
+// state slik den er FØR den nye loggen legges inn.)
+function moduleWasLearnedUntrained(moduleId) {
+  if (!moduleId || !state.completed.includes(moduleId)) return false;
+  return (computeModuleLogCredit()[moduleId] || 0) === 0;
+}
+
+function initCeremony() {
+  $("#ceremonyOverlay")?.addEventListener("click", (event) => {
+    closeCeremony(!!event.target.closest("#ceremonyAction"));
+  });
+  $("#bridgeOverlay")?.addEventListener("click", () => closeOverlay($("#bridgeOverlay")));
+}
+
 /* ---------- Native finpuss: standalone-deteksjon, haptikk, bevegelse ---------- */
 
 // Kjører appen som installert app (ikke i en nettleserfane)?
@@ -123,6 +209,7 @@ function prefersReducedMotion() {
 
 // Lett haptisk respons der enheten støtter det. Holdes kort og diskret, og
 // hoppes over når brukeren har bedt om mindre bevegelse.
+/** @param {number | number[]} [pattern] */
 function haptic(pattern = 8) {
   if (prefersReducedMotion()) return;
   try {
@@ -1140,10 +1227,8 @@ function renderLearnModule(moduleId) {
   const trinn4 = `
     <ul class="mester-recap">${recap}</ul>
     ${mastered
-      ? `<p class="mester-done">Temaet er mestret 🎉</p>
-         ${nextModule
-           ? `<div class="step-action"><button class="primary-button" data-module-open="${nextModule.id}" type="button">Gå til ${escapeHtml(shortModuleTitle(nextModule))} →</button></div>`
-           : `<p class="small">Du har gått hele løypa — bruk det i felt og hold kunnskapen skarp.</p>`}`
+      ? `<p class="mester-done">Alle tre trinnene er fullført.</p>
+         <div class="step-action"><button class="primary-button" data-celebrate-module="${module.id}" type="button">Marker som mestret 🎉</button></div>`
       : `<p class="small">Fullfør de tre trinnene over, så er temaet mestret og neste tema låses opp.</p>`}`;
 
   return `
@@ -2004,6 +2089,9 @@ function saveQuickLog() {
   };
   // Kobling til læring: bind økta til ett tema (via fokus eller økt-type).
   log.module = moduleForLog(log);
+  // Bro-øyeblikk: var temaet lest men utrent rett før denne loggen? (sjekk før innlegging)
+  const bridgeModule = log.module;
+  const wasUntrained = moduleWasLearnedUntrained(bridgeModule);
   state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
   saveState();
   quickLog.savedCount += 1;
@@ -2012,6 +2100,7 @@ function saveQuickLog() {
   renderTraining();
   renderDashboard();
   refreshAutocomplete();
+  maybeShowBridge(bridgeModule, wasUntrained, log.dog);
 }
 
 function initQuickLog() {
@@ -2965,6 +3054,12 @@ function initEvents() {
       renderDashboard();
     }
 
+    const celebrate = event.target.closest("[data-celebrate-module]");
+    if (celebrate) {
+      showCeremony(celebrate.dataset.celebrateModule);
+      return;
+    }
+
     const moduleQuiz = event.target.closest("[data-start-module-quiz]");
     if (moduleQuiz) resetQuiz(`module:${moduleQuiz.dataset.startModuleQuiz}`);
 
@@ -3263,6 +3358,8 @@ function initEvents() {
       ...planMeta,
       ...(moduleId ? { module: moduleId } : {}),
     };
+    // Bro-øyeblikk: lest men utrent tema som nå trenes? (sjekk før innlegging)
+    const wasUntrained = moduleWasLearnedUntrained(moduleId);
     state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
     saveState();
     // Behold dato, type, fører, forhold og plan-kobling — lagstrening logger
@@ -3279,6 +3376,7 @@ function initEvents() {
     renderLog();
     renderTraining();
     renderDashboard();
+    maybeShowBridge(moduleId, wasUntrained, data.dog);
   });
 
   // Lagsammendrag og deling finnes både i Innstillinger og i Progresjon
@@ -4068,6 +4166,7 @@ function init() {
   initQuickLog();
   initShare();
   initFieldMode();
+  initCeremony();
   handleSharedImport();
   setView(state.view || "dashboard");
   registerServiceWorker();
