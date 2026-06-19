@@ -1026,9 +1026,13 @@ function renderLearnIntro() {
       ]
         .map((s) => `<span class="loype-light ${s.cls} ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
         .join("");
+      const moduleIconKey = `mod-${module.id}`;
+      const stepNumContent = c.isRead
+        ? "✓"
+        : (ICONS[moduleIconKey] || String(i + 1));
       return `
         <button class="loype-step" data-state="${stepState}" data-module-open="${module.id}" type="button">
-          <span class="loype-step-num">${c.isRead ? "✓" : i + 1}</span>
+          <span class="loype-step-num">${stepNumContent}</span>
           <span class="loype-step-body">
             <h4>${escapeHtml(module.title)}</h4>
             <p>${escapeHtml(module.summary)}</p>
@@ -3724,6 +3728,23 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-1.5 2-2.5 2.5"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg>',
   settings:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>',
+  /* ── Modul-ikoner (Fase 1c): ett ikon per læringstema ── */
+  "mod-grunnlag":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="15" width="16" height="5" rx="1"/><rect x="7" y="9" width="10" height="6" rx="1"/><rect x="10" y="4" width="4" height="5" rx="1"/></svg>',
+  "mod-spor":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="9" cy="7.5" rx="2.5" ry="3.5" transform="rotate(-15 9 7.5)"/><ellipse cx="15" cy="16.5" rx="2.5" ry="3.5" transform="rotate(15 15 16.5)"/></svg>',
+  "mod-oppsok":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="14" r="4"/><circle cx="17" cy="14" r="4"/><path d="M11 14h2M7 10V6h10v4"/></svg>',
+  "mod-gamle":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14M5 21h14"/><path d="M7 3l1 4 4 5-4 5-1 4M17 3l-1 4-4 5 4 5 1 4"/></svg>',
+  "mod-retning":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 5.5V8M12 16v2.5M5.5 12H8M16 12h2.5"/><path d="M12 8.5l2 3.5-2 2.5-2-2.5Z" fill="currentColor" stroke="none"/></svg>',
+  "mod-sportap":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h5M15 12h5"/><path d="M11 9c0-1.5 3-1.5 3 0s-1.5 2.5-1.5 3.5v.5"/><circle cx="12.5" cy="16.5" r="0.75" fill="currentColor" stroke="none"/></svg>',
+  "mod-kryssende":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5L20 18.5M20 5.5L4 18.5"/></svg>',
+  "mod-sirkel":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><path d="M8 5A10 10 0 0 1 21.5 12"/><path d="M19 11l2.5 1-1-2.5"/></svg>',
 };
 
 function paintIcons(root = document) {

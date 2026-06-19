@@ -5529,6 +5529,10 @@ html[data-theme="dark"] .domain-pill-field { color: var(--dark-blue); }
   background: var(--domain-learning);
   color: #fff;
 }
+.loype-step-num svg {
+  width: 18px;
+  height: 18px;
+}
 .loype-step-body h4 { margin: 0 0 2px; font-size: 1rem; }
 .loype-step-body p { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
 .loype-lights { display: flex; flex-wrap: wrap; gap: 6px; }
