@@ -84,7 +84,7 @@ const navTabForView = {
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
-const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay";
+const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay, #feedbackOverlay";
 
 function openOverlay(overlay) {
   if (!overlay) return;
@@ -3749,6 +3749,8 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-1.5 2-2.5 2.5"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg>',
   settings:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>',
+  feedback:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-4 4v-4H4Z"/><path d="M8 9h8M8 12.5h5"/></svg>',
   /* ── Modul-ikoner (Fase 1c): ett ikon per læringstema ── */
   "mod-grunnlag":
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="15" width="16" height="5" rx="1"/><rect x="7" y="9" width="10" height="6" rx="1"/><rect x="10" y="4" width="4" height="5" rx="1"/></svg>',
@@ -3894,7 +3896,69 @@ function initWelcome() {
       closeFieldMode();
     } else if (welcomeOpen) {
       closeWelcome();
+    } else if ($("#feedbackOverlay")?.classList.contains("is-open")) {
+      closeFeedback();
     }
+  });
+}
+
+/* ---------- Tilbakemelding ---------- */
+
+// E-postadressen som tilbakemeldinger åpnes mot. Appen er statisk og sender
+// aldri noe selv – mailto-lenken bare forhåndsfyller en e-post.
+const FEEDBACK_EMAIL = "per.marstein@nrh.no";
+let feedbackType = "Generell henvendelse";
+let feedbackOpener = null;
+
+function openFeedback(event) {
+  feedbackOpener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+  openOverlay($("#feedbackOverlay"));
+  requestAnimationFrame(() => $("#feedbackMessage")?.focus());
+}
+
+function closeFeedback() {
+  closeOverlay($("#feedbackOverlay"));
+  feedbackOpener?.focus?.();
+  feedbackOpener = null;
+}
+
+function sendFeedback() {
+  const message = $("#feedbackMessage")?.value.trim() || "";
+  const subject = `SporLab – tilbakemelding: ${feedbackType}`;
+  const body = [
+    `Type: ${feedbackType}`,
+    `Side i appen: ${state.view || "ukjent"}`,
+    "",
+    message || "(ingen tekst skrevet)",
+  ].join("\n");
+  window.location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const textarea = $("#feedbackMessage");
+  if (textarea) textarea.value = "";
+  closeFeedback();
+}
+
+function initFeedback() {
+  $("#openFeedback")?.addEventListener("click", openFeedback);
+  $("#settingsShowFeedback")?.addEventListener("click", openFeedback);
+
+  $("#feedbackOverlay")?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-feedback]")) closeFeedback();
+  });
+
+  $("#feedbackTypeRow")?.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-feedback-type]");
+    if (!chip) return;
+    feedbackType = chip.dataset.feedbackType;
+    $all("#feedbackTypeRow .chip-button").forEach((btn) => {
+      const isOn = btn === chip;
+      btn.classList.toggle("is-selected", isOn);
+      btn.setAttribute("aria-pressed", isOn ? "true" : "false");
+    });
+  });
+
+  $("#feedbackForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendFeedback();
   });
 }
 
@@ -4245,6 +4309,7 @@ function init() {
   applyTheme();
   initEvents();
   initWelcome();
+  initFeedback();
   initGettingStartedGlobal();
   initQuickLog();
   initShare();
