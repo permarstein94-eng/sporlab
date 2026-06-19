@@ -3780,8 +3780,9 @@ function openWelcome(event) {
   welcomeOpener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
   setIntroStep(0);
   openOverlay($("#welcomeOverlay"));
-  // Flytt fokus inn i dialogen så piltaster og Tab oppfører seg som ventet.
   requestAnimationFrame(() => $("#introNext")?.focus());
+  // Ambient video — ignorer autoplay-feil (policy-block, manglende fil, etc.)
+  $("#introVideo")?.play?.().catch(() => {});
 }
 
 function setIntroStep(index) {
@@ -3836,6 +3837,7 @@ function closeWelcome() {
     saveState();
   }
   closeOverlay($("#welcomeOverlay"));
+  $("#introVideo")?.pause?.();
   welcomeOpener?.focus?.();
   welcomeOpener = null;
   // Rett etter introen er et naturlig tidspunkt å foreslå installasjon.
