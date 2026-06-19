@@ -1260,11 +1260,35 @@ export const gettingStartedGuide = {
     intro:
       "Treningen går mye lettere når hunden er konsentrert. For å forme konsentrasjonen må du ha kartlagt hunden før du legger en plan.",
     questions: [
-      "Hva er den beste forsterkeren? Ball/Kong, godbiter, eller det å finne folk?",
-      "Er hunden selvstendig eller veldig avhengig av deg som fører?",
-      "Er hunden svært nysgjerrig, moderat eller lite nysgjerrig?",
-      "Hvilken intensitet viser den når den leter etter leken sin?",
-      "Er det andre forhold (helse, alder, tidligere erfaring) du må ta hensyn til?",
+      {
+        id: "forsterker",
+        text: "Hva er den beste forsterkeren? Ball/Kong, godbiter, eller det å finne folk?",
+        options: ["Ball/Kong", "Godbiter", "Finne folk"],
+        multi: true,
+      },
+      {
+        id: "selvstendighet",
+        text: "Er hunden selvstendig eller veldig avhengig av deg som fører?",
+        options: ["Selvstendig", "Litt av begge", "Avhengig av fører"],
+        scale: true,
+      },
+      {
+        id: "nysgjerrighet",
+        text: "Er hunden svært nysgjerrig, moderat eller lite nysgjerrig?",
+        options: ["Svært nysgjerrig", "Moderat nysgjerrig", "Lite nysgjerrig"],
+        scale: true,
+      },
+      {
+        id: "intensitet",
+        text: "Hvilken intensitet viser den når den leter etter leken sin?",
+        options: ["Høy intensitet", "Middels intensitet", "Lav intensitet"],
+        scale: true,
+      },
+      {
+        id: "andre-forhold",
+        text: "Er det andre forhold (helse, alder, tidligere erfaring) du må ta hensyn til?",
+        note: true,
+      },
     ],
   },
   metoder: {
@@ -1350,7 +1374,56 @@ export const gettingStartedGuide = {
 // Læringsmodulen vises som en stegvis kortbunke — én fordøyelig bit av gangen,
 // likt velkomstintroen. All informasjonen fra heftet er bevart, bare delt opp i
 // mindre kort slik at brukeren blar seg gjennom én tanke om gangen.
-export function renderGettingStarted() {
+// Render ett spørsmål i kartleggingskortet: avkrysningsbokser/radioknapper for
+// faste alternativer, og/eller et fritekstfelt. `saved` er brukerens lagrede
+// svar for dette spørsmålet (eller undefined hvis ubesvart).
+function renderGsQuestion(q, saved) {
+  const savedOptions = saved?.options || [];
+  let controlHtml = "";
+
+  if (q.scale && q.options && q.options.length) {
+    // Ordinale skalaspørsmål vises som en spak: tydeligere enn radioknapper og
+    // unngår at lange etiketter brytes over to linjer.
+    const n = q.options.length;
+    const selIdx = q.options.indexOf(savedOptions[0]);
+    const answered = selIdx >= 0;
+    const value = answered ? selIdx : Math.floor((n - 1) / 2);
+    const valueLabel = answered ? escapeHtml(q.options[value]) : "Dra spaken for å vurdere";
+    controlHtml = `
+      <div class="gs-scale${answered ? " is-answered" : ""}" data-gs-options="${escapeHtml(JSON.stringify(q.options))}">
+        <p class="gs-scale-value">${valueLabel}</p>
+        <input type="range" class="gs-scale-input" min="0" max="${n - 1}" step="1" value="${value}" data-gs-question="${escapeHtml(q.id)}" aria-label="${escapeHtml(q.text)}"${answered ? ` aria-valuetext="${escapeHtml(q.options[value])}"` : ""} />
+        <div class="gs-scale-ends">
+          <span>${escapeHtml(q.options[0])}</span>
+          <span>${escapeHtml(q.options[n - 1])}</span>
+        </div>
+      </div>`;
+  } else if (q.options && q.options.length) {
+    const optionsHtml = q.options
+      .map((opt) => {
+        const type = q.multi ? "checkbox" : "radio";
+        const checked = savedOptions.includes(opt) ? " checked" : "";
+        return `<label class="gs-option">
+          <input type="${type}" name="gsq-${escapeHtml(q.id)}" data-gs-question="${escapeHtml(q.id)}" data-gs-option="${escapeHtml(opt)}" data-gs-multi="${q.multi ? "1" : "0"}"${checked} />
+          <span>${escapeHtml(opt)}</span>
+        </label>`;
+      })
+      .join("");
+    controlHtml = `<div class="gs-options">${optionsHtml}</div>`;
+  }
+
+  const noteHtml = q.note
+    ? `<textarea class="gs-note" data-gs-note="${escapeHtml(q.id)}" rows="2" placeholder="Skriv inn notater …">${escapeHtml(saved?.note || "")}</textarea>`
+    : "";
+  return `
+    <div class="gs-question">
+      <p class="gs-question-text">→ ${escapeHtml(q.text)}</p>
+      ${controlHtml}
+      ${noteHtml}
+    </div>`;
+}
+
+export function renderGettingStarted(answers = {}) {
   const g = gettingStartedGuide;
   const stepLi = (s, i) => `<li><span class="step-index">${i + 1}</span><span>${escapeHtml(s)}</span></li>`;
 
@@ -1375,7 +1448,8 @@ export function renderGettingStarted() {
     <div class="gs-card">
       <p class="eyebrow">Kartlegg hunden · ${escapeHtml(g.kartlegging.pages)}</p>
       <h4 class="gs-card-title">Tenk gjennom dette først</h4>
-      <ul class="gs-questions">${g.kartlegging.questions.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+      <div class="gs-question-list">${g.kartlegging.questions.map((q) => renderGsQuestion(q, answers[q.id])).join("")}</div>
+      <p class="small gs-hint">Svarene lagres på denne enheten.</p>
     </div>`);
 
   // Steg 2: velg metode — intro, så ett kort per metode, så tilleggsteknikken.
