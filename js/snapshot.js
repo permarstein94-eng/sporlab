@@ -149,18 +149,31 @@ export function importSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== "object") throw new Error("Ugyldig fil");
   const incomingPlans = (Array.isArray(snapshot.plans) ? snapshot.plans : []).map(sanitizePlan).filter(Boolean);
   const incomingLogs = (Array.isArray(snapshot.logs) ? snapshot.logs : []).map(sanitizeLog).filter(Boolean);
+  const byCreatedAtDesc = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
   const existingPlanIds = new Set(state.plans.map((p) => p.id));
-  const existingLogIds = new Set(state.logs.map((l) => l.id));
+  const existingLogById = new Map(state.logs.map((l) => [l.id, l]));
+  const incomingLogById = new Map(incomingLogs.map((l) => [l.id, l]));
   const newPlans = incomingPlans.filter((p) => !existingPlanIds.has(p.id));
-  const newLogs = incomingLogs.filter((l) => !existingLogIds.has(l.id));
-  state.plans = [...newPlans, ...state.plans].slice(0, MAX_PLANS);
-  state.logs = [...newLogs, ...state.logs].slice(0, MAX_LOGS);
+  const newLogs = incomingLogs.filter((l) => !existingLogById.has(l.id));
+  // En innkommende logg med samme id erstatter den lokale bare hvis den er
+  // faktisk nyere redigert (updatedAt/createdAt) — ellers vinner lokal som før.
+  const mergedExistingLogs = state.logs.map((log) => {
+    const incoming = incomingLogById.get(log.id);
+    if (!incoming) return log;
+    const incomingTime = incoming.updatedAt || incoming.createdAt || 0;
+    const existingTime = log.updatedAt || log.createdAt || 0;
+    return incomingTime > existingTime ? incoming : log;
+  });
+  // Sorter på createdAt før trunkering, slik at de eldste fremmede importerte
+  // elementene ikke fortrenger brukerens egne, faktisk nyere elementer.
+  state.plans = [...newPlans, ...state.plans].sort(byCreatedAtDesc).slice(0, MAX_PLANS);
+  state.logs = [...newLogs, ...mergedExistingLogs].sort(byCreatedAtDesc).slice(0, MAX_LOGS);
 
   // Læringsdata: fullførte moduler flettes som union, mestring per spørsmål
   // beholder den oppføringen som har mest historikk (gjør re-import idempotent).
   const validModuleIds = new Set(modules.map((m) => m.id));
   if (Array.isArray(snapshot.completed)) {
-    const merged = new Set(state.completed);
+    const merged = new Set(state.completed.filter((id) => validModuleIds.has(id)));
     snapshot.completed.forEach((id) => {
       if (validModuleIds.has(id)) merged.add(id);
     });

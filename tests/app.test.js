@@ -128,6 +128,26 @@ test("migrateState v6 → v7 (kobling læring ↔ praksis)", async (t) => {
   });
 });
 
+test("migrateState er robust mot korrupte felt (forhindrer fullt datatap)", async (t) => {
+  await t.test("ikke-array plans/logs kaster ikke, faller tilbake til tomme arrays", async () => {
+    const { migrateState, SCHEMA_VERSION } = await loadApp();
+    const migrated = migrateState({
+      schemaVersion: 1,
+      plans: "korrupt",
+      logs: 12345,
+    });
+    assert.equal(migrated.schemaVersion, SCHEMA_VERSION);
+    assert.deepEqual(migrated.plans, []);
+    assert.deepEqual(migrated.logs, []);
+  });
+
+  await t.test("ikke-array completed normaliseres til tom liste i stedet for å krasje senere", async () => {
+    const { migrateState } = await loadApp();
+    const migrated = migrateState({ schemaVersion: 7, completed: null });
+    assert.deepEqual(migrated.completed, []);
+  });
+});
+
 test("importSnapshot", async (t) => {
   await t.test("kaster på ugyldig fil", async () => {
     const api = await loadApp();
@@ -221,6 +241,61 @@ test("importSnapshot", async (t) => {
     // Innkommende har mer historikk (totalt 7 > 5) → erstattes.
     api.importSnapshot({ mastery: { [qid]: { correct: 4, wrong: 3, lastSeen: 99 } } });
     assert.deepEqual(api.getState().mastery[qid], { correct: 4, wrong: 3, lastSeen: 99 });
+  });
+
+  await t.test("trunkering ved import beholder de nyeste planene, ikke bare lokale+importerte i rekkefølge", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    const now = 1700000000000;
+    state.plans = Array.from({ length: api.MAX_PLANS }, (_, i) => ({
+      id: `local-${i}`,
+      title: `Lokal ${i}`,
+      createdAt: now + i,
+    }));
+    api.setState(state);
+    api.importSnapshot({
+      plans: [{ id: "foreign-old", title: "Gammel importert plan", createdAt: now - 100000 }],
+    });
+    const plans = api.getState().plans;
+    assert.equal(plans.length, api.MAX_PLANS);
+    const newestLocalId = `local-${api.MAX_PLANS - 1}`;
+    assert.ok(plans.some((p) => p.id === newestLocalId), "nyeste lokale plan ble slettet av trunkering");
+  });
+
+  await t.test("import oppdaterer en eksisterende logg når innkommende har nyere updatedAt", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    state.logs = [{ id: "log-1", next: "Gammel tekst", createdAt: 1000, updatedAt: 1000 }];
+    api.setState(state);
+    api.importSnapshot({
+      logs: [{ id: "log-1", next: "Redigert tekst", createdAt: 1000, updatedAt: 2000 }],
+    });
+    const log = api.getState().logs.find((l) => l.id === "log-1");
+    assert.equal(log.next, "Redigert tekst");
+  });
+
+  await t.test("import lar eksisterende logg vinne når innkommende ikke er nyere", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    state.logs = [{ id: "log-2", next: "Nyeste tekst", createdAt: 1000, updatedAt: 5000 }];
+    api.setState(state);
+    api.importSnapshot({
+      logs: [{ id: "log-2", next: "Eldre import", createdAt: 1000, updatedAt: 1000 }],
+    });
+    const log = api.getState().logs.find((l) => l.id === "log-2");
+    assert.equal(log.next, "Nyeste tekst");
+  });
+
+  await t.test("import renser ut ugyldige modul-id-er som allerede lå i completed lokalt", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    state.completed = ["grunnlag", "fjernet-modul"];
+    api.setState(state);
+    api.importSnapshot({ completed: ["spor"] });
+    const completed = api.getState().completed;
+    assert.ok(completed.includes("grunnlag"));
+    assert.ok(completed.includes("spor"));
+    assert.ok(!completed.includes("fjernet-modul"));
   });
 });
 
@@ -385,5 +460,14 @@ test("buildQuizSession", async (t) => {
     api.buildQuizSession("module:finnes-ikke");
     const quiz = api.getState().quiz;
     assert.equal(quiz.questionIds.length, api.quizQuestions.length);
+  });
+
+  await t.test("tomt utvalg korrigerer mode/modeLabel til 'alle moduler' i stedet for å vise feil etikett", async () => {
+    const api = await loadApp();
+    api.setState(api.defaultState());
+    api.buildQuizSession("module:finnes-ikke");
+    const quiz = api.getState().quiz;
+    assert.equal(quiz.mode, "all");
+    assert.equal(quiz.modeLabel, "Alle moduler");
   });
 });

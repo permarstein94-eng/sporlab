@@ -40,11 +40,11 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current stable baseline
 
-**Last known good branch:** main  
-**Last known good commit:** f9cc0f1  
-**Last successful test:** 2026-06-19 — `node --test tests/app.test.js` — 27/27 pass  
+**Last known good branch:** `fix/grundig-feilretting-juni2026` (avgreinet fra `main` @ `eb7293e`, ingen commits ennå — se siste handoff)  
+**Last known good commit:** eb7293e (main)  
+**Last successful test:** 2026-06-19 — `node --test tests/app.test.js` — 35/35 pass  
 **Last successful typecheck:** 2026-06-19 — `tsc -p jsconfig.json` — exit 0  
-**Last successful build:** 2026-06-19 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-a6cef1bb3d1a`  
+**Last successful build:** 2026-06-19 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-dd3ad5ecd150`  
 **Deployment URL:** TODO (manuell `wrangler deploy` ikke fullført denne sesjonen — se siste handoff)  
 
 ---
@@ -68,21 +68,22 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Debug og fix intro modal click handlers — buttons don't respond  
+**Task title:** Grundig feilretting og gjennomgang av hele appen  
 **Owner/agent:** Claude Code  
-**Branch:** main  
+**Branch:** `fix/grundig-feilretting-juni2026`  
 **Started:** 2026-06-19  
-**Status:** IN PROGRESS - Issue diagnosed, partial fix applied
+**Status:** DONE — alle prioriterte funn fikset og verifisert; ikke commitet/merget ennå (venter på Per)
 
 ### Scope
 
-5-fanes bunnmeny, Hjem-hub (kursvei + neste-steg + aktivitet), Lær-stepper,
-Felt mørk modus, ny intro. Rent presentasjonslag.
+Full feilrettingsrunde: `js/state.js`, `js/snapshot.js`, `js/quiz.js`, `js/app.js`,
+`styles.css`. Se siste handoff-oppføring for full funnliste og fikser.
 
 ### Out of scope
 
-`content.js`, `js/state.js`, `js/quiz.js`, `js/snapshot.js`, `service-worker.js`,
-`wrangler.jsonc`, `build.sh`. Ingen localStorage-skjemaendring. Fase 1b/1c.
+`service-worker.js`-cachestrategi (ingen casual endring per CLAUDE.md), manglende
+`assets/video/ambient.mp4` (krever at Per legger til filen selv), `content.js`,
+deploy-konfig.
 
 ---
 
@@ -211,6 +212,104 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-19 — Claude Code — Grundig feilretting og gjennomgang — branch `fix/grundig-feilretting-juni2026`
+
+**Task:** Per ba om en grundig, kontrollert feilretting av hele appen: finn og fiks
+faktiske feil, regressions, state-/import-/quiz-/PWA-problemer. Startet med å løse
+det uløste kjente problemet fra forrige sesjon (intro-modal-knapper som ikke
+responderte).
+
+**Root cause på kjent bug (systematic-debugging, ikke en JS-event-bug som antatt):**
+`.ceremony-overlay`/`.bridge-overlay` (innført i Fase 1b, commit `0d8dd9e`) manglet
+en `[hidden]{display:none}`-regel (i motsetning til `.welcome-overlay`/
+`.feedback-overlay`, som allerede har dette). Uten den vinner author-CSS-ens
+`display:grid` alltid over UA-stilarkets `[hidden]`-regel uavhengig av
+spesifisitet — så `#ceremonyOverlay`/`#bridgeOverlay` lå usynlig
+(`opacity:0`) men fullskjerm (`position:fixed;inset:0;z-index:200;
+pointer-events:auto`) over **hele appen** til enhver tid, og fanget opp ALLE
+klikk før de nådde sine mål. Dette var ikke begrenset til intro-modalen — det
+var en app-bred klikkblokkering siden Fase 1b (2026-06-19 morgen). Forrige
+sesjons "direkte knapp-handler"-fiks var et feilspor (CSS-bug, ikke JS-bug) og
+er fjernet som virkningsløs død kode. Bekreftet via `elementFromPoint` og reelle
+klikk i browser, både i og utenfor intro-modalen.
+
+**Full code-review-pass** (5 parallelle reviewer-agenter per kjernefil + 9
+uavhengige verifikasjonsagenter, alle CONFIRMED/PLAUSIBLE) avdekket og disse ble
+fikset, med TDD (feilende test → fiks → grønn test) der logikken er dekket av
+`tests/app.test.js`:
+
+1. **`js/state.js`** — `migrateState()` kastet på ikke-array `plans`/`logs`
+   (f.eks. korrupt/hånd-redigert localStorage), og `loadState()`s catch-all
+   slukte feilen og nullstilte **hele** brukerens historikk uten varsel.
+   Fikset: `Array.isArray`-guard på hvert `.map()`-kall + en siste
+   normaliseringssjekk for `completed`/`logs`/`plans` (samme mønster som
+   eksisterende quiz/mastery-sjekker).
+2. **`js/snapshot.js`** — tre relaterte importfeil:
+   a) Trunkering ved `MAX_PLANS`/`MAX_LOGS` kunne slette brukerens egne nyeste
+      planer/logger i favør av eldre importerte data nær taket (ingen sortering
+      før `.slice`). Fikset: sorter på `createdAt` (nyest først) før trunkering.
+   b) Import beholdt alltid lokal logg ved id-kollisjon, selv om innkommende
+      hadde nyere `updatedAt` (ekte redigering forsvant stille ved
+      multi-enhet-bruk). Fikset: sammenlign `updatedAt`/`createdAt`, innkommende
+      vinner kun hvis faktisk nyere. (Planer er bevisst ikke endret — ingen
+      `updatedAt`-felt finnes der; egen vurdering om ønsket utenfor denne
+      feilrettingens scope.)
+   c) `completed`-merge revaliderte ikke forhåndseksisterende lokale id-er mot
+      gyldige moduler (kun innkommende ble validert) — fjernet/omdøpte
+      modul-id-er kunne ligge igjen for alltid. Fikset: filtrer lokal seed også.
+3. **`js/quiz.js`** — modul-quiz med tom spørsmålspool falt tilbake til hele
+   banken, men viste fortsatt modul-spesifikk label/mode (sovende bug, ikke
+   utløsbar i dag siden alle 8 moduler har spørsmål — men reachable via
+   "kjør samme økt igjen"-knappen hvis innhold endres). Fikset: korrigerer
+   `mode`/`label` til "all"/"Alle moduler" når fallback trigges.
+4. **`js/app.js`** — `closeOverlay()`s usporbare 200ms skjul-timer kunne
+   tvangsgjemme et overlay som ble gjenåpnet innen 200ms (bekreftet
+   reproduserbart via `#refSheet` — lukk kort 1, åpne kort 2 raskt). Fikset:
+   `WeakMap` som sporer ventende timer per overlay, ryddet i både
+   `openOverlay`/`closeOverlay`. Verifisert i browser (ikke unit-testbar —
+   ingen DOM/timer-testinfrastruktur i `tests/app.test.js`).
+
+**Bevisst IKKE fikset (dokumentert, ikke endring):**
+- `assets/video/ambient.mp4` mangler på disk og i `service-worker.js`s
+  `APP_SHELL` — krever at Per legger til selve videofilen; allerede notert i
+  tidligere handoff.
+- `service-worker.js`s `cache.addAll()` er alt-eller-ingenting (sårbar ved
+  fremtidig filomdøping) — arkitekturrisiko, ikke en aktiv bug i dag. Rørt ikke
+  per CLAUDE.md-regelen om å ikke gjøre tilfeldige SW-cache-endringer.
+- Den lokale `__BUILD_HASH__`-placeholder-gotchaen (cache busts ikke ved
+  `npx serve .` direkte fra repo-roten, kun via `build.sh`/`dist/`) er allerede
+  kjent/dokumentert i service-worker.js sin egen kommentar — forårsaket
+  forvirring i denne sesjonens debugging også. Husk: bruk hard refresh/SW-
+  avregistrering ved lokal PWA-verifisering, eller test mot `dist/`.
+
+**To uavhengige code-review-pass** (requesting-code-review) av hhv. batch 1
+(CSS + state.js + snapshot.js) og batch 2 (quiz.js + app.js) — begge
+"Ready to merge: Yes", ingen Critical/Important-funn.
+
+**Checks:** `node --test tests/app.test.js` → 35/35 pass (8 nye tester, alle
+skrevet RED→GREEN per TDD). `tsc -p jsconfig.json` → exit 0. `bash build.sh` →
+exit 0, 22 filer, SW-cache `sporlab-e8-e9-dd3ad5ecd150`.
+
+**Browser-verifisering (port 3000, SW aktiv):** Intro-modal Neste/Tilbake/Lukk
+fungerer korrekt (native klikk/dispatchEvent — `preview_click`-MCP-verktøyets
+egen klikk-simulering hadde en uavhengig timing-kvirk i denne previewen, ikke en
+app-bug). Vanlig Hjem-knapp ("Les teori →") klikkbar igjen. `#refSheet`-race
+verifisert løst (hidden/aria-hidden forblir false forbi det gamle 200ms-vinduet).
+
+**Files changed:** `styles.css`, `js/app.js`, `js/state.js`, `js/snapshot.js`,
+`js/quiz.js`, `tests/app.test.js`.
+
+**Known issues / gjenstående:**
+- Ingenting committet ennå — alt står i arbeidskopien på
+  `fix/grundig-feilretting-juni2026`. Per må se gjennom og bestemme
+  commit/merge/PR (se `finishing-a-development-branch`-vurdering nedenfor).
+- Plan-import har fortsatt ingen "nyeste vinner"-logikk ved id-kollisjon (kun
+  logger fikk denne, siden bare logger har `updatedAt`) — egen vurdering om
+  ønsket senere.
+- `service-worker.js`/`assets/video/ambient.mp4` urørt, se over.
+
+**Next step:** Per gjennomgår diffen og velger commit/merge-strategi.
 
 ### 2026-06-19 — Claude Code — Debug intro modal click issue — branch `main`
 

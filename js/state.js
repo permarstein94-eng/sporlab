@@ -195,13 +195,13 @@ export function migrateState(stored) {
     base.learnAccordion = "learn";
   }
   if (fromVersion < 4) {
-    base.plans = (base.plans || []).map((plan) => {
+    base.plans = (Array.isArray(base.plans) ? base.plans : []).map((plan) => {
       if (plan && Array.isArray(plan.observations) && plan.observations.length === 3) return plan;
       const blueprint = planBlueprints[plan?.focus];
       const observations = blueprint?.observations ? [...blueprint.observations] : ["", "", ""];
       return { ...plan, observations };
     });
-    base.logs = (base.logs || []).map((log) => {
+    base.logs = (Array.isArray(base.logs) ? base.logs : []).map((log) => {
       if (!log) return log;
       const { image, ...rest } = log;
       return rest;
@@ -237,7 +237,7 @@ export function migrateState(stored) {
     // Todelt redesign: en logg kobles nå eksplisitt til et læringstema via
     // `module`/`planFocus`. Backfyll fra plantittel/økt-type så eldre logger
     // krediterer riktig tema med den nye, robuste logikken. Ingenting slettes.
-    base.logs = (base.logs || []).map((log) => {
+    base.logs = (Array.isArray(base.logs) ? base.logs : []).map((log) => {
       if (!log || typeof log !== "object") return log;
       const next = { ...log };
       if (!next.planFocus) {
@@ -261,6 +261,9 @@ export function migrateState(stored) {
     base.gettingStartedAnswers = {};
   }
   if (!base.learnAccordion) base.learnAccordion = "learn";
+  if (!Array.isArray(base.completed)) base.completed = [];
+  if (!Array.isArray(base.logs)) base.logs = [];
+  if (!Array.isArray(base.plans)) base.plans = [];
   // Eksisterende brukere med data skal ikke avbrytes av startmenyen — kun nye/tomme installasjoner.
   if (typeof stored.hasSeenWelcome !== "boolean") {
     const hasData = (base.completed?.length || 0) + (base.logs?.length || 0) + (base.plans?.length || 0) > 0;
