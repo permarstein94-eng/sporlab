@@ -106,6 +106,45 @@ Per
 
 ---
 
+### 2026-06-19 — Faktisk git-merge mot origin/main: behold redesign-arkitekturen i sin helhet
+
+**Decision:**
+Ved `git merge origin/main` (branch `merge/origin-main`) ble alle konflikter i
+`content.js`, `index.html`, `js/app.js`, `styles.css` løst med `git checkout
+--ours` — dvs. lokal `main`s redesign (låst modul-grid + 4-trinns stepper)
+vinner i sin helhet, og origins «buktende læringssti» + kortkarusell-kode for
+Lær-modulen (`4c82396`, `b1c7977`, `eb73620`) er ikke med videre. Bekreftet at
+resultatet er byte-identisk med pre-merge `main` for disse fire filene.
+
+**Reason:**
+Viderefører beslutningen fra 2026-06-19 (port av origin-funksjoner) om at vår
+verifiserte redesign er grunnmuren. Siden `git checkout --ours` erstatter hele
+filinnholdet (ikke bare konfliktmarkørene), elimineres også risikoen for at
+ikke-konflikt-markerte hunker fra origin (f.eks. et stille innsatt
+`initCardStepper()`-kall) sniker seg inn uten at det vises som konflikt.
+
+**Alternatives considered:**
+- Manuell linje-for-linje-reløsning av alle 22 konfliktblokker (vurdert, men
+  upresist — git's 3-way merge hadde allerede vist seg å smette inn
+  ikke-konflikterte origin-endringer et sted i `js/app.js`).
+- Cherry-picke origins additive doc-fikser separat (unødvendig — disse hadde
+  ingen konflikt og ble tatt med automatisk).
+
+**Consequences:**
+- `main`/`origin/main`-divergensen er nå løst med en reell merge-commit
+  (`fe07b1f` på `merge/origin-main`), ikke bare en manuell port.
+- Origins alternative «velg metode»-layout (kollapsbare detaljer) i
+  «Aller første sporøkt» er notert som en separat, liten presentasjonsoppgave
+  — ikke tatt med, ikke en konflikt som krevde avgjørelse.
+- Fremtidige merger fra `origin/main` bør forvente samme mønster: strukturelle
+  Lær-modul-endringer fra origin må vurderes mot vårt grid/stepper, ikke
+  automatisk merges.
+
+**Owner:**
+Per (implementert av Claude Code)
+
+---
+
 ### 2026-06-18 — Keep SporLab dependency-light
 
 **Decision:**  

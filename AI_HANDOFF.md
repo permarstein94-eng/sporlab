@@ -212,6 +212,54 @@ Use deploy only when explicitly requested.
 
 Add newest entries at the top.
 
+### 2026-06-19 — Claude Code — Merge origin/main — branch `merge/origin-main`
+
+**Task:** Løse divergensen mellom lokal `main` og `origin/main` (30 vs. 16 commits)
+med en reell `git merge` + konfliktløsning, og åpne PR mot `origin/main`. Oppfølging
+av «Next step» fra forrige sesjons handoff (port/origin-features).
+
+**Summary:**
+- Branchet `merge/origin-main` fra `main` (ikke jobbet direkte på `main`).
+- `git merge origin/main` ga konflikt i 4 filer: `content.js`, `index.html`,
+  `js/app.js`, `styles.css` (22 konfliktblokker totalt). Alle gjaldt samme
+  strukturelle motsetning: origins «buktende læringssti» + kortkarusell for
+  Lær-modulen (`4c82396`, `b1c7977`, `eb73620`) mot vårt låste modul-grid +
+  4-trinns stepper (Fase 1a/1b/1c).
+- Løsning, jf. beslutningen fra forrige sesjon: `git checkout --ours` på alle
+  4 filene. Verifiserte etterpå at `git diff main -- content.js index.html
+  js/app.js styles.css` er **tom** — resultatet er byte-identisk med
+  pre-merge `main` for disse filene. Origins kortkarusell/sti-kode er ikke
+  med i historien videre.
+- `js/state.js`, `service-worker.js`, `build.sh` hadde **ingen konflikt** og
+  endret seg ikke i merge — bekrefter at forrige sesjons port
+  (`port/origin-features`) allerede er identisk med origins implementasjon
+  av disse filene.
+- Origins rene dokumentasjonsfikser (Netlify→Cloudflare-referanser) ble tatt
+  med automatisk (ingen konflikt): `README.md`, `testinstruks.md`,
+  `ai-opplegg-notebooklm-sporlab.md`, `.claude/launch.json`.
+- Merge-commit: `fe07b1f`.
+
+**Checks:** `node --test tests/app.test.js` → 27/27 pass. `tsc -p
+jsconfig.json` → exit 0. `bash build.sh` → exit 0, 22 filer bygget.
+
+**Files changed:** Merge-commit (ingen nye innholdsendringer utover selve
+mergen) + denne handoff-oppdateringen.
+
+**Known issues / notert, ikke løst her:**
+- Origin har en alternativ layout for «velg metode»-steget i Aller første
+  sporøkt: kollapsbare `<details>`-elementer i ett kort, i stedet for våre
+  separate kort per metode (`content.js`, rundt `renderGettingStarted`
+  steg 2). Dette er et rent presentasjonsvalg, ikke en arkitektonisk
+  konflikt — vurder om Per vil ta det som en egen, liten oppgave senere.
+- `.claude/settings.local.json` har en uncommitted lokal endring (verktøy-
+  tillatelser) som ikke er del av denne mergen — urørt med vilje.
+- `ruflo/` fremdeles untracked i repo-roten, urelatert til SporLab.
+
+**Next step:** Push `merge/origin-main` og åpne PR mot `origin/main`. Etter
+merge til `origin/main`: bump service-worker-versjon ved neste deploy
+(automatisert hash-versjonering tar normalt hånd om dette, men sjekk at
+det reflekteres på Cloudflare).
+
 ### 2026-06-19 — Claude Code — Port av origin-funksjoner — branch `port/origin-features`
 
 **Task:** Mens `redesign/fase-1a` var under arbeid, fikk `origin/main` 16 egne commits
