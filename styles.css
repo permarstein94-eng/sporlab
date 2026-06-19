@@ -6519,3 +6519,57 @@ body[data-domain="field"] .empty-state {
     background: linear-gradient(160deg, var(--dark-blue), #042c53);
   }
 }
+
+/* ============================================================
+   Fase 1c — Mikrointeraksjoner.
+   Animert tilbakemelding ved quiz-svar og steg-fullføring.
+   Alle animasjoner vaktet av prefers-reduced-motion.
+   ============================================================ */
+
+@keyframes quiz-correct-flash {
+  from {
+    background: #0077da;
+    color: #fff;
+    border-color: #0077da;
+    transform: scale(1.04);
+  }
+  to {
+    background: #e4f3ff;
+    color: inherit;
+    border-color: var(--green);
+    transform: scale(1);
+  }
+}
+
+@keyframes quiz-wrong-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  60%       { transform: translateX(5px); }
+  80%       { transform: translateX(-3px); }
+}
+
+@keyframes step-badge-pop {
+  0%   { transform: scale(0.6); opacity: 0.5; }
+  65%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.quiz-option.is-correct {
+  animation: quiz-correct-flash 350ms ease-out;
+}
+
+.quiz-option.is-wrong {
+  animation: quiz-wrong-shake 300ms ease-out;
+}
+
+.step-item[data-step-state="done"] .step-badge {
+  animation: step-badge-pop 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-option.is-correct,
+  .quiz-option.is-wrong,
+  .step-item[data-step-state="done"] .step-badge {
+    animation: none;
+  }
+}
