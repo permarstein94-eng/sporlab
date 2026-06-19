@@ -68,12 +68,11 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Redesign Fase 1a + 1b — struktur, animasjoner og polish  
+**Task title:** Redesign Fase 1a + 1b + 1c — struktur, animasjoner og visuelle detaljer  
 **Owner/agent:** Claude Code  
 **Branch:** `redesign/fase-1a`  
 **Started:** 2026-06-18  
-**Status:** Fase 1a (5/5) + Fase 1b (seremoni, bro, kursvei-animasjon) komplett og
-verifisert. Gjenstår: Fase 1c (glassmorfisme, ambient-video, mikrointeraksjoner).  
+**Status:** Fase 1a (5/5) + Fase 1b (seremoni, bro, kursvei-animasjon) + Fase 1c (glassmorfisme, ambient-video, modul-ikoner, mikrointeraksjoner) — KOMPLETT.
 
 ### Scope
 
@@ -212,6 +211,36 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-19 — Claude Code — Fase 1c — branch `redesign/fase-1a`
+
+**Task:** Visuelle detaljer (fase 1c): glassmorfisme, ambient-video, modul-ikoner, mikrointeraksjoner.
+
+**Summary:**
+- **Glassmorfisme** (commit d0c595e): `.welcome-overlay:has(.welcome-intro)` → mørk navy
+  gradient bak intro-dialogen. `.welcome-intro`: `backdrop-filter: blur(14px)`, rgba-bakgrunn,
+  CSS-vars re-scopet til lyse verdier (--ink, --muted, --surface, --line). Fallback: #0c3a63.
+  `.ceremony-dialog`/`.bridge-dialog`: backdrop-filter: blur(16px) + rgba-bakgrunn + border.
+  prefers-reduced-motion: blur fjernes, solid mørk bakgrunn brukes.
+- **Ambient video** (commit d19048c): `<video id="introVideo">` med `src=assets/video/ambient.mp4`
+  satt inn i `#welcomeOverlay`. play()/pause() i openWelcome/closeWelcome. Opacity 0.35.
+  Graceful fallback — mørk gradient vises uten videofilen. NB: Per må legge
+  `assets/video/ambient.mp4` (<500 KB, skog/spor, muted loop) i repoet for full effekt.
+- **Modul-ikoner** (commit c6a732a): 8 SVG-ikoner lagt til i ICONS-mapet (mod-grunnlag, mod-spor,
+  mod-oppsok, mod-gamle, mod-retning, mod-sportap, mod-kryssende, mod-sirkel). Brukes i
+  `.loype-step-num` på uleste moduler — lest viser fremdeles ✓.
+- **Mikrointeraksjoner** (commit d740058): `quiz-correct-flash` (blå→grønn-tint, 350ms),
+  `quiz-wrong-shake` (horisontal shake, 300ms), `step-badge-pop` (bounce-pop ved done, 350ms).
+  Alt vaktet av prefers-reduced-motion.
+
+**Checks:** `node --test` 27/27 etter alle commits. Verifisert i preview: glassmorfisme
+(backdropFilter, rgba-bg, lys tekst), modul-ikoner (SVG i alle 8 loype-step-num),
+quiz-animasjoner (keyframes i CSS). Ingen console-feil.
+
+**Files changed:** `styles.css`, `index.html`, `js/app.js`
+
+**Next step:** Review redesign/fase-1a (nå 9 commits) og merge til main, eller
+legge til `assets/video/ambient.mp4` for full splash-effekt. SW bør bumpes ved deploy.
 
 ### 2026-06-18 — Claude Code — Fase 1b — branch `redesign/fase-1a`
 
