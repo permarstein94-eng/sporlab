@@ -84,7 +84,7 @@ const navTabForView = {
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
-const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay";
+const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay";
 
 function openOverlay(overlay) {
   if (!overlay) return;
@@ -333,15 +333,23 @@ function renderHome() {
 // app-åpning, ikke ved hver re-render.
 let kursveiEntered = false;
 
+/* Delt låse-modell: et tema er "done" så snart det er fullført (alle tre
+   lysene), uavhengig av rekkefølge; det første ufullførte temaet er "active";
+   resten forblir "locked" til de nås. Brukes av både Hjem-kursveien og
+   Lær-moduloversikten, så de to alltid viser samme låsetilstand. */
+function moduleProgressState(s, i, activeIndex) {
+  if (s.complete) return "done";
+  if (i === activeIndex) return "active";
+  if (activeIndex === -1) return "done";
+  return "locked";
+}
+
 /* Zone 1 — Kursvei-stripe: ett punkt per modul på mørk NRH-bakgrunn.
    Koblende linjer mellom punktene fargelegges blå fram til aktivt tema. */
 function renderKursvei(statuses, activeIndex, doneCount, pct) {
   const nodes = statuses
     .map((s, i) => {
-      let nodeState = "locked";
-      if (s.complete) nodeState = "done";
-      else if (i === activeIndex) nodeState = "active";
-      else if (activeIndex === -1) nodeState = "done";
+      const nodeState = moduleProgressState(s, i, activeIndex);
       const locked = nodeState === "locked";
       const title = escapeHtml(shortModuleTitle(s.module));
       const suffix = s.complete ? "fullført" : nodeState === "active" ? "aktiv" : "låst";
@@ -1005,39 +1013,46 @@ function renderLearnIntro() {
   const doneCount = state.completed.length;
   const progress = Math.round((doneCount / modules.length) * 100);
   const logsByModule = computeModuleLogCredit();
-  const trainedAt = lastTrainedByModule();
   const trainedCount = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
 
   // Myk rekkefølge: neste steg er det første uleste temaet, men alt er åpent.
   const nextModule = modules.find((m) => !state.completed.includes(m.id));
   const shortTitle = (m) => m.title.replace(/^\d+\.\s*/, "");
-  const fmtDay = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
 
-  const steps = modules
-    .map((module, i) => {
-      const c = moduleChecks(module, logsByModule);
-      const stepState = c.isRead ? "done" : nextModule && module.id === nextModule.id ? "current" : "upcoming";
-      const trained = (logsByModule[module.id] || 0) > 0;
-      const trainedLabel = trained && trainedAt[module.id] ? `Trent · ${fmtDay(trainedAt[module.id])}` : "Trent";
-      const lights = [
-        { ok: c.isRead, label: "Lest", cls: "" },
-        { ok: c.quizOk, label: `Quiz ${c.masteredQs}/${c.totalQs}`, cls: "" },
-        { ok: trained, label: trainedLabel, cls: "is-trained" },
-      ]
-        .map((s) => `<span class="loype-light ${s.cls} ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
-        .join("");
-      const moduleIconKey = `mod-${module.id}`;
-      const stepNumContent = c.isRead
-        ? "✓"
-        : (ICONS[moduleIconKey] || String(i + 1));
+  // Moduloversikten bruker samme låste-grid-modell som Hjem-kursveien: et
+  // tema er "fullført" når alle tre lysene er grønne (lest+quiz+trent), og
+  // bare det aktive (eller et allerede fullført) temaet kan åpnes — resten
+  // er låst til de nås. Samkjører løype-låsingen mot kursveien på Hjem.
+  const gridStatuses = homeModuleStatuses();
+  const gridActiveIndex = gridStatuses.findIndex((s) => !s.complete);
+  const gridDoneCount = gridStatuses.filter((s) => s.complete).length;
+  const gridPct = Math.round((gridDoneCount / modules.length) * 100);
+
+  const cards = gridStatuses
+    .map((s, i) => {
+      const cardState = moduleProgressState(s, i, gridActiveIndex);
+      const locked = cardState === "locked";
+      const moduleIconKey = `mod-${s.module.id}`;
+      const iconContent = cardState === "done" ? ICONS.check : ICONS[moduleIconKey] || String(i + 1);
+      const pill = cardState === "active" ? '<span class="module-grid-pill">Aktiv</span>' : "";
+      const lockBadge = locked ? `<span class="module-grid-lock" aria-hidden="true">${ICONS.lock}</span>` : "";
+      const lights = locked
+        ? ""
+        : `<span class="loype-lights">${[
+            { ok: s.isRead, label: "Lest" },
+            { ok: s.quizOk, label: "Quiz" },
+            { ok: s.hasLog, label: "Trent" },
+          ]
+            .map((l) => `<span class="loype-light ${l.ok ? "is-ok" : ""}">${l.ok ? "✓" : "○"} ${escapeHtml(l.label)}</span>`)
+            .join("")}</span>`;
       return `
-        <button class="loype-step" data-state="${stepState}" data-module-open="${module.id}" type="button">
-          <span class="loype-step-num">${stepNumContent}</span>
-          <span class="loype-step-body">
-            <h4>${escapeHtml(module.title)}</h4>
-            <p>${escapeHtml(module.summary)}</p>
-            <span class="loype-lights">${lights}</span>
-          </span>
+        <button class="module-grid-card" data-state="${cardState}" type="button"
+          ${locked ? 'disabled aria-disabled="true"' : `data-module-open="${s.module.id}"`}>
+          ${lockBadge}${pill}
+          <span class="module-grid-icon" aria-hidden="true">${iconContent}</span>
+          <h4>${escapeHtml(s.module.title)}</h4>
+          <p>${escapeHtml(s.module.summary)}</p>
+          ${lights}
         </button>`;
     })
     .join("");
@@ -1089,10 +1104,14 @@ function renderLearnIntro() {
     ${nextStepHtml}
 
     <section>
-      <p class="eyebrow">Hele løypa</p>
+      <div class="module-grid-head">
+        <p class="eyebrow">Hele løypa</p>
+        <p class="module-grid-count"><strong>${gridDoneCount}</strong> av ${modules.length} fullført · ${gridPct}%</p>
+      </div>
       <h3 class="visually-hidden">Temaene i løypa</h3>
-      <p class="small">Hvert tema viser tre lys: <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Trykk på et tema for å lese, jobbe og markere som mestret.</p>
-      <div class="loype-list">${steps}</div>
+      <div class="progress-bar"><span style="width:${gridPct}%"></span></div>
+      <p class="small">Hvert tema viser tre lys: <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Fullfør alle tre for å låse opp neste tema.</p>
+      <div class="module-grid">${cards}</div>
     </section>
 
     <section class="panel learn-quiz-panel">
@@ -3724,6 +3743,8 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 6.5"/></svg>',
   minus:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
+  lock:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   quiz:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-1.5 2-2.5 2.5"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg>',
   settings:
@@ -3751,41 +3772,6 @@ function paintIcons(root = document) {
   $all("[data-icon]", root).forEach((el) => {
     const name = el.dataset.icon;
     if (ICONS[name]) el.innerHTML = ICONS[name];
-  });
-}
-
-/* ---------- Handlingsark («+» i bunnmenyen) ---------- */
-
-function openActionSheet() {
-  openOverlay($("#actionSheet"));
-  $("#navActionButton")?.setAttribute("aria-expanded", "true");
-}
-
-function closeActionSheet() {
-  closeOverlay($("#actionSheet"));
-  $("#navActionButton")?.setAttribute("aria-expanded", "false");
-}
-
-function initActionSheet() {
-  // Felt-FAB-en navigerer nå til Felt-fanen (data-view="training"), håndtert av
-  // #bottomNav-delegasjonen. Handlingsarket beholdes for plan/logg-snarveier
-  // som kan gjenbrukes, men åpnes ikke lenger fra bunnmenyen.
-  $("#actionSheet")?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-close-sheet]")) {
-      closeActionSheet();
-      return;
-    }
-    const item = event.target.closest("[data-sheet-action]");
-    if (!item) return;
-    haptic();
-    closeActionSheet();
-    if (item.dataset.sheetAction === "plan") {
-      state.wizardStep = state.currentPlan ? state.wizardStep || 0 : 0;
-      saveState();
-      setView("planner");
-    } else if (item.dataset.sheetAction === "log") {
-      openQuickLog(null);
-    }
   });
 }
 
@@ -3902,8 +3888,6 @@ function initWelcome() {
       closeQr();
     } else if ($("#refSheet")?.classList.contains("is-open")) {
       closeReferenceSheet();
-    } else if ($("#actionSheet")?.classList.contains("is-open")) {
-      closeActionSheet();
     } else if ($("#quickLogOverlay")?.classList.contains("is-open")) {
       closeQuickLog();
     } else if ($("#fieldOverlay")?.classList.contains("is-open")) {
@@ -4194,7 +4178,6 @@ function init() {
   initEvents();
   initWelcome();
   initGettingStartedGlobal();
-  initActionSheet();
   initQuickLog();
   initShare();
   initFieldMode();
