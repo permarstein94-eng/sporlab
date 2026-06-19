@@ -29,6 +29,50 @@ TODO
 
 ## Decisions
 
+### 2026-06-19 — Import-konfliktløsning for logger: nyeste `updatedAt`/`createdAt` vinner, ikke alltid lokal
+
+**Decision:**
+`importSnapshot()` i `js/snapshot.js` brukte ren id-baserte dedup for
+plans/logs: ved id-kollisjon ble innkommende alltid forkastet, uansett innhold.
+Dette er nå endret for **logger** (ikke planer): hvis en innkommende logg deler
+id med en lokal, og innkommende sitt `updatedAt`/`createdAt` er strengt nyere
+enn den lokale, erstattes den lokale med den innkommende. Ellers vinner lokal
+som før. Samme prinsipp som mastery-fletting noen linjer under (nyeste/mest
+historikk vinner, idempotent ved re-import) — bare anvendt på logger nå siden
+det er det eneste feltet med en brukbar tidsstempel-signal for sammenligning.
+Planer er bevisst urørt (ingen `updatedAt`-felt finnes for planer i dag).
+
+I tillegg ble trunkering ved `MAX_PLANS`/`MAX_LOGS` endret fra «importerte
+elementer er alltid nyest» til en faktisk sortering på `createdAt` før
+`.slice()`, og `completed`-merge revaliderer nå også forhåndseksisterende
+lokale modul-id-er mot gyldige moduler (ikke bare innkommende).
+
+**Reason:**
+Uten dette kunne en reell redigering av en logg på enhet A (som bumper
+`updatedAt`) bli stille forkastet ved import på enhet B, og import av en eldre
+fremmed snapshot nær taket kunne slette brukerens egne nyeste data. Begge er
+reelle datatap-scenarier i appens eksisterende multi-enhet-bruksmønster
+(eksport/del/importer), funnet og bekreftet under en full code-review-pass
+(se `AI_HANDOFF.md`, sesjon 2026-06-19 «Grundig feilretting»).
+
+**Alternatives considered:**
+- La planer få samme `updatedAt`-basert vinner-logikk — avvist denne runden;
+  krever å innføre/bumpe et nytt felt på planer, som er en separat vurdering.
+- Alltid la innkommende vinne ved kollisjon — avvist; ville reversert
+  eksisterende, allerede-testet «lokal vinner»-oppførsel uten et sikkert
+  tidsstempel-signal for planer.
+
+**Consequences:**
+- Fremtidig arbeid med plan-redigering bør vurdere å legge til `updatedAt` på
+  planer hvis samme konflikthåndtering ønskes der.
+- Import-merge for logger og mastery følger nå samme «nyeste/mest historikk
+  vinner»-prinsipp — hold dette konsistent ved fremtidige endringer i
+  `importSnapshot()`.
+
+**Owner:** Per (implementert av Claude Code)
+
+---
+
 ### 2026-06-18 — «Fullført tema» = lest + quiz + trent (utledet, ingen skjemaendring)
 
 **Decision:**
