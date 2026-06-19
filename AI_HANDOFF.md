@@ -212,6 +212,30 @@ Use deploy only when explicitly requested.
 
 Add newest entries at the top.
 
+### 2026-06-19 — Claude Code — Merge redesign/fase-1a til main — branch `main`
+
+**Task:** Forberede og utføre merge av komplett redesign (Fase 1a + 1b + 1c) fra `redesign/fase-1a` til `main`.
+
+**Summary:**
+- Ryddet untracked `claude/`, `.claude/skills/`, `skills-lock.json` fra repo-roten (ruflo-avfallskoder).
+- `ruflo/` kunne ikke slettes (låst av prosess) — kan gjøres manuelt senere.
+- Final verifisering: 27/27 tester pass, ren typecheck, git status ren (bortsett fra `.claude/settings.local.json` uncommitted).
+- Merged med `git merge --no-ff redesign/fase-1a` til main — bevarer branch-historikk.
+- Merge-commit: `49e2ed0`.
+
+**Checks:** Pre-merge tests pass, post-merge integration OK.
+
+**Files changed:** `index.html`, `js/app.js`, `styles.css`, `AI_HANDOFF.md`, `AI_DECISION_LOG.md` — alle gjennom redesign/fase-1a merges.
+
+**Known issues:**
+- `ruflo/` fremdeles untracked i repo-roten (låst, kunne ikke slettes). Rydd når mulighet gis.
+- `origin/main` ligger 16 commits foran lokal main (ikke sett siden merge). Pull/push kan være nødvendig før deploy.
+
+**Next step:** 
+- Bump service-worker-versjon fra v25 → v26 som egen deploy-oppgave (service worker cacher aggressivt).
+- Push til origin (hvis ønskelig).
+- Test i preview før deploy.
+
 ### 2026-06-19 — Claude Code — Fase 1c oppfølging (låst modul-grid) — branch `redesign/fase-1a`
 
 **Task:** Lukke det kjente gapet fra forrige handoff: bygge om Lær-moduloversikten
