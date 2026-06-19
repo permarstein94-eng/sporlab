@@ -43,7 +43,7 @@ import { importSnapshot, logsToCsv, readFileAsText, shareSnapshot } from "./snap
 import { buildQuizSession, ensureQuizSession, getWeakestQuestionId, questionsById } from "./quiz.js";
 
 const viewMeta = {
-  dashboard: ["Samlet progresjon · teori og praksis", "Oversikt"],
+  dashboard: ["Din læringsplattform · E8 / E9", "Hjem"],
   training: ["Feltmodus · planlegg og loggfør", "Felt"],
   learn: ["Læringsmodus · løype og kontrollspørsmål", "Lær"],
   planner: ["Feltmodus · øktplanlegger", "Planlegg økt"],
@@ -66,24 +66,25 @@ const viewDomain = {
   log: "field",
 };
 
-// Todelt «to dører»-modell: bunnmenyen har bare Hjem, + og Oppslag.
-// Lærings- og feltmodulen nås via de to dørene på Hjem, så de markerer ingen
-// fane (modus vises i stedet via topplinjefarge og «← Hjem»).
+// Sammenhengende læringsplattform: bunnmenyen har fem faner —
+// Hjem · Lær · Felt (sentrert FAB) · Fremgang · Oppslag. Hver visning markerer
+// fanen den hører hjemme i, så brukeren alltid vet hvor i appen de er.
+// Felt-FAB-en («training») dekker planlegger og hurtiglogg.
 const navTabForView = {
   dashboard: "dashboard",
-  progress: "dashboard",
-  training: "",
-  planner: "",
-  log: "",
-  learn: "",
-  quiz: "",
+  progress: "progress",
+  training: "training",
+  planner: "training",
+  log: "training",
+  learn: "learn",
+  quiz: "learn",
   reference: "reference",
   settings: "",
 };
 
 /* ---------- Felles overlay-håndtering (welcome, tour, feltmodus, QR) ---------- */
 
-const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #actionSheet, #quickLogOverlay, #refSheet";
+const OVERLAY_SELECTOR = "#welcomeOverlay, #fieldOverlay, #qrOverlay, #quickLogOverlay, #refSheet, #ceremonyOverlay, #bridgeOverlay";
 
 function openOverlay(overlay) {
   if (!overlay) return;
@@ -104,6 +105,92 @@ function closeOverlay(overlay) {
   }, 200);
 }
 
+/* ---------- Fullføring-seremoni og bro-bekreftelse (fase 1b) ----------
+   Belønningsøyeblikkene som binder teori og praksis sammen. Begge respekterer
+   prefers-reduced-motion (ingen ring-/burst-bevegelse, bare en rolig innfade). */
+
+const shortTitleOf = (m) => (m && m.title ? m.title.replace(/^\d+\.\s*/, "") : "");
+
+let ceremonyTimer = null;
+
+function showCeremony(moduleId) {
+  const overlay = $("#ceremonyOverlay");
+  const module = modules.find((m) => m.id === moduleId);
+  if (!overlay || !module) return;
+  const idx = modules.findIndex((m) => m.id === moduleId);
+  const nextModule = idx >= 0 && idx < modules.length - 1 ? modules[idx + 1] : null;
+  $("#ceremonyEyebrow").textContent = `Tema ${idx + 1} av ${modules.length} fullført`;
+  $("#ceremonyTitle").textContent = shortTitleOf(module);
+  const action = $("#ceremonyAction");
+  if (nextModule) {
+    $("#ceremonyNext").textContent = `Neste tema er nå tilgjengelig: ${shortTitleOf(nextModule)}.`;
+    action.textContent = `Gå til ${shortTitleOf(nextModule)} →`;
+    action.dataset.next = nextModule.id;
+  } else {
+    $("#ceremonyNext").textContent = "Du har gått hele løypa — bruk det i felt og hold kunnskapen skarp.";
+    action.textContent = "Fortsett";
+    delete action.dataset.next;
+  }
+  overlay.classList.remove("is-animating");
+  openOverlay(overlay);
+  haptic([10, 40, 10]);
+  if (!prefersReducedMotion()) {
+    // Tving reflow før klassen settes, så ring/burst spilles fra start hver gang.
+    void overlay.offsetWidth;
+    overlay.classList.add("is-animating");
+  }
+  clearTimeout(ceremonyTimer);
+  ceremonyTimer = setTimeout(() => closeCeremony(false), 3000);
+}
+
+function closeCeremony(goNext = false) {
+  clearTimeout(ceremonyTimer);
+  const overlay = $("#ceremonyOverlay");
+  const nextId = $("#ceremonyAction")?.dataset.next;
+  closeOverlay(overlay);
+  overlay?.classList.remove("is-animating");
+  if (goNext && nextId) {
+    state.activeModule = nextId;
+    state.activeGuide = null;
+    state.learnAccordion = "learn";
+    saveState();
+    setView("learn");
+  }
+}
+
+function showBridge(moduleId, dogName) {
+  const overlay = $("#bridgeOverlay");
+  const module = modules.find((m) => m.id === moduleId);
+  if (!overlay || !module) return;
+  const idx = modules.findIndex((m) => m.id === moduleId);
+  const dog = (dogName || "").trim();
+  $("#bridgeSub").textContent = dog
+    ? `Tema ${idx + 1} «${shortTitleOf(module)}» er nå trent på med ${dog}.`
+    : `Tema ${idx + 1} «${shortTitleOf(module)}» er nå trent på.`;
+  openOverlay(overlay);
+  haptic([10, 40, 10]);
+}
+
+// Vurder bro-bekreftelse: fyrer når en logget økt krediterer et tema som var
+// lest, men ikke trent fra før. Kalles ETTER at loggen er lagt til state.
+function maybeShowBridge(moduleId, wasUntrained, dogName) {
+  if (moduleId && wasUntrained) showBridge(moduleId, dogName);
+}
+
+// Var temaet lest men utrent rett før en ny logg ble lagret? (Sjekkes på
+// state slik den er FØR den nye loggen legges inn.)
+function moduleWasLearnedUntrained(moduleId) {
+  if (!moduleId || !state.completed.includes(moduleId)) return false;
+  return (computeModuleLogCredit()[moduleId] || 0) === 0;
+}
+
+function initCeremony() {
+  $("#ceremonyOverlay")?.addEventListener("click", (event) => {
+    closeCeremony(!!event.target.closest("#ceremonyAction"));
+  });
+  $("#bridgeOverlay")?.addEventListener("click", () => closeOverlay($("#bridgeOverlay")));
+}
+
 /* ---------- Native finpuss: standalone-deteksjon, haptikk, bevegelse ---------- */
 
 // Kjører appen som installert app (ikke i en nettleserfane)?
@@ -122,6 +209,7 @@ function prefersReducedMotion() {
 
 // Lett haptisk respons der enheten støtter det. Holdes kort og diskret, og
 // hoppes over når brukeren har bedt om mindre bevegelse.
+/** @param {number | number[]} [pattern] */
 function haptic(pattern = 8) {
   if (prefersReducedMotion()) return;
   try {
@@ -149,6 +237,14 @@ function setView(view) {
       item.removeAttribute("aria-current");
     }
   });
+  // Felt-FAB-en er en egen knapp (ikke .bottom-nav-item) og markeres separat.
+  const fab = $("#navActionButton");
+  if (fab) {
+    const fabActive = fab.dataset.view === activeTab;
+    fab.classList.toggle("is-active", fabActive);
+    if (fabActive) fab.setAttribute("aria-current", "page");
+    else fab.removeAttribute("aria-current");
+  }
   const [eyebrow, title] = viewMeta[view] || ["", view];
   $("#viewEyebrow").textContent = eyebrow;
   $("#viewTitle").textContent = title;
@@ -183,59 +279,194 @@ function renderView(view = state.view) {
 }
 
 function renderDashboard() {
-  // Hjem er en ren valgskjerm: kun de to dørene. Brukeren tar et aktivt valg
-  // inn i lærings- eller feltmodulen. Samlet progresjon ligger ett trykk unna.
-  renderDoors();
+  // Hjem er progresjons-huben: kursvei-stripe øverst, neste-steg-kort i midten
+  // og siste aktivitet nederst. Sammen viser de hvor i løypa du er og hva som
+  // er det naturlige neste trykket.
+  renderHome();
   renderBackupNudge();
 }
 
-/* De to dørene på Hjem: lærings- og feltmodulen som likeverdige innganger.
-   Hver dør viser sin egen status, slik at todelingen er umiddelbart tydelig. */
-function renderDoors() {
-  const grid = $("#doorGrid");
-  if (!grid) return;
-  const short = (m) => m.title.replace(/^\d+\.\s*/, "");
+const shortModuleTitle = (m) => (m && m.title ? m.title.replace(/^\d+\.\s*/, "") : "");
+
+// Et tema er fullført når alle tre lysene er grønne: teori lest, quiz bestått
+// og trent i felt. Moduler uten quizspørsmål regnes som quiz-OK, ellers ville
+// de aldri kunne fullføres. Ren utledning fra eksisterende state — ingen
+// skjemaendring.
+function homeModuleStatuses() {
   const logsByModule = computeModuleLogCredit();
+  return modules.map((module) => {
+    const c = moduleChecks(module, logsByModule);
+    const quizOk = c.totalQs === 0 ? true : c.quizOk;
+    const complete = c.isRead && quizOk && c.hasLog;
+    return { module, ...c, quizOk, complete };
+  });
+}
 
-  const done = state.completed.length;
-  const progressL = Math.round((done / modules.length) * 100);
-  const nextModule = modules.find((m) => !state.completed.includes(m.id));
-  const learnNext = nextModule
-    ? `Neste: ${escapeHtml(short(nextModule))}`
-    : "Hele løypa fullført 🎉";
+function renderHome() {
+  const shell = $("#homeShell");
+  if (!shell) return;
+  const statuses = homeModuleStatuses();
+  const doneCount = statuses.filter((s) => s.complete).length;
+  const pct = Math.round((doneCount / modules.length) * 100);
+  // Aktivt tema = første som ennå ikke er fullført. -1 betyr at alt er fullført.
+  const activeIndex = statuses.findIndex((s) => !s.complete);
+  const fmtDay = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
 
-  const trained = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
-  const progressF = Math.round((trained / modules.length) * 100);
-  const logCount = state.logs.length;
+  shell.innerHTML = `
+    ${renderKursvei(statuses, activeIndex, doneCount, pct)}
+    ${renderNextStep(statuses, activeIndex)}
+    ${renderHomeActivity(statuses, fmtDay)}
+    <div class="home-foot">
+      <button class="text-button" data-view-jump="progress" type="button">Se full fremgang →</button>
+    </div>`;
+  // Tegn ikonene som nettopp ble injisert (data-icon males ikke automatisk
+  // for dynamisk innhold — bare for statisk markup ved oppstart).
+  paintIcons(shell);
+  // Kursvei-inngang: tegn linjen og pop punktene inn én gang ved app-åpning.
+  if (!kursveiEntered && !prefersReducedMotion()) {
+    shell.querySelector(".kursvei")?.classList.add("is-entering");
+  }
+  kursveiEntered = true;
+}
 
-  // Koblingen synlig i selve døra: et lært-men-utrent tema løftes som forslag,
-  // så valget «inn i felt» bærer med seg det du nettopp lærte.
-  const learnedUntrained = modules.find((m) => state.completed.includes(m.id) && !(logsByModule[m.id] > 0));
-  const fieldNext = learnedUntrained
-    ? `Klar til felt: prøv ${escapeHtml(short(learnedUntrained))}`
-    : state.plans[0]
-      ? `Neste økt: ${escapeHtml(state.plans[0].title)}`
-      : "Ingen planer ennå — trykk + for å logge";
+// Inn-animasjonen for kursveien spilles bare på den første Hjem-visningen per
+// app-åpning, ikke ved hver re-render.
+let kursveiEntered = false;
 
-  grid.innerHTML = `
-    <button class="door door-learning" data-view-jump="learn" type="button" aria-label="Åpne læringsmodulen">
-      <span class="domain-pill domain-pill-learning">Læringsmodul</span>
-      <h3>Lær</h3>
-      <p class="door-sub">Les fagkort, svar på kontrollspørsmål, følg løypa</p>
-      <p class="door-status">${done} av ${modules.length} temaer mestret</p>
-      <div class="progress-bar" aria-hidden="true"><span style="width:${progressL}%"></span></div>
-      <p class="door-next">${learnNext}</p>
-      <span class="door-arrow" aria-hidden="true">→</span>
-    </button>
-    <button class="door door-field" data-view-jump="training" type="button" aria-label="Åpne feltmodulen">
-      <span class="domain-pill domain-pill-field">Praktisk verktøy</span>
-      <h3>Felt</h3>
-      <p class="door-sub">Planlegg økt, loggfør trening, se historikk</p>
-      <p class="door-status">${logCount} ${logCount === 1 ? "økt" : "økter"} · ${trained} av ${modules.length} temaer trent</p>
-      <div class="progress-bar" aria-hidden="true"><span style="width:${progressF}%"></span></div>
-      <p class="door-next">${fieldNext}</p>
-      <span class="door-arrow" aria-hidden="true">→</span>
-    </button>`;
+/* Delt låse-modell: et tema er "done" så snart det er fullført (alle tre
+   lysene), uavhengig av rekkefølge; det første ufullførte temaet er "active";
+   resten forblir "locked" til de nås. Brukes av både Hjem-kursveien og
+   Lær-moduloversikten, så de to alltid viser samme låsetilstand. */
+function moduleProgressState(s, i, activeIndex) {
+  if (s.complete) return "done";
+  if (i === activeIndex) return "active";
+  if (activeIndex === -1) return "done";
+  return "locked";
+}
+
+/* Zone 1 — Kursvei-stripe: ett punkt per modul på mørk NRH-bakgrunn.
+   Koblende linjer mellom punktene fargelegges blå fram til aktivt tema. */
+function renderKursvei(statuses, activeIndex, doneCount, pct) {
+  const nodes = statuses
+    .map((s, i) => {
+      const nodeState = moduleProgressState(s, i, activeIndex);
+      const locked = nodeState === "locked";
+      const title = escapeHtml(shortModuleTitle(s.module));
+      const suffix = s.complete ? "fullført" : nodeState === "active" ? "aktiv" : "låst";
+      const inner = s.complete ? "✓" : i + 1;
+      return `
+        <li class="kursvei-node" data-state="${nodeState}" style="--i:${i}">
+          <button class="kursvei-dot" type="button"
+            ${locked ? 'disabled aria-disabled="true"' : `data-module-open="${s.module.id}"`}
+            aria-label="Tema ${i + 1}: ${title} (${suffix})">
+            <span aria-hidden="true">${inner}</span>
+          </button>
+        </li>`;
+    })
+    .join("");
+  return `
+    <section class="kursvei" aria-label="Kursvei — ${doneCount} av ${statuses.length} temaer fullført">
+      <div class="kursvei-head">
+        <p class="eyebrow">Din kursvei</p>
+        <p class="kursvei-count"><strong>${doneCount}</strong> av ${statuses.length} fullført · ${pct}%</p>
+      </div>
+      <ol class="kursvei-nodes">${nodes}</ol>
+    </section>`;
+}
+
+/* Zone 2 — Neste steg-kort: aktivt tema med tre statuslinjer og en primærknapp
+   som peker på det som mangler (les → quiz → planlegg). */
+function renderNextStep(statuses, activeIndex) {
+  if (activeIndex === -1) {
+    return `
+      <section class="next-step next-step-done">
+        <span class="next-step-badge" aria-hidden="true">★</span>
+        <p class="eyebrow">Hele løypa fullført</p>
+        <h3>Alle ${statuses.length} temaer er lest, quizet og trent 🎉</h3>
+        <p class="small">Hold kunnskapen skarp — repeter svake spørsmål eller planlegg en ny økt.</p>
+        <div class="button-row">
+          <button class="primary-button" data-next-action="open-planner" type="button">Planlegg en økt</button>
+          <button class="ghost-button" data-learn-quiz="weak" type="button">Repeter svake spørsmål</button>
+        </div>
+      </section>`;
+  }
+  const s = statuses[activeIndex];
+  const lines = [
+    { ok: s.isRead, label: "Teori lest" },
+    { ok: s.quizOk, label: "Quiz bestått" },
+    { ok: s.hasLog, label: "Trent i felt" },
+  ]
+    .map(
+      (l) => `
+        <li class="next-step-line ${l.ok ? "is-ok" : ""}">
+          <span class="next-step-tick" data-icon="${l.ok ? "check" : "minus"}" aria-hidden="true"></span>
+          ${escapeHtml(l.label)}
+        </li>`,
+    )
+    .join("");
+  let cta;
+  if (!s.isRead) {
+    cta = `<button class="primary-button" data-module-open="${s.module.id}" type="button">Les teori →</button>`;
+  } else if (!s.quizOk) {
+    cta = `<button class="primary-button" data-start-module-quiz="${s.module.id}" type="button">Ta quiz →</button>`;
+  } else {
+    const focus = focusForModule(s.module.id);
+    cta = focus
+      ? `<button class="primary-button" data-drill-plan="${escapeHtml(focus)}" type="button">Planlegg økt →</button>`
+      : `<button class="primary-button" data-next-action="open-planner" type="button">Planlegg økt →</button>`;
+  }
+  return `
+    <section class="next-step">
+      <p class="eyebrow">Neste steg · Tema ${activeIndex + 1} av ${statuses.length}</p>
+      <h3>${escapeHtml(shortModuleTitle(s.module))}</h3>
+      <ul class="next-step-status">${lines}</ul>
+      <div class="next-step-cta">${cta}</div>
+    </section>`;
+}
+
+/* Zone 3 — Siste aktivitet: nyeste loggede økter pluss en bro-snarvei for et
+   tema som er lest men ikke trent ennå. */
+function renderHomeActivity(statuses, fmtDay) {
+  const items = [];
+  const recentLogs = [...state.logs]
+    .sort((a, b) => logTimestamp(b) - logTimestamp(a))
+    .slice(0, 3);
+  recentLogs.forEach((log) => {
+    const modId = moduleForLog(log);
+    const found = modId ? modules.find((m) => m.id === modId) : null;
+    const modTitle = found ? ` · ${escapeHtml(shortModuleTitle(found))}` : "";
+    const dog = log.dog ? ` · ${escapeHtml(log.dog)}` : "";
+    const rating = Number(log.rating) > 0 ? ` · ${"★".repeat(Number(log.rating))}` : "";
+    items.push(`
+      <li class="activity-row">
+        <span class="activity-icon" data-icon="log" aria-hidden="true"></span>
+        <span class="activity-body">
+          <strong>${escapeHtml(log.type || "Økt")}${modTitle}</strong>
+          <span class="small">${escapeHtml(fmtDay(logTimestamp(log)))}${dog}${rating}</span>
+        </span>
+      </li>`);
+  });
+  const learnedUntrained = statuses.find((s) => s.isRead && !s.hasLog);
+  if (learnedUntrained) {
+    const focus = focusForModule(learnedUntrained.module.id);
+    items.push(`
+      <li class="activity-row activity-row-nudge">
+        <span class="activity-icon activity-icon-amber" data-icon="trees" aria-hidden="true"></span>
+        <span class="activity-body">
+          <strong>${escapeHtml(shortModuleTitle(learnedUntrained.module))} — lest, ikke trent</strong>
+          <span class="small">Ta teorien med ut i skogen.</span>
+        </span>
+        <button class="text-button" ${focus ? `data-drill-plan="${escapeHtml(focus)}"` : 'data-next-action="open-planner"'} type="button">Planlegg →</button>
+      </li>`);
+  }
+  const body = items.length
+    ? `<ul class="activity-list">${items.slice(0, 3).join("")}</ul>`
+    : `<div class="empty-state"><p>Ingen aktivitet ennå. Les et tema eller logg en økt, så dukker det opp her.</p></div>`;
+  return `
+    <section class="home-activity">
+      <p class="eyebrow">Siste aktivitet</p>
+      ${body}
+    </section>`;
 }
 
 // Diskret påminnelse om sikkerhetskopi: all data bor i localStorage, som kan
@@ -383,7 +614,7 @@ function renderPlanList() {
   if (!el) return;
   const plans = state.plans || [];
   if (!plans.length) {
-    el.innerHTML = emptyState("Ingen planer ennå. Trykk «Planlegg ny» eller bruk +-knappen.");
+    el.innerHTML = emptyState("Ingen planer ennå. Trykk «Planlegg ny» for å lage en øktplan.");
     return;
   }
   const [first, ...rest] = plans;
@@ -782,35 +1013,46 @@ function renderLearnIntro() {
   const doneCount = state.completed.length;
   const progress = Math.round((doneCount / modules.length) * 100);
   const logsByModule = computeModuleLogCredit();
-  const trainedAt = lastTrainedByModule();
   const trainedCount = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
 
   // Myk rekkefølge: neste steg er det første uleste temaet, men alt er åpent.
   const nextModule = modules.find((m) => !state.completed.includes(m.id));
   const shortTitle = (m) => m.title.replace(/^\d+\.\s*/, "");
-  const fmtDay = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
 
-  const steps = modules
-    .map((module, i) => {
-      const c = moduleChecks(module, logsByModule);
-      const stepState = c.isRead ? "done" : nextModule && module.id === nextModule.id ? "current" : "upcoming";
-      const trained = (logsByModule[module.id] || 0) > 0;
-      const trainedLabel = trained && trainedAt[module.id] ? `Trent · ${fmtDay(trainedAt[module.id])}` : "Trent";
-      const lights = [
-        { ok: c.isRead, label: "Lest", cls: "" },
-        { ok: c.quizOk, label: `Quiz ${c.masteredQs}/${c.totalQs}`, cls: "" },
-        { ok: trained, label: trainedLabel, cls: "is-trained" },
-      ]
-        .map((s) => `<span class="loype-light ${s.cls} ${s.ok ? "is-ok" : ""}">${s.ok ? "✓" : "○"} ${escapeHtml(s.label)}</span>`)
-        .join("");
+  // Moduloversikten bruker samme låste-grid-modell som Hjem-kursveien: et
+  // tema er "fullført" når alle tre lysene er grønne (lest+quiz+trent), og
+  // bare det aktive (eller et allerede fullført) temaet kan åpnes — resten
+  // er låst til de nås. Samkjører løype-låsingen mot kursveien på Hjem.
+  const gridStatuses = homeModuleStatuses();
+  const gridActiveIndex = gridStatuses.findIndex((s) => !s.complete);
+  const gridDoneCount = gridStatuses.filter((s) => s.complete).length;
+  const gridPct = Math.round((gridDoneCount / modules.length) * 100);
+
+  const cards = gridStatuses
+    .map((s, i) => {
+      const cardState = moduleProgressState(s, i, gridActiveIndex);
+      const locked = cardState === "locked";
+      const moduleIconKey = `mod-${s.module.id}`;
+      const iconContent = cardState === "done" ? ICONS.check : ICONS[moduleIconKey] || String(i + 1);
+      const pill = cardState === "active" ? '<span class="module-grid-pill">Aktiv</span>' : "";
+      const lockBadge = locked ? `<span class="module-grid-lock" aria-hidden="true">${ICONS.lock}</span>` : "";
+      const lights = locked
+        ? ""
+        : `<span class="loype-lights">${[
+            { ok: s.isRead, label: "Lest" },
+            { ok: s.quizOk, label: "Quiz" },
+            { ok: s.hasLog, label: "Trent" },
+          ]
+            .map((l) => `<span class="loype-light ${l.ok ? "is-ok" : ""}">${l.ok ? "✓" : "○"} ${escapeHtml(l.label)}</span>`)
+            .join("")}</span>`;
       return `
-        <button class="loype-step" data-state="${stepState}" data-module-open="${module.id}" type="button">
-          <span class="loype-step-num">${c.isRead ? "✓" : i + 1}</span>
-          <span class="loype-step-body">
-            <h4>${escapeHtml(module.title)}</h4>
-            <p>${escapeHtml(module.summary)}</p>
-            <span class="loype-lights">${lights}</span>
-          </span>
+        <button class="module-grid-card" data-state="${cardState}" type="button"
+          ${locked ? 'disabled aria-disabled="true"' : `data-module-open="${s.module.id}"`}>
+          ${lockBadge}${pill}
+          <span class="module-grid-icon" aria-hidden="true">${iconContent}</span>
+          <h4>${escapeHtml(s.module.title)}</h4>
+          <p>${escapeHtml(s.module.summary)}</p>
+          ${lights}
         </button>`;
     })
     .join("");
@@ -862,10 +1104,14 @@ function renderLearnIntro() {
     ${nextStepHtml}
 
     <section>
-      <p class="eyebrow">Hele løypa</p>
+      <div class="module-grid-head">
+        <p class="eyebrow">Hele løypa</p>
+        <p class="module-grid-count"><strong>${gridDoneCount}</strong> av ${modules.length} fullført · ${gridPct}%</p>
+      </div>
       <h3 class="visually-hidden">Temaene i løypa</h3>
-      <p class="small">Hvert tema viser tre lys: <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Trykk på et tema for å lese, jobbe og markere som mestret.</p>
-      <div class="loype-list">${steps}</div>
+      <div class="progress-bar"><span style="width:${gridPct}%"></span></div>
+      <p class="small">Hvert tema viser tre lys: <strong>Lest</strong> (teori), <strong>Quiz</strong> (kontroll) og <strong>Trent</strong> (felt). Fullfør alle tre for å låse opp neste tema.</p>
+      <div class="module-grid">${cards}</div>
     </section>
 
     <section class="panel learn-quiz-panel">
@@ -881,22 +1127,11 @@ function renderLearnIntro() {
 
 function renderLearnModule(moduleId) {
   const module = modules.find((item) => item.id === moduleId) || modules[0];
-  const done = state.completed.includes(module.id);
   // Koblingen til feltmodulen: er dette temaet trent på, og hvordan planlegges det?
   const couplingFocus = focusForModule(module.id);
   const trainedCount = computeModuleLogCredit()[module.id] || 0;
   const trainedTs = lastTrainedByModule()[module.id];
   const fmtTrained = (ts) => new Date(ts).toLocaleDateString("no-NO", { day: "numeric", month: "short" });
-  const couplingBand = `
-    <div class="coupling-band">
-      <span class="coupling-text">
-        <span class="domain-pill domain-pill-field">Felt</span>
-        ${trainedCount
-          ? `<strong>Trent på ✓</strong> — sist ${escapeHtml(fmtTrained(trainedTs))} · ${trainedCount} ${trainedCount === 1 ? "økt" : "økter"} logget på dette temaet.`
-          : `<strong>Ikke trent i felt ennå.</strong> Når teorien sitter: prøv det ute, så markeres temaet som trent her.`}
-      </span>
-      ${couplingFocus ? `<button class="ghost-button small-button" data-drill-plan="${escapeHtml(couplingFocus)}" type="button">Planlegg i felt →</button>` : ""}
-    </div>`;
   const deepDive = theoryDeepDives[module.id] || [];
   const reflections = reflectionLibrary[module.id] || [module.reflection];
   const moduleIndex = modules.findIndex((m) => m.id === module.id);
@@ -904,16 +1139,6 @@ function renderLearnModule(moduleId) {
   const nextModule = moduleIndex < modules.length - 1 ? modules[moduleIndex + 1] : null;
   const open = state.learnAccordion || "learn";
 
-  const accordionItem = (id, title, contentHtml) => `
-    <article class="accordion-item" data-open="${open === id}" data-accordion="${id}">
-      <button class="accordion-trigger" type="button" data-accordion-toggle="${id}" aria-expanded="${open === id}">
-        <span>${escapeHtml(title)}</span>
-        <span class="accordion-chevron" aria-hidden="true">▾</span>
-      </button>
-      <div class="accordion-panel">${contentHtml}</div>
-    </article>`;
-
-  const learnHtml = `<ul>${module.learn.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   const deepHtml = deepDive.length
     ? `
         <div class="theory-search">
@@ -953,17 +1178,97 @@ function renderLearnModule(moduleId) {
         <p>${escapeHtml(moduleDiagram.text)}</p>
       </article>`
     : "";
-  const fieldHtml = `<div class="callout"><p>${escapeHtml(module.field)}</p></div>${diagramHtml}`;
-  const reflectionHtml = `
-    <ul class="reflection-list">${reflections.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
-    <p class="small">Velg ett spørsmål per økt, eller la treningsgruppa svare på ett hver.</p>`;
+  const diagramHtmlBlock = diagramHtml;
+
+  // ---- Status per trinn (samme modell som Hjem: lest + quiz + trent → mestret) ----
+  const logsByModule = computeModuleLogCredit();
+  const checks = moduleChecks(module, logsByModule);
+  const quizOk = checks.totalQs === 0 ? true : checks.quizOk;
+  const mastered = checks.isRead && quizOk && checks.hasLog;
+  const planFocus = (module.drill && module.drill.focus) || couplingFocus;
+
+  // Stepper bygd på den eksisterende accordion-infrastrukturen: hvert trinn er
+  // ett accordion-item med statusbadge. data-accordion-toggle / state.learnAccordion
+  // styrer åpning som før — bare strukturen og innholdet er nytt.
+  const step = (id, n, title, statusText, ok, contentHtml) => {
+    const stepState = ok ? "done" : open === id ? "active" : "todo";
+    return `
+      <article class="accordion-item step-item" data-open="${open === id}" data-accordion="${id}" data-step-state="${stepState}">
+        <button class="accordion-trigger step-trigger" type="button" data-accordion-toggle="${id}" aria-expanded="${open === id}">
+          <span class="step-badge" aria-hidden="true">${ok ? "✓" : n}</span>
+          <span class="step-head-text">
+            <span class="step-title">${escapeHtml(title)}</span>
+            <span class="step-status small">${escapeHtml(statusText)}</span>
+          </span>
+          <span class="accordion-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="accordion-panel">${contentHtml}</div>
+      </article>`;
+  };
+
+  // Trinn 1 — Les (kjernepunkter + teoridykk + marker som lest)
+  const trinn1 = `
+    <ul class="lesson-core">${module.learn.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    ${deepDive.length ? `<p class="eyebrow step-subhead">Teoridykk — for den som vil dypere</p>${deepHtml}` : ""}
+    <div class="step-action">
+      <button class="primary-button" id="toggleComplete" type="button">${checks.isRead ? "Marker som ulest" : "Marker teori som lest ✓"}</button>
+    </div>`;
+
+  // Trinn 2 — Quiz (lenker til modulens kontrollspørsmål; logikk uendret)
+  const quizStatusLine = checks.totalQs
+    ? `${checks.masteredQs} av ${checks.totalQs} spørsmål mestret`
+    : "Ingen kontrollspørsmål for dette temaet ennå.";
+  const trinn2 = `
+    <p>Sjekk forståelsen med korte kontrollspørsmål om dette temaet. Du får forklaring på hvert svar, og består ved minst 60 %.</p>
+    <p class="step-status-line">${escapeHtml(quizStatusLine)}</p>
+    ${checks.totalQs ? `<div class="step-action">
+      <button class="primary-button" data-start-module-quiz="${module.id}" type="button">${quizOk ? "Repeter quiz" : "Ta quiz"} →</button>
+    </div>` : ""}`;
+
+  // Trinn 3 — Til skogen (pre-brief, øvelse, refleksjon, planlegg)
+  const trainedLine = trainedCount
+    ? `<p class="coupling-inline is-trained"><span class="domain-pill domain-pill-field">Felt</span> Trent på ✓ — sist ${escapeHtml(fmtTrained(trainedTs))} · ${trainedCount} ${trainedCount === 1 ? "økt" : "økter"} på dette temaet.</p>`
+    : `<p class="coupling-inline"><span class="domain-pill domain-pill-field">Felt</span> Ikke trent i felt ennå. Når teorien sitter: prøv det ute, så markeres trinnet som trent.</p>`;
+  const trinn3 = `
+    <p class="step-prebrief">Dette skal du se etter ute:</p>
+    <div class="callout"><p>${escapeHtml(module.field)}</p></div>
+    ${diagramHtmlBlock}
+    ${module.drill ? `<section class="module-drill">
+      <p class="eyebrow">Prøv dette i felt</p>
+      <h4>${escapeHtml(module.drill.title)} <span class="drill-duration">· ${escapeHtml(module.drill.duration)}</span></h4>
+      <p>${escapeHtml(module.drill.description)}</p>
+    </section>` : ""}
+    <details class="reflection-expander">
+      <summary>Refleksjon for laget</summary>
+      <ul class="reflection-list">${reflections.map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+      <p class="small">Velg ett spørsmål per økt, eller la treningsgruppa svare på ett hver.</p>
+    </details>
+    ${trainedLine}
+    <div class="step-action">
+      <button class="primary-button" type="button" ${planFocus ? `data-drill-plan="${escapeHtml(planFocus)}"` : 'data-next-action="open-planner"'}>Planlegg økt for dette temaet →</button>
+    </div>`;
+
+  // Trinn 4 — Mester (oppsummering av de tre lysene; seremoni kommer i fase 1b)
+  const recap = [
+    { ok: checks.isRead, label: "Teori lest" },
+    { ok: quizOk, label: "Quiz bestått" },
+    { ok: checks.hasLog, label: "Trent i felt" },
+  ]
+    .map((r) => `<li class="${r.ok ? "is-ok" : ""}">${r.ok ? "✓" : "○"} ${escapeHtml(r.label)}</li>`)
+    .join("");
+  const trinn4 = `
+    <ul class="mester-recap">${recap}</ul>
+    ${mastered
+      ? `<p class="mester-done">Alle tre trinnene er fullført.</p>
+         <div class="step-action"><button class="primary-button" data-celebrate-module="${module.id}" type="button">Marker som mestret 🎉</button></div>`
+      : `<p class="small">Fullfør de tre trinnene over, så er temaet mestret og neste tema låses opp.</p>`}`;
 
   return `
-    <div class="learn-module">
+    <div class="learn-module learn-stepper">
       <header class="learn-module-head">
         <button class="learn-back-button" type="button" data-learn-back>← Løypa</button>
         <div>
-          <p class="eyebrow">${escapeHtml(module.pages)} · ${module.minutes} min</p>
+          <p class="eyebrow">${escapeHtml(module.pages)} · ca. ${module.minutes} min lesing</p>
           <h3>${escapeHtml(module.title)}</h3>
           <div class="lesson-meta">
             ${module.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
@@ -973,25 +1278,14 @@ function renderLearnModule(moduleId) {
 
       <p>${escapeHtml(module.summary)}</p>
 
-      ${couplingBand}
-
-      <div class="learn-accordion">
-        ${accordionItem("learn", "Kjernen", learnHtml)}
-        ${accordionItem("deep", "Teoridykk", deepHtml)}
-        ${accordionItem("field", "Ute i felt", fieldHtml)}
-        ${accordionItem("reflection", "Refleksjon for laget", reflectionHtml)}
+      <div class="learn-accordion stepper-list">
+        ${step("learn", 1, "Les", checks.isRead ? "Lest" : "Ikke lest ennå", checks.isRead, trinn1)}
+        ${step("quiz", 2, "Quiz", checks.totalQs ? (quizOk ? "Bestått" : "Ikke bestått ennå") : "Ingen spørsmål", quizOk && checks.totalQs > 0, trinn2)}
+        ${step("field", 3, "Til skogen", checks.hasLog ? "Trent" : "Ikke trent ennå", checks.hasLog, trinn3)}
+        ${step("mester", 4, "Mester", mastered ? "Mestret" : "Gjenstår", mastered, trinn4)}
       </div>
 
-      ${module.drill ? `<section class="module-drill">
-        <p class="eyebrow">Prøv dette i felt</p>
-        <h4>${escapeHtml(module.drill.title)} <span class="drill-duration">· ${escapeHtml(module.drill.duration)}</span></h4>
-        <p>${escapeHtml(module.drill.description)}</p>
-        <button class="primary-button" type="button" data-drill-plan="${escapeHtml(module.drill.focus)}">Planlegg denne økta nå →</button>
-      </section>` : ""}
-
-      <div class="learn-actions">
-        <button class="primary-button" id="toggleComplete" type="button">${done ? "Marker som åpen" : "Marker som fullført"}</button>
-        <button class="ghost-button" data-start-module-quiz="${module.id}" type="button">Quiz denne modulen</button>
+      <div class="learn-actions stepper-nav">
         <span class="nav-pill">
           <button type="button" data-module-nav="${prevModule ? prevModule.id : ""}" ${prevModule ? "" : "disabled"} aria-label="Forrige modul">◀ Forrige</button>
           <button type="button" data-module-nav="${nextModule ? nextModule.id : ""}" ${nextModule ? "" : "disabled"} aria-label="Neste modul">Neste ▶</button>
@@ -1827,6 +2121,9 @@ function saveQuickLog() {
   };
   // Kobling til læring: bind økta til ett tema (via fokus eller økt-type).
   log.module = moduleForLog(log);
+  // Bro-øyeblikk: var temaet lest men utrent rett før denne loggen? (sjekk før innlegging)
+  const bridgeModule = log.module;
+  const wasUntrained = moduleWasLearnedUntrained(bridgeModule);
   state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
   saveState();
   quickLog.savedCount += 1;
@@ -1835,6 +2132,7 @@ function saveQuickLog() {
   renderTraining();
   renderDashboard();
   refreshAutocomplete();
+  maybeShowBridge(bridgeModule, wasUntrained, log.dog);
 }
 
 function initQuickLog() {
@@ -2708,7 +3006,9 @@ function initEvents() {
       state.activeGuide = null;
       state.learnAccordion = "learn";
       saveState();
-      renderLearn();
+      // setView slik at modulen åpnes uansett hvilken fane vi kom fra
+      // (Hjem-kursveien/neste-steg-kortet, ikke bare inne i Lær).
+      setView("learn");
     }
 
     if (event.target.closest("[data-learn-back]")) {
@@ -2784,6 +3084,12 @@ function initEvents() {
       saveState();
       renderLearn();
       renderDashboard();
+    }
+
+    const celebrate = event.target.closest("[data-celebrate-module]");
+    if (celebrate) {
+      showCeremony(celebrate.dataset.celebrateModule);
+      return;
     }
 
     const moduleQuiz = event.target.closest("[data-start-module-quiz]");
@@ -3084,6 +3390,8 @@ function initEvents() {
       ...planMeta,
       ...(moduleId ? { module: moduleId } : {}),
     };
+    // Bro-øyeblikk: lest men utrent tema som nå trenes? (sjekk før innlegging)
+    const wasUntrained = moduleWasLearnedUntrained(moduleId);
     state.logs = [log, ...state.logs].slice(0, MAX_LOGS);
     saveState();
     // Behold dato, type, fører, forhold og plan-kobling — lagstrening logger
@@ -3100,6 +3408,7 @@ function initEvents() {
     renderLog();
     renderTraining();
     renderDashboard();
+    maybeShowBridge(moduleId, wasUntrained, data.dog);
   });
 
   // Lagsammendrag og deling finnes både i Innstillinger og i Progresjon
@@ -3426,56 +3735,43 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1.1"/><circle cx="4" cy="12" r="1.1"/><circle cx="4" cy="18" r="1.1"/></svg>',
   reference:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.2"/><path d="m20 20-3.6-3.6"/></svg>',
+  trees:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3 4.5 10.5h9L9 3Z"/><path d="M9 8 5.5 14h7L9 8Z"/><path d="M9 14v6"/><path d="m16.5 6-3 5h6l-3-5Z"/><path d="M16.5 11v9"/></svg>',
+  chart:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v15a1 1 0 0 0 1 1h15"/><path d="m7.5 14 3-3.5 2.5 2.5 4.5-5"/></svg>',
+  check:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 6.5"/></svg>',
+  minus:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
+  lock:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   quiz:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-1.5 2-2.5 2.5"/><circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"/></svg>',
   settings:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>',
+  /* ── Modul-ikoner (Fase 1c): ett ikon per læringstema ── */
+  "mod-grunnlag":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="15" width="16" height="5" rx="1"/><rect x="7" y="9" width="10" height="6" rx="1"/><rect x="10" y="4" width="4" height="5" rx="1"/></svg>',
+  "mod-spor":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="9" cy="7.5" rx="2.5" ry="3.5" transform="rotate(-15 9 7.5)"/><ellipse cx="15" cy="16.5" rx="2.5" ry="3.5" transform="rotate(15 15 16.5)"/></svg>',
+  "mod-oppsok":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="14" r="4"/><circle cx="17" cy="14" r="4"/><path d="M11 14h2M7 10V6h10v4"/></svg>',
+  "mod-gamle":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14M5 21h14"/><path d="M7 3l1 4 4 5-4 5-1 4M17 3l-1 4-4 5 4 5 1 4"/></svg>',
+  "mod-retning":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 5.5V8M12 16v2.5M5.5 12H8M16 12h2.5"/><path d="M12 8.5l2 3.5-2 2.5-2-2.5Z" fill="currentColor" stroke="none"/></svg>',
+  "mod-sportap":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h5M15 12h5"/><path d="M11 9c0-1.5 3-1.5 3 0s-1.5 2.5-1.5 3.5v.5"/><circle cx="12.5" cy="16.5" r="0.75" fill="currentColor" stroke="none"/></svg>',
+  "mod-kryssende":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5L20 18.5M20 5.5L4 18.5"/></svg>',
+  "mod-sirkel":
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><path d="M8 5A10 10 0 0 1 21.5 12"/><path d="M19 11l2.5 1-1-2.5"/></svg>',
 };
 
 function paintIcons(root = document) {
   $all("[data-icon]", root).forEach((el) => {
     const name = el.dataset.icon;
     if (ICONS[name]) el.innerHTML = ICONS[name];
-  });
-}
-
-/* ---------- Handlingsark («+» i bunnmenyen) ---------- */
-
-function openActionSheet() {
-  openOverlay($("#actionSheet"));
-  $("#navActionButton")?.setAttribute("aria-expanded", "true");
-}
-
-function closeActionSheet() {
-  closeOverlay($("#actionSheet"));
-  $("#navActionButton")?.setAttribute("aria-expanded", "false");
-}
-
-function initActionSheet() {
-  $("#navActionButton")?.addEventListener("click", () => {
-    const sheet = $("#actionSheet");
-    if (!sheet) return;
-    haptic();
-    if (sheet.classList.contains("is-open")) closeActionSheet();
-    else openActionSheet();
-  });
-
-  $("#actionSheet")?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-close-sheet]")) {
-      closeActionSheet();
-      return;
-    }
-    const item = event.target.closest("[data-sheet-action]");
-    if (!item) return;
-    haptic();
-    closeActionSheet();
-    if (item.dataset.sheetAction === "plan") {
-      state.wizardStep = state.currentPlan ? state.wizardStep || 0 : 0;
-      saveState();
-      setView("planner");
-    } else if (item.dataset.sheetAction === "log") {
-      openQuickLog(null);
-    }
   });
 }
 
@@ -3491,8 +3787,9 @@ function openWelcome(event) {
   welcomeOpener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
   setIntroStep(0);
   openOverlay($("#welcomeOverlay"));
-  // Flytt fokus inn i dialogen så piltaster og Tab oppfører seg som ventet.
   requestAnimationFrame(() => $("#introNext")?.focus());
+  // Ambient video — ignorer autoplay-feil (policy-block, manglende fil, etc.)
+  $("#introVideo")?.play?.().catch(() => {});
 }
 
 function setIntroStep(index) {
@@ -3547,6 +3844,7 @@ function closeWelcome() {
     saveState();
   }
   closeOverlay($("#welcomeOverlay"));
+  $("#introVideo")?.pause?.();
   welcomeOpener?.focus?.();
   welcomeOpener = null;
   // Rett etter introen er et naturlig tidspunkt å foreslå installasjon.
@@ -3590,8 +3888,6 @@ function initWelcome() {
       closeQr();
     } else if ($("#refSheet")?.classList.contains("is-open")) {
       closeReferenceSheet();
-    } else if ($("#actionSheet")?.classList.contains("is-open")) {
-      closeActionSheet();
     } else if ($("#quickLogOverlay")?.classList.contains("is-open")) {
       closeQuickLog();
     } else if ($("#fieldOverlay")?.classList.contains("is-open")) {
@@ -3882,10 +4178,10 @@ function init() {
   initEvents();
   initWelcome();
   initGettingStartedGlobal();
-  initActionSheet();
   initQuickLog();
   initShare();
   initFieldMode();
+  initCeremony();
   handleSharedImport();
   setView(state.view || "dashboard");
   registerServiceWorker();

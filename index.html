@@ -38,23 +38,8 @@
         </header>
 
         <section class="view is-visible" id="dashboardView" aria-labelledby="viewTitle">
-          <div class="home-chooser">
-            <header class="home-chooser-head">
-              <div class="brand-logo-card home-chooser-logo">
-                <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
-              </div>
-              <p class="eyebrow">E8 Sporoppsøk · E9 Spor</p>
-              <h2>Hvor vil du jobbe i dag?</h2>
-              <p class="small home-chooser-lede">Velg en modul for å komme i gang. Du kan alltid bytte tilbake hit med «← Hjem».</p>
-            </header>
-
-            <div class="door-grid door-grid-hero" id="doorGrid"></div>
-
-            <div class="home-chooser-foot">
-              <button class="text-button" data-view-jump="progress" type="button">Se samlet progresjon på tvers →</button>
-            </div>
-            <p class="small backup-nudge" id="backupNudge" hidden></p>
-          </div>
+          <div class="home" id="homeShell"></div>
+          <p class="small backup-nudge" id="backupNudge" hidden></p>
         </section>
 
         <section class="view" id="trainingView" aria-labelledby="viewTitle">
@@ -414,35 +399,27 @@
       </main>
     </div>
 
-    <nav class="bottom-nav bottom-nav-doors" id="bottomNav" aria-label="Hovednavigasjon">
+    <nav class="bottom-nav" id="bottomNav" aria-label="Hovednavigasjon">
       <button class="bottom-nav-item is-active" data-view="dashboard" type="button">
         <span class="bottom-nav-icon" data-icon="dashboard" aria-hidden="true"></span>
         <span class="bottom-nav-label">Hjem</span>
       </button>
-      <button class="bottom-nav-action" id="navActionButton" type="button" aria-label="Ny økt — planlegg eller loggfør" aria-haspopup="true" aria-expanded="false">
-        <span aria-hidden="true">+</span>
+      <button class="bottom-nav-item" data-view="learn" type="button">
+        <span class="bottom-nav-icon" data-icon="learn" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Lær</span>
+      </button>
+      <button class="bottom-nav-action" id="navActionButton" data-view="training" type="button" aria-label="Felt — planlegg og loggfør økter">
+        <span class="bottom-nav-icon" data-icon="trees" aria-hidden="true"></span>
+      </button>
+      <button class="bottom-nav-item" data-view="progress" type="button">
+        <span class="bottom-nav-icon" data-icon="chart" aria-hidden="true"></span>
+        <span class="bottom-nav-label">Fremgang</span>
       </button>
       <button class="bottom-nav-item" data-view="reference" type="button">
         <span class="bottom-nav-icon" data-icon="reference" aria-hidden="true"></span>
         <span class="bottom-nav-label">Oppslag</span>
       </button>
     </nav>
-
-    <div class="action-sheet" id="actionSheet" hidden aria-hidden="true">
-      <div class="action-sheet-backdrop" data-close-sheet></div>
-      <div class="action-sheet-panel" role="dialog" aria-modal="true" aria-label="Ny økt">
-        <p class="eyebrow action-sheet-label">Ny økt</p>
-        <button class="action-sheet-item" data-sheet-action="plan" type="button">
-          <span class="action-sheet-icon" data-icon="planner" aria-hidden="true"></span>
-          <span class="action-sheet-text"><strong>Planlegg en økt</strong><span>Velg fokus, les teorien og få et øktkort</span></span>
-        </button>
-        <button class="action-sheet-item" data-sheet-action="log" type="button">
-          <span class="action-sheet-icon" data-icon="log" aria-hidden="true"></span>
-          <span class="action-sheet-text"><strong>Logg en økt</strong><span>Rask loggføring rett etter trening</span></span>
-        </button>
-        <button class="ghost-button action-sheet-cancel" data-close-sheet type="button">Avbryt</button>
-      </div>
-    </div>
 
     <template id="emptyStateTemplate">
       <div class="empty-state">
@@ -452,6 +429,11 @@
     </template>
 
     <div class="welcome-overlay" id="welcomeOverlay" hidden aria-hidden="true">
+      <video class="intro-ambient-video" id="introVideo"
+        src="assets/video/ambient.mp4"
+        autoplay muted loop playsinline
+        aria-hidden="true"
+        preload="none"></video>
       <div class="welcome-backdrop" data-close-welcome></div>
       <div class="welcome-dialog welcome-intro" role="dialog" aria-modal="true" aria-label="Introduksjon til SporLab">
         <button class="welcome-close" data-close-welcome type="button" aria-label="Lukk introduksjon">✕</button>
@@ -464,32 +446,32 @@
                 <img src="assets/nrh-logo-romerike.png" alt="Norske Redningshunder Romerike" />
               </div>
               <p class="eyebrow">SporLab · E8 / E9</p>
-              <h2 class="intro-title">To dører inn — du velger</h2>
-              <div class="intro-doors" aria-hidden="true">
-                <div class="intro-door intro-door-learning">
-                  <span class="intro-door-icon" data-icon="learn"></span>
-                  <span class="domain-pill domain-pill-learning">Lær</span>
-                </div>
-                <div class="intro-door intro-door-field">
-                  <span class="intro-door-icon" data-icon="planner"></span>
-                  <span class="domain-pill domain-pill-field">Felt</span>
-                </div>
+              <h2 class="intro-title">Fra teori hjemme til spor i skogen</h2>
+              <div class="intro-loop" aria-hidden="true">
+                <span class="intro-loop-step"><span class="intro-loop-icon" data-icon="learn"></span>Lær</span>
+                <span class="intro-loop-arrow">→</span>
+                <span class="intro-loop-step"><span class="intro-loop-icon" data-icon="quiz"></span>Quiz</span>
+                <span class="intro-loop-arrow">→</span>
+                <span class="intro-loop-step"><span class="intro-loop-icon" data-icon="trees"></span>Felt</span>
+                <span class="intro-loop-arrow">→</span>
+                <span class="intro-loop-step"><span class="intro-loop-icon" data-icon="chart"></span>Fremgang</span>
               </div>
-              <p class="intro-caption"><strong>Lær</strong> er kurset du leser deg gjennom. <strong>Felt</strong> er verktøyet for trening ute. To likeverdige dører — start der du vil.</p>
+              <p class="intro-caption">SporLab er ett sammenhengende kurs: les teorien, sjekk forståelsen, ta den med ut i skogen — og se fremgangen vokse.</p>
             </section>
 
             <section class="intro-slide" role="group" aria-roledescription="lysbilde" aria-label="Steg 2 av 3">
               <div class="intro-link-art" aria-hidden="true">
                 <span class="domain-pill domain-pill-learning">Lær</span>
-                <span class="intro-link-arrows">⇄</span>
+                <span class="intro-link-arrows">→</span>
                 <span class="domain-pill domain-pill-field">Felt</span>
               </div>
-              <h2 class="intro-title">De to henger sammen</h2>
+              <h2 class="intro-title">Teori møter praksis</h2>
               <ul class="intro-points">
-                <li><span class="intro-point-icon" data-icon="log" aria-hidden="true"></span><span>Loggfør en økt, og temaet blir markert som <strong>trent på</strong>.</span></li>
-                <li><span class="intro-point-icon" data-icon="learn" aria-hidden="true"></span><span>Les et tema, og det foreslås som <strong>fokus</strong> i neste økt.</span></li>
+                <li><span class="intro-point-icon" data-icon="check" aria-hidden="true"></span><span>Hvert tema har tre steg: <strong>les</strong>, <strong>quiz</strong> og <strong>trent i felt</strong>.</span></li>
+                <li><span class="intro-point-icon" data-icon="trees" aria-hidden="true"></span><span>Loggfør en økt, og temaet markeres som <strong>trent på</strong> — broen mellom teori og praksis.</span></li>
+                <li><span class="intro-point-icon" data-icon="chart" aria-hidden="true"></span><span>Fullfør alle tre, så låses <strong>neste tema</strong> opp på kursveien din.</span></li>
               </ul>
-              <p class="intro-caption">Hjem viser begge deler samlet, så du alltid ser neste steg.</p>
+              <p class="intro-caption">Hjem viser kursveien og det neste steget ditt — alltid.</p>
             </section>
 
             <section class="intro-slide" role="group" aria-roledescription="lysbilde" aria-label="Steg 3 av 3">
@@ -570,6 +552,35 @@
           <button class="ghost-button" id="qrCopyLink" type="button">Kopier lenke i stedet</button>
         </div>
         <p class="small status-line" id="qrStatus" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div class="ceremony-overlay" id="ceremonyOverlay" hidden aria-hidden="true">
+      <div class="ceremony-dialog" role="dialog" aria-modal="true" aria-labelledby="ceremonyTitle">
+        <div class="ceremony-ring-wrap">
+          <svg class="ceremony-ring" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ceremony-ring-track" cx="50" cy="50" r="44" />
+            <circle class="ceremony-ring-fill" cx="50" cy="50" r="44" />
+          </svg>
+          <span class="ceremony-ring-check" data-icon="check" aria-hidden="true"></span>
+          <span class="ceremony-burst" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
+        </div>
+        <p class="eyebrow" id="ceremonyEyebrow">Tema fullført</p>
+        <h2 id="ceremonyTitle"></h2>
+        <p class="ceremony-next" id="ceremonyNext"></p>
+        <button class="primary-button" id="ceremonyAction" type="button">Fortsett</button>
+      </div>
+    </div>
+
+    <div class="bridge-overlay" id="bridgeOverlay" hidden aria-hidden="true">
+      <div class="bridge-dialog" role="dialog" aria-modal="true" aria-labelledby="bridgeTitle">
+        <span class="bridge-check" data-icon="check" aria-hidden="true"></span>
+        <p class="eyebrow">Bro mellom teori og praksis</p>
+        <h2 id="bridgeTitle">Teori møter praksis</h2>
+        <p class="bridge-sub" id="bridgeSub"></p>
+        <button class="primary-button" data-close-bridge type="button">Fortsett</button>
       </div>
     </div>
 
