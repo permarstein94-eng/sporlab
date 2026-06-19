@@ -5878,6 +5878,27 @@ html[data-theme="dark"] .domain-pill-field { color: var(--dark-blue); }
   outline-offset: 2px;
 }
 
+/* Inn-animasjon (fase 1b): linjen tegner seg venstre→høyre mens punktene
+   popper inn med forskyvning. Spilles én gang ved app-åpning, vaktet av
+   prefers-reduced-motion via JS (is-entering settes ikke da). */
+.kursvei.is-entering .kursvei-dot {
+  animation: kursvei-pop 280ms ease-out backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.kursvei.is-entering .kursvei-node::before {
+  transform-origin: left center;
+  animation: kursvei-draw 280ms ease-out backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes kursvei-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes kursvei-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
 /* Zone 2 — Neste steg-kort */
 .next-step {
   background: var(--surface);

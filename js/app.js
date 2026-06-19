@@ -322,7 +322,16 @@ function renderHome() {
   // Tegn ikonene som nettopp ble injisert (data-icon males ikke automatisk
   // for dynamisk innhold — bare for statisk markup ved oppstart).
   paintIcons(shell);
+  // Kursvei-inngang: tegn linjen og pop punktene inn én gang ved app-åpning.
+  if (!kursveiEntered && !prefersReducedMotion()) {
+    shell.querySelector(".kursvei")?.classList.add("is-entering");
+  }
+  kursveiEntered = true;
 }
+
+// Inn-animasjonen for kursveien spilles bare på den første Hjem-visningen per
+// app-åpning, ikke ved hver re-render.
+let kursveiEntered = false;
 
 /* Zone 1 — Kursvei-stripe: ett punkt per modul på mørk NRH-bakgrunn.
    Koblende linjer mellom punktene fargelegges blå fram til aktivt tema. */
@@ -338,7 +347,7 @@ function renderKursvei(statuses, activeIndex, doneCount, pct) {
       const suffix = s.complete ? "fullført" : nodeState === "active" ? "aktiv" : "låst";
       const inner = s.complete ? "✓" : i + 1;
       return `
-        <li class="kursvei-node" data-state="${nodeState}">
+        <li class="kursvei-node" data-state="${nodeState}" style="--i:${i}">
           <button class="kursvei-dot" type="button"
             ${locked ? 'disabled aria-disabled="true"' : `data-module-open="${s.module.id}"`}
             aria-label="Tema ${i + 1}: ${title} (${suffix})">
