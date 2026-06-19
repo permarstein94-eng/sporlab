@@ -212,6 +212,56 @@ Use deploy only when explicitly requested.
 
 Add newest entries at the top.
 
+### 2026-06-19 — Claude Code — Port av origin-funksjoner — branch `port/origin-features`
+
+**Task:** Mens `redesign/fase-1a` var under arbeid, fikk `origin/main` 16 egne commits
+(fra andre claude.ai/mobil-sesjoner) som lokal `main` ikke hadde. De to linjene hadde
+divergert 16 commits hver vei med reelle strukturelle konflikter (begge siden skrev om
+Lær-modul-visningen uavhengig av hverandre — vår låste modul-grid/stepper vs. origins
+«buktende læringssti» + generisk kortkarusell). Etter gjennomgang valgte Per å beholde
+vår `main` (med komplett, verifisert Fase 1a/1b/1c-navigasjon) som grunnmur, og heller
+porte inn origins additive funksjoner separat — ikke en git-merge av de to historiene.
+
+Utført med subagent-driven-development (skriftlig plan først, så en implementer- +
+reviewer-subagent per oppgave). Plan: `docs/superpowers/plans/2026-06-19-port-origin-features.md`.
+
+**Portet inn (7 oppgaver, 7 commits på `port/origin-features`):**
+1. `state.js`: nytt felt `gettingStartedAnswers` (ingen SCHEMA_VERSION-bump — defensiv default følger eksisterende mønster).
+2-3. `content.js`: kartleggingsspørsmål («Aller første sporøkt») gjort interaktive — avkrysningsbokser, skala-glidebryter, fritekstfelt (`renderGsQuestion`).
+4. `styles.css`: styling for det nye spørsmålsoppsettet, gammel statisk `<ul>`-CSS fjernet.
+5. `js/app.js`: kobler svarene til `state.gettingStartedAnswers`, lagrer på change/input/toggle.
+6. `service-worker.js` + `build.sh`: automatisert cache-versjonering via `__BUILD_HASH__`-placeholder + sha256-hash i `build.sh` — erstatter min tidligere manuelle `v25`→`v26`-bump fra forrige sesjon.
+7. Tilbakemeldingsmekanisme: ny dialog (topbar + innstillinger), sender via `mailto:` til `per.marstein@nrh.no`.
+
+**Bevisst IKKE portet** (Per sin beslutning): origins «buktende læringssti»-visualisering,
+generisk `renderCardCarousel`-basert modulvisning, og relaterte commits (`4c82396`,
+`b1c7977`). Vår låste modul-grid + 4-trinns stepper fra Fase 1a/1c står som de er.
+
+**Checks:** `node --test tests/app.test.js` → 27/27 pass etter hver oppgave. `tsc -p
+jsconfig.json` → exit 0. `bash build.sh` → kjørt og verifisert (hash-substitusjon
+bekreftet, ingen `__BUILD_HASH__`-rest i `dist/`). Manuell preview-verifisering
+(kontroller, ikke subagent): tilbakemeldingsdialog åpner/lukker/chip-veksling/tekstfelt
+fungerer; kartleggingssvar (avkryssing+skala+notat) lagres korrekt i
+`state.gettingStartedAnswers` og overlever reload. Ingen konsollfeil.
+
+**Files changed:** `js/state.js`, `content.js`, `styles.css`, `js/app.js`,
+`service-worker.js`, `build.sh`, `index.html`.
+
+**Known issues:**
+- `main` og `origin/main` er fortsatt divergert (22 vs. 16 commits) — denne branchen
+  (`port/origin-features`) er bygget fra lokal `main`, IKKE fra `origin/main`. Det betyr
+  origins øvrige 16 commits (buktende sti, kortkarusell-modulvisning, m.fl.) er fortsatt
+  ikke i denne historien — bevisst, se over. Før push til `origin/main` må Per ta stilling
+  til hvordan dette skal håndteres på remote (egen PR som eksplisitt erstatter origins
+  Lær-modul-tilnærming, eller annen strategi).
+- `ruflo/`-katalogen i repo-roten kunne ikke slettes i forrige sesjon (låst av en prosess)
+  — fortsatt der, untracked, urelatert til SporLab.
+
+**Next step:**
+- Review `port/origin-features` (7 commits) i preview, deretter merge til `main`.
+- Avklar med Per hvordan divergensen mot `origin/main` skal løses før push til remote.
+- Vurder å sjekke om `ruflo/` kan slettes nå (prosessen som låste den kan ha avsluttet).
+
 ### 2026-06-19 — Claude Code — Merge redesign/fase-1a til main — branch `main`
 
 **Task:** Forberede og utføre merge av komplett redesign (Fase 1a + 1b + 1c) fra `redesign/fase-1a` til `main`.
