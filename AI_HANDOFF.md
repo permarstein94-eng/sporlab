@@ -41,11 +41,11 @@ Avoid clever rewrites that do not improve practical use.
 ## Current stable baseline
 
 **Last known good branch:** main  
-**Last known good commit:** TODO: fill after installing system  
-**Last successful test:** TODO  
-**Last successful typecheck:** TODO  
-**Last successful build:** TODO  
-**Deployment URL:** TODO  
+**Last known good commit:** f9cc0f1  
+**Last successful test:** 2026-06-19 — `node --test tests/app.test.js` — 27/27 pass  
+**Last successful typecheck:** 2026-06-19 — `tsc -p jsconfig.json` — exit 0  
+**Last successful build:** 2026-06-19 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-a6cef1bb3d1a`  
+**Deployment URL:** TODO (manuell `wrangler deploy` ikke fullført denne sesjonen — se siste handoff)  
 
 ---
 
@@ -211,6 +211,51 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-19 — Claude Code — Lukk gjenstående punkter + push til origin/main — branch `main`
+
+**Task:** Per ba om å fikse alt som gjensto fra forrige sesjons handoff og deploye
+til slutt.
+
+**Summary:**
+- Fast-forward-merget `merge/origin-main` (`dda95b2`) inn i `main` — løser
+  divergensen mot `origin/main` som ble flagget i forrige handoff. Ingen nytt
+  innhold utover det som allerede var verifisert på den branchen.
+- Stoppet en gjenglemt `claude-flow`-daemon-prosess (PID, startet fra et
+  tidligere `npx ruflo`-forsøk) som holdt `ruflo/`-mappa låst, og slettet
+  mappa. Repo-roten er nå ren for det urelaterte verktøyet.
+- Committet `docs/superpowers/plans/2026-06-19-port-origin-features.md`
+  (var untracked, men referert fra handoff-loggen) og samlede
+  `.claude/settings.local.json`-tillatelser fra de siste sesjonene.
+- Spurte Per om push mot `origin/main` skulle gjøres — fikk ja. `gh` CLI er
+  ikke installert i dette miljøet, så det ble en direkte `git push` (bekreftet
+  fast-forward, `origin/main` er forfar til ny `main`) i stedet for PR.
+  Pushet `880b617..f9cc0f1` til `origin/main`.
+- `npx wrangler deploy` feilet: ikke autentisert (`CLOUDFLARE_API_TOKEN`
+  mangler, ikke-interaktivt miljø). Rørte ikke credentials/secrets (utenfor
+  mandat). `DEPLOY.md` indikerer at Cloudflare har egen Git-integrasjon som
+  bygger `main` automatisk — pushen til `origin/main` kan ha trigget et
+  auto-deploy der, men dette er ikke bekreftet fra denne sesjonen.
+
+**Checks:** `node --test tests/app.test.js` → 27/27 pass. `tsc -p
+jsconfig.json` → exit 0. `bash build.sh` → exit 0, 22 filer.
+
+**Files changed:** `docs/superpowers/plans/2026-06-19-port-origin-features.md`
+(ny), `.claude/settings.local.json`, denne handoff-oppdateringen.
+
+**Known issues:**
+- Manuell `npx wrangler deploy` er ikke fullført. Per må enten køyre
+  `wrangler login` interaktivt selv, eller sette `CLOUDFLARE_API_TOKEN` i
+  miljøet, eller bekrefte at Cloudflares auto-deploy fra `origin/main` har
+  tatt seg av det.
+- Origins alternative «velg metode»-layout (kollapsbare `<details>`) i Aller
+  første sporøkt ble ikke tatt med (presentasjonsvalg, ikke arkitektonisk) —
+  uendret fra forrige sesjons notat.
+
+**Next step:**
+- Bekreft i Cloudflare-dashbordet om auto-deploy fra `origin/main` kjørte, ev.
+  fullfør manuell deploy med gyldig token.
+- Fyll inn `Deployment URL` i denne filen når deploy er bekreftet.
 
 ### 2026-06-19 — Claude Code — Merge origin/main — branch `merge/origin-main`
 
