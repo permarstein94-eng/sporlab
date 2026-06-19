@@ -4145,16 +4145,111 @@ html[data-theme="dark"] .heat-0 {
   background: linear-gradient(180deg, rgba(0, 119, 218, 0.05), var(--surface));
 }
 
-.gs-questions {
-  margin: 0;
-  padding-left: 20px;
+.gs-question-list {
   display: grid;
-  gap: 6px;
+  gap: 16px;
+}
+
+.gs-question {
+  display: grid;
+  gap: 8px;
+}
+
+.gs-question-text {
+  margin: 0;
   line-height: 1.5;
 }
 
-.gs-questions li {
-  list-style: "→  ";
+.gs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gs-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.gs-option input {
+  flex: none;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.gs-option:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--light-blue);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+/* Skalaspak for ordinale kartleggingsspørsmål (selvstendighet, nysgjerrighet,
+   intensitet) — tydeligere enn radioknapper og tåler lange etiketter. */
+.gs-scale {
+  display: grid;
+  gap: 6px;
+  padding: 2px 2px 0;
+}
+.gs-scale-value {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.gs-scale.is-answered .gs-scale-value {
+  color: var(--blue);
+}
+.gs-scale-input {
+  width: 100%;
+  margin: 2px 0;
+  accent-color: var(--line);
+  cursor: pointer;
+}
+.gs-scale.is-answered .gs-scale-input {
+  accent-color: var(--blue);
+}
+.gs-scale-input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.gs-scale-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.gs-scale-ends span:last-child {
+  text-align: right;
+}
+
+.gs-note {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.gs-note:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
 }
 
 .start-methods {
@@ -6126,6 +6221,74 @@ body[data-domain="field"] .empty-state {
   .ceremony-burst {
     display: none;
   }
+}
+
+/* ---------- Tilbakemelding ---------- */
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.feedback-overlay[hidden] {
+  display: none;
+}
+
+.feedback-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 26, 51, 0.55);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.feedback-overlay.is-open .feedback-backdrop {
+  opacity: 1;
+}
+
+.feedback-dialog {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: var(--radius-lg, 16px);
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  transform: translateY(12px) scale(0.98);
+  opacity: 0;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.feedback-overlay.is-open .feedback-dialog {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+#feedbackForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.feedback-message-label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.feedback-message-label textarea {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  color: var(--ink);
+  resize: vertical;
 }
 
 /* ============================================================
