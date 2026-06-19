@@ -3860,18 +3860,40 @@ function initWelcome() {
   $("#openWelcome")?.addEventListener("click", openWelcome);
   $("#settingsShowIntro")?.addEventListener("click", openWelcome);
 
-  $("#welcomeOverlay")?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-close-welcome]")) {
+  const overlayEl = $("#welcomeOverlay");
+  if (overlayEl) {
+    overlayEl.addEventListener("click", (event) => {
+      if (event.target.closest("[data-close-welcome]")) {
+        closeWelcome();
+        return;
+      }
+      if (event.target.closest("#introNext")) {
+        introNext();
+        return;
+      }
+      if (event.target.closest("#introBack")) {
+        introPrev();
+      }
+    });
+  }
+
+  // Direct button handlers as fallback - inline logic to ensure it works
+  $("#introNext")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    introNext();
+  });
+  $("#introBack")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    introPrev();
+  });
+  $all("[data-close-welcome]").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       closeWelcome();
-      return;
-    }
-    if (event.target.closest("#introNext")) {
-      introNext();
-      return;
-    }
-    if (event.target.closest("#introBack")) {
-      introPrev();
-    }
+    });
   });
 
   initIntroSwipe();

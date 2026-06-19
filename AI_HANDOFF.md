@@ -68,11 +68,11 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Redesign Fase 1a + 1b + 1c — struktur, animasjoner og visuelle detaljer  
+**Task title:** Debug og fix intro modal click handlers — buttons don't respond  
 **Owner/agent:** Claude Code  
-**Branch:** `redesign/fase-1a`  
-**Started:** 2026-06-18  
-**Status:** Fase 1a (5/5) + Fase 1b (seremoni, bro, kursvei-animasjon) + Fase 1c (glassmorfisme, ambient-video, modul-ikoner, mikrointeraksjoner, låst modul-grid i Lær) — KOMPLETT.
+**Branch:** main  
+**Started:** 2026-06-19  
+**Status:** IN PROGRESS - Issue diagnosed, partial fix applied
 
 ### Scope
 
@@ -88,7 +88,7 @@ Felt mørk modus, ny intro. Rent presentasjonslag.
 
 ## Latest handoff
 
-**Date/time:** 2026-06-18  
+**Date/time:** 2026-06-19 (ongoing investigation)  
 **Agent:** Claude Code  
 **Branch:** `redesign/fase-1a`  
 
@@ -211,6 +211,46 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-19 — Claude Code — Debug intro modal click issue — branch `main`
+
+**Task:** User reported intro modal buttons don't respond to clicks (Neste, Hopp over, X buttons).
+
+**Investigation:**
+- Diagnosed via systematic debugging (Phase 1 root cause investigation)
+- Confirmed modal opens correctly and displays
+- Confirmed click events reach buttons
+- Confirmed HTML structure is correct, `closest()` selectors work as expected
+- Discovered: delegated click event listener on #welcomeOverlay is NOT firing
+- Verified: direct click handlers on buttons work when attached manually
+- Verified: service worker cache cleared, issue persists
+- Root cause: Event listener in `initWelcome()` is not being attached or not working
+
+**Solution Applied:**
+- Refactored `initWelcome()` to explicitly assign overlay element
+- Added direct click handlers to buttons as fallback (wrapped functions to avoid event parameter issues)
+- Code changes: `js/app.js` lines 3859-3877
+
+**Testing:**
+- All 27 unit tests pass
+- Manual testing shows direct handlers still don't trigger properly (mysterious)
+- Issue requires further investigation - may be related to module scope, event context, or something specific to Fase 1a redesign
+
+**Known Issues:**
+- Buttons appear to have handlers attached but clicks aren't advancing intro slides
+- The delegated event listener on overlay element isn't working as expected
+- Direct button handlers also not working despite manual verification that click events reach handlers
+- Requires deeper investigation into app initialization order or event handling
+
+**Recommended Next Step:**
+- Check if Fase 1a refactoring changed something about the welcome overlay initialization  
+- Verify if maybe buttons are being recreated dynamically after init
+- Add console.log statements directly in the handler functions to verify they're being called
+- Check for any CSS pointer-events restrictions or z-index issues
+- May need to run in a full browser dev tools to step through the event flow
+- Consider if there's a timing issue with when handlers are attached vs when modal opens
+
+**Note:** Changes committed to main. Direct button handlers added as temporary fix attempt, but issue persists. Requires deeper investigation by next agent.
 
 ### 2026-06-19 — Claude Code — Lukk gjenstående punkter + push til origin/main — branch `main`
 
