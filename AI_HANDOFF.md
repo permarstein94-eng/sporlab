@@ -72,7 +72,7 @@ Avoid clever rewrites that do not improve practical use.
 **Owner/agent:** Claude Code  
 **Branch:** `redesign/fase-1a`  
 **Started:** 2026-06-18  
-**Status:** Fase 1a (5/5) + Fase 1b (seremoni, bro, kursvei-animasjon) + Fase 1c (glassmorfisme, ambient-video, modul-ikoner, mikrointeraksjoner) — KOMPLETT.
+**Status:** Fase 1a (5/5) + Fase 1b (seremoni, bro, kursvei-animasjon) + Fase 1c (glassmorfisme, ambient-video, modul-ikoner, mikrointeraksjoner, låst modul-grid i Lær) — KOMPLETT.
 
 ### Scope
 
@@ -211,6 +211,49 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-19 — Claude Code — Fase 1c oppfølging (låst modul-grid) — branch `redesign/fase-1a`
+
+**Task:** Lukke det kjente gapet fra forrige handoff: bygge om Lær-moduloversikten
+(`renderLearnIntro`) til det låste modul-grid-et, samkjørt med Hjem-kursveien.
+Jobben var allerede påbegynt uncommitted i arbeidskopien da sesjonen startet —
+fullført, verifisert og committet her.
+
+**Summary:**
+- Ny delt helper `moduleProgressState(s, i, activeIndex)` brukes av både
+  `renderKursvei` (Hjem) og `renderLearnIntro` (Lær), så låsetilstanden er
+  identisk på tvers av de to visningene.
+- `renderLearnIntro` rendrer nå `.module-grid` med `.module-grid-card`: aktivt/
+  fullført tema er klikkbart (`data-module-open`), låste temaer er
+  `disabled` med lås-ikon og uten lys-rad. Ny `lock`-ikon i `ICONS`.
+- Ryddet inert kode markert som «kjent issue» i forrige handoff:
+  `#actionSheet`/`.action-sheet-*` (handlingsark, ubrukt siden Felt-FAB
+  begynte å navigere direkte) og `.intro-door`/`.door-field` (gammel
+  dør-velger-CSS fra før 5-fanes bunnmenyen).
+- **NB:** `node --test` uten argument plukker nå opp `.test.ts`-filer fra det
+  urelaterte `ruflo/`-verktøyet (uinstallert tredjeparts-katalog, untracked,
+  ikke del av SporLab) og feiler på dem. Kjør `node --test tests/app.test.js`
+  eksplisitt til `ruflo/` er ryddet bort.
+
+**Checks:** `node --test tests/app.test.js` → 27/27 pass. `tsc -p jsconfig.json`
+→ exit 0. Verifisert i preview (port 3000): Tema 1 vises «Aktiv» med tre lys,
+Tema 2-8 låst (disabled, lås-ikon, ingen lys), klikk på aktivt kort åpner
+stepper-visningen, klikk på låst kort gjør ingenting. Ingen konsollfeil.
+
+**Files changed:** `js/app.js`, `index.html`, `styles.css`
+
+**Known issues:**
+- `ruflo/` (claude-flow/ruflo multi-agent-verktøy) ligger untracked i repo-roten
+  fra et tidligere `npx ruflo`-forsøk, med egen `CLAUDE.md` som strider mot
+  dette prosjektets regler (swarm-spawning, npm-publisering, IPFS-nøkler).
+  Urelatert til SporLab — IKKE brukt i denne sesjonen. Bør ryddes bort av Per
+  (`rm -rf ruflo ruflo-plugins.gif .claude/skills skills-lock.json claude`)
+  eller eksplisitt `.gitignore`-es; forstyrrer også `node --test` og evt. andre
+  rekursive verktøy i repo-roten.
+
+**Next step:** Review i preview, deretter merge `redesign/fase-1a` (nå 10
+commits) til main. Bump service-worker-versjon som egen deploy-oppgave ved
+merge. Rydd `ruflo/`-katalogen fra repo-roten (se Known issues).
 
 ### 2026-06-19 — Claude Code — Fase 1c — branch `redesign/fase-1a`
 
