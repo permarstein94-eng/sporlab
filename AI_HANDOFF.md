@@ -68,11 +68,12 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Redesign Fase 1a — struktur for læringsplattform  
+**Task title:** Redesign Fase 1a + 1b — struktur, animasjoner og polish  
 **Owner/agent:** Claude Code  
 **Branch:** `redesign/fase-1a`  
 **Started:** 2026-06-18  
-**Status:** Komplett (5/5 leveranser, verifisert). Klar for review/merge.  
+**Status:** Fase 1a (5/5) + Fase 1b (seremoni, bro, kursvei-animasjon) komplett og
+verifisert. Gjenstår: Fase 1c (glassmorfisme, ambient-video, mikrointeraksjoner).  
 
 ### Scope
 
@@ -211,6 +212,25 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-18 — Claude Code — Fase 1b — branch `redesign/fase-1a`
+
+**Task:** Animasjoner og polish (fase 1b) oppå fase 1a.
+
+**Summary:**
+- Fullføring-seremoni (animert NRH-blå ring + burst) trigget fra Trinn 4
+  «Marker som mestret»; auto-lukker 3s/trykk, kan ta deg til neste tema.
+- Bro-bekreftelse (grønn check-ring, «Teori møter praksis») når en logget økt
+  krediterer et lest-men-utrent tema; hooket i både hurtiglogg og loggskjema.
+- Kursvei inn-animasjon (linje tegner seg + punkt-pop) én gang per app-åpning.
+- Alt vaktet av prefers-reduced-motion. haptic() utvidet til number|number[].
+- Ryddet en foreldreløs duplisert «celebrate-*»-overlay i index.html.
+- 2 commits (0d8dd9e seremoni+bro, 3ace80f kursvei-animasjon).
+
+**Checks:** `node --test` 27/27; `tsc` ren. Verifisert i preview via
+getComputedStyle (preview-screenshot fanger ikke rAF-/overlay-opacity).
+
+**Next step:** Fase 1c, eller review/merge.
 
 ### 2026-06-18 — Claude Code — branch `redesign/fase-1a`
 
