@@ -49,7 +49,13 @@ export function buildQuizSession(mode = "all") {
     label = moduleDef ? `Modul: ${moduleDef.title.replace(/^\d+\.\s*/, "")}` : "Modul";
   }
 
-  if (pool.length === 0) pool = quizQuestions.map((q) => q.id);
+  if (pool.length === 0) {
+    // Modulen har ingen spørsmål (eller finnes ikke lenger) — vis det reelle
+    // omfanget i stedet for å late som økten fortsatt er modul-spesifikk.
+    pool = quizQuestions.map((q) => q.id);
+    mode = "all";
+    label = "Alle moduler";
+  }
 
   const questionIds = shuffle(pool);
   const optionMaps = questionIds.map((id) => {
