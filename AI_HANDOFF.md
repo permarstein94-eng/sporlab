@@ -68,18 +68,17 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Follow-up: disable «Neste ▶» i Lær-stepper når neste tema er låst  
+**Task title:** Fiks kontrast/lesbarhet for "Kjernepunkter" på planner-siden  
 **Owner/agent:** Claude Code  
-**Branch:** `fix/stepper-next-locked-disable`  
+**Branch:** `fix/planner-kjernepunkter-contrast`  
 **Started:** 2026-06-20  
 **Status:** DONE og verifisert, klar for PR-review
 
 ### Scope
 
-Liten UX-fix i `js/app.js` (`renderLearnModule()`): «Neste ▶»-knappen i
-stepper-navet gjenbruker nå `isModuleLocked()` til å sette `disabled` + et
-forklarende `aria-label` når neste tema ikke er låst opp ennå. Ingen endring i
-låse-logikk, state eller schema.
+Produksjonstilbakemelding: tekst inni "Kjernepunkter"-boksen på planner-siden
+var nesten ulselig (lys tekst på lys bakgrunn). Kun `styles.css` endret, ingen
+app-logikk.
 
 ### Out of scope
 
@@ -88,6 +87,77 @@ Redesign, nye funksjoner, endring av faginnhold, `service-worker.js`, deploy.
 ---
 
 ## Latest handoff
+
+**Date/time:** 2026-06-20  
+**Agent:** Claude Code  
+**Branch:** `fix/planner-kjernepunkter-contrast`
+
+### Task
+
+Produksjonsfeil meldt: "Kjernepunkter" på planner-siden var nesten ulesbar —
+lys tekst på lys bakgrunn.
+
+### Root cause
+
+`.callout` (brukt av `.wizard-key-points`, dvs. "Kjernepunkter") hadde en
+hardkodet, ikke-temabevisst bakgrunnsfarge `background: #f0f8fe`, mens
+tekstfargen er `body { color: var(--ink) }`. Planner-siden kjører i
+`body[data-domain="field"]`-konteksten (`.main-panel`-scopet i styles.css),
+som re-definerer `--ink` til en LYS farge (`#eaf3fc`) for den mørke
+felt-flaten. Resultatet: lys `--ink`-tekst direkte på den hardkodede lyse
+`#f0f8fe`-boksen → svært lav kontrast. Samme bug-mønster gjaldt i prinsippet
+også appens globale dark-theme (`html[data-theme="dark"]`), som også setter
+`--ink` lyst.
+
+`.wizard-key-points .eyebrow` (selve "Kjernepunkter"-overskriften) brukte
+`var(--blue)`/`var(--green-2)`-aktige faste fargetokens som ikke er garantert
+å kontrastere mot `--surface-strong` i felt-domenet (testet og forkastet
+underveis — ga kun ~1.4:1 kontrast i planner-kontekst).
+
+### What changed (`styles.css`)
+
+- `.callout`: bakgrunn endret fra hardkodet `#f0f8fe` til `var(--surface-strong)`,
+  og fikk explicit `color: var(--ink)`. `--ink`/`--surface-strong` er alltid
+  definert som et kontrasterende par (lys/mørk eller mørk/lys) i alle tre
+  kontekster: standard lys-tema, `html[data-theme="dark"]`, og
+  `body[data-domain="field"] .main-panel`.
+- Ny regel `.wizard-key-points .eyebrow { color: var(--ink); }` — overskriften
+  "Kjernepunkter" arver nå samme garantert-kontrasterende farge som
+  brødteksten, i stedet for en fast blåfarge.
+
+### Verification
+
+- `preview_eval`/`preview_screenshot` mot lokal `npx serve`-server (port 3000),
+  testet "Kjernepunkter" i tre kontekster:
+  - Planner (`body[data-domain="field"]`, mørk feltflate): bakgrunn
+    `rgb(17,74,126)`, tekst `rgb(234,243,252)` — svært høy kontrast. Skjermbilde
+    bekrefter klart lesbar hvit tekst på mørk blå boks.
+  - Lær-modul, lyst tema: bakgrunn `rgb(227,240,251)`, tekst `rgb(10,34,54)` —
+    høy kontrast.
+  - Lær-modul, mørkt tema: bakgrunn `rgb(22,41,63)`, tekst `rgb(232,241,251)` —
+    høy kontrast.
+- `node --test tests/app.test.js` — 39/39 pass
+- `npx -p typescript tsc -p jsconfig.json` — exit 0
+- `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-ce6c7908e859`
+
+### Files changed
+
+- `styles.css` (kun `.callout` og ny `.wizard-key-points .eyebrow`-regel)
+
+### Known issues
+
+Ingen kjente. Endringen er rent additiv på fargetoken-nivå og påvirker alle
+steder `.callout` brukes (ikke bare "Kjernepunkter") — det er vurdert som
+ønskelig siden den gamle hardkodede fargen var en generell bug, ikke spesifikk
+for denne ene komponenten.
+
+### Recommended next step
+
+Review og merge av `fix/planner-kjernepunkter-contrast`. Ingen deploy kjørt.
+
+---
+
+## Tidligere handoff
 
 **Date/time:** 2026-06-20  
 **Agent:** Claude Code  

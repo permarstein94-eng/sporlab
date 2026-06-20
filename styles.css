@@ -785,7 +785,8 @@ html[data-theme="dark"] .theory-pages {
   padding: 13px;
   border-left: 4px solid var(--green);
   border-radius: 0 var(--radius) var(--radius) 0;
-  background: #f0f8fe;
+  background: var(--surface-strong);
+  color: var(--ink);
 }
 
 .callout p {
@@ -2613,6 +2614,10 @@ html[data-theme="dark"] .learn-actions {
 }
 
 /* Teori-steg */
+
+.wizard-key-points .eyebrow {
+  color: var(--ink);
+}
 
 .wizard-key-points ul {
   margin: 8px 0 0 0;
