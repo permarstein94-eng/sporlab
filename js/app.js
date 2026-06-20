@@ -1163,6 +1163,10 @@ function renderLearnModule(moduleId) {
   const moduleIndex = modules.findIndex((m) => m.id === module.id);
   const prevModule = moduleIndex > 0 ? modules[moduleIndex - 1] : null;
   const nextModule = moduleIndex < modules.length - 1 ? modules[moduleIndex + 1] : null;
+  // prevModule peker aldri på et låst tema: du kan bare stå i stepperen for et
+  // ulåst tema, og alle temaer før det er da ferdige eller aktive (se
+  // moduleProgressState). Bare "Neste" trenger en lås-sjekk.
+  const nextLocked = nextModule ? isModuleLocked(nextModule.id) : false;
   const open = state.learnAccordion || "learn";
 
   const deepHtml = deepDive.length
@@ -1314,7 +1318,7 @@ function renderLearnModule(moduleId) {
       <div class="learn-actions stepper-nav">
         <span class="nav-pill">
           <button type="button" data-module-nav="${prevModule ? prevModule.id : ""}" ${prevModule ? "" : "disabled"} aria-label="Forrige modul">◀ Forrige</button>
-          <button type="button" data-module-nav="${nextModule ? nextModule.id : ""}" ${nextModule ? "" : "disabled"} aria-label="Neste modul">Neste ▶</button>
+          <button type="button" data-module-nav="${nextModule && !nextLocked ? nextModule.id : ""}" ${nextModule && !nextLocked ? "" : "disabled"} aria-label="${nextLocked ? "Neste modul (låst til dette temaet er mestret)" : "Neste modul"}">Neste ▶</button>
         </span>
       </div>
     </div>`;

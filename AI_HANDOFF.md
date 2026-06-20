@@ -40,12 +40,12 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current stable baseline
 
-**Last known good branch:** `fix/pilot-readiness-juni2026` (avgreinet fra `main` @ `6ddc77f`, uncommitted i arbeidskopien — se siste handoff)  
-**Last known good commit:** 6ddc77f (main, etter merge av `fix/grundig-feilretting-juni2026`)  
+**Last known good branch:** `fix/stepper-next-locked-disable` (avgreinet fra `main` @ `9b7b508`, etter PR #11-merge — se siste handoff)  
+**Last known good commit:** 9b7b508 (main, etter merge av PR #11 `fix/pilot-readiness-juni2026`)  
 **Last successful test:** 2026-06-20 — `node --test tests/app.test.js` — 39/39 pass  
 **Last successful typecheck:** 2026-06-20 — `tsc -p jsconfig.json` — exit 0  
-**Last successful build:** 2026-06-20 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-49a67821f381`  
-**Deployment URL:** https://sporlab.per-marstein-94.workers.dev/ (live-cache pr. forrige sesjon: `sporlab-e8-e9-7bd1e9174420` — IKKE oppdatert med denne sesjonens endringer; ingen deploy kjørt, se Pakke G under)  
+**Last successful build:** 2026-06-20 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-bc331926f284`  
+**Deployment URL:** https://sporlab.per-marstein-94.workers.dev/ (live-cache pr. forrige sesjon: `sporlab-e8-e9-7bd1e9174420` — IKKE oppdatert med PR #11 eller denne sesjonens endringer; ingen deploy kjørt)  
 
 ---
 
@@ -68,109 +68,85 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Begrenset HF-pilot-klargjøring (Pakke B–G)  
+**Task title:** Follow-up: disable «Neste ▶» i Lær-stepper når neste tema er låst  
 **Owner/agent:** Claude Code  
-**Branch:** `fix/pilot-readiness-juni2026`  
+**Branch:** `fix/stepper-next-locked-disable`  
 **Started:** 2026-06-20  
-**Status:** Pakke B–F DONE og verifisert (uncommitted); Pakke G venter på Pers eksplisitte godkjenning
+**Status:** DONE og verifisert, klar for PR-review
 
 ### Scope
 
-Pilotklarhet for 5-8 HF-testere: progresjons-/låsingsbugs, pilotinstruks/disclaimer,
-ambient-video-404, schema-dokumentasjon + eksport. `js/app.js`, `js/snapshot.js`,
-`js/state.js`, `index.html`, `styles.css`, `testinstruks.md`, `tests/app.test.js`.
-Se siste handoff-oppføring for full funnliste og fikser.
+Liten UX-fix i `js/app.js` (`renderLearnModule()`): «Neste ▶»-knappen i
+stepper-navet gjenbruker nå `isModuleLocked()` til å sette `disabled` + et
+forklarende `aria-label` når neste tema ikke er låst opp ennå. Ingen endring i
+låse-logikk, state eller schema.
 
 ### Out of scope
 
-Redesign, nye funksjoner, endring av faginnhold. `service-worker.js`-cachestrategi
-(ingen casual endring per CLAUDE.md). Deploy (Pakke G) uten ny eksplisitt
-godkjenning fra Per.
+Redesign, nye funksjoner, endring av faginnhold, `service-worker.js`, deploy.
 
 ---
 
 ## Latest handoff
 
-**Date/time:** 2026-06-19 (ongoing investigation)  
+**Date/time:** 2026-06-20  
 **Agent:** Claude Code  
-**Branch:** `redesign/fase-1a`  
+**Branch:** `fix/stepper-next-locked-disable`  
 
 ### Task
 
-Redesign-spec Fase 1a — strukturen for læringsplattformen. Spec:
-`docs/superpowers/specs/2026-06-18-sporlab-redesign-design.md`.
+Follow-up fix etter PR #11-merge til `main`. Review fant ett ikke-blokkerende
+funn: «Neste ▶»-knappen i Lær-stepperen kunne se klikkbar ut selv når det neste
+temaet var låst, selv om selve navigasjonen allerede var korrekt blokkert av
+`isModuleLocked()`-vakten i klikk-handleren.
 
 ### What changed
 
-5 leveranser, hver i sin commit på `redesign/fase-1a`:
-
-1. **Ny 5-fanes bunnmeny** (Hjem · Lær · Felt-FAB · Fremgang · Oppslag). Droppet
-   `bottom-nav-doors`; CSS-en hadde allerede 5-kolonners grid. Felt-FAB navigerer
-   til Felt-fanen (training). `navTabForView` remappet. Nye ikoner trees/chart.
-2. **Hjem som progresjons-hub**: kursvei-stripe (8 punkter, fullført/aktiv/låst),
-   neste-steg-kort (tre statuslinjer + evoluerende CTA), siste-aktivitet.
-3. **Lær-modul som 4-trinns stepper** (Les → Quiz → Til skogen → Mester), bygd på
-   eksisterende accordion-infra. Nye ikoner check/minus.
-4. **Felt-fane mørk modus** (#042C53): palett-variabler re-scopet på `.main-panel`
-   ved `body[data-domain="field"]`, 250ms cross-fade, 56px treffflater.
-5. **Intro skrevet om** til læringsplattform-modellen (kjerneløkken + bro).
-
-Modell-beslutning: «fullført» = lest + quiz + trent (alle tre lysene), utledet
-rent fra eksisterende state. `state.completed` = «Teori lest»-flagget. Ingen
-skjemaendring. Se AI_DECISION_LOG.
+- `renderLearnModule()` beregner nå `nextLocked = isModuleLocked(nextModule.id)`
+  og bruker den til å sette `disabled` + et forklarende `aria-label` på
+  «Neste ▶»-knappen, på samme måte som kursvei-prikkene og modul-grid-kortene
+  allerede viser låst tilstand.
+- `prevModule` er IKKE endret: du kan kun stå i stepperen for et ulåst tema, og
+  `moduleProgressState` garanterer at alle temaer før et ulåst tema er «done»
+  eller «active» — aldri «locked». Forrige kan derfor aldri peke på et låst
+  tema by design.
 
 ### Files changed
 
-- `index.html` (bunnmeny, Hjem-shell, intro-slides)
-- `js/app.js` (nav, renderHome + zoner, stepper, ikoner, data-module-open→setView)
-- `styles.css` (Hjem-hub, stepper, Felt mørk modus, intro-loop)
-
-Ikke rørt (per spec): `content.js`, `js/state.js`, `js/quiz.js`,
-`js/snapshot.js`, `service-worker.js`, `wrangler.jsonc`, `build.sh`.
+- `js/app.js` (kun `renderLearnModule()`-funksjonen, linje ~1163–1318)
 
 ### Commands run
 
 ```bash
-node --test                                 # 27 pass (før og etter hver leveranse)
-npx -p typescript tsc -p jsconfig.json      # ren (exit 0)
+node --test tests/app.test.js        # 39/39 pass
+npx -p typescript tsc -p jsconfig.json  # exit 0
+bash build.sh                        # OK, SW-cache sporlab-e8-e9-bc331926f284
 ```
 
-Verifisert visuelt i preview (npx serve, port 3000, mobil-viewport): alle 5
-faner ruter riktig, Hjem-hub med done/active/locked, stepper, Felt mørk modus
-(training + planlegger), ny intro slide 1+2. Ingen console-feil.
+Verifisert visuelt i preview (npx serve, port 3000): åpnet «Grunnlaget»
+(tema 1, aktivt, tema 2 låst) — «Neste ▶» er nå disabled med
+aria-label «Neste modul (låst til dette temaet er mestret)». «◀ Forrige» er
+disabled fordi det er første tema i listen (uendret oppførsel).
 
 ### Results
 
-- Alle eksisterende tester passerer (27/27). Typecheck ren.
-- Fase 1a komplett og verifisert. Ingen regresjoner observert på tvers av visninger.
+- Alle tester passerer (39/39). Typecheck ren. Build OK.
+- Stepper-knappene reflekterer nå samme låsetilstand som kursvei og modul-grid.
 
 ### Known issues / scope-grenser
 
-- **Lær-moduloversikten** (`renderLearnIntro`-løypa) er IKKE bygd om til det
-  låste modul-grid-et fra spec Seksjon 2 — den bruker fortsatt den eksisterende
-  «alt åpent»-løypelista. Kursvei-låsing på Hjem er derfor visuell veiledning;
-  modulene kan fortsatt åpnes via Lær-fanen. Vurder å samkjøre i neste runde.
-- **Død CSS/markup**: gammel `.door`/`.home-chooser`/`.intro-door`-CSS og
-  handlingsarket (`#actionSheet`) er inerte men gjenstår — rydd i fase 1c.
-- **Fase 1b/1c gjenstår**: fullføring-seremoni, bro-overlay, kursvei-inn-animasjon
-  (1b); glassmorfisme, ambient-video, mikrointeraksjoner (1c).
-- **PWA-cache**: service-worker (v25) cacher aggressivt. Under lokal preview måtte
-  SW avregistreres + cache tømmes for å se endringer. Ved deploy må SW-versjon
-  bumpes (egen deploy-oppgave, ikke rørt her).
+- Ingen nye. Endringen er isolert til de to ARIA/disabled-attributtene på
+  stepper-navigasjonen; ingen endring i `isModuleLocked()`, state eller schema.
 
 ### Risks
 
-- Service worker/cache changes can create stale deployed behavior.
-- Local storage schema changes can break existing user data unless migrated.
-- Content structure changes can break quiz/progression logic.
-- Cloudflare deploy config should not be touched unless the task is specifically deployment.
+- Lav risiko: gjenbruker eksisterende, allerede testet låse-funksjon
+  (`isModuleLocked`); ingen ny logikk, ingen state-/schemaendring.
 
 ### Recommended next step
 
-- Få Per til å se gjennom `redesign/fase-1a` (5 commits) i preview.
-- Deretter: enten fase 1b (animasjoner/seremoni) eller bygge om Lær-moduloversikten
-  til det låste grid-et for full konsistens med kursvei-låsingen.
-- Ved merge til main: bump service-worker-versjon som egen deploy-oppgave.
+- Per ser gjennom PR for `fix/stepper-next-locked-disable` og merger ved ok.
+- Ingen deploy gjort eller nødvendig for denne endringen alene.
 
 ---
 
@@ -214,6 +190,21 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-20 — Claude Code — Merge PR #11 + stepper-fix — branch `main` / `fix/stepper-next-locked-disable`
+
+**Task 1:** Merget PR #11 (`fix/pilot-readiness-juni2026`, godkjent «Approve with
+notes») til `main` via `git merge --no-ff` + push. Merge-commit `9b7b508`,
+hode-SHA matchet reviewet PR-hode (`be92b0d`) eksakt. Ingen deploy.
+
+**Task 2:** Follow-up-fix på samme branch-mønster: «Neste ▶»-knappen i
+Lær-stepperen kunne se klikkbar ut når neste tema var låst (navigasjonen var
+allerede korrekt blokkert av `isModuleLocked()`, kun visningen manglet). Fikset
+i `js/app.js` (`renderLearnModule()`): knappen disables nå + får forklarende
+aria-label når neste tema er låst. «◀ Forrige» urørt — kan by design aldri
+peke på et låst tema. Se «Latest handoff» over for detaljer. Branch:
+`fix/stepper-next-locked-disable`. `node --test` 39/39, `tsc` exit 0,
+`build.sh` OK. Ikke deployet.
 
 ### 2026-06-20 — Claude Code — HF-pilot-klargjøring (Pakke B–F) — branch `fix/pilot-readiness-juni2026`
 
