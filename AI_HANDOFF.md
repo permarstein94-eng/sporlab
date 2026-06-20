@@ -191,6 +191,58 @@ Use deploy only when explicitly requested.
 
 Add newest entries at the top.
 
+### 2026-06-20 — Per (manuell) — Produksjons-smoketest etter Cloudflare-deploy — branch `main`
+
+**Task:** Manuell interaktiv smoketest av `https://sporlab.per-marstein-94.workers.dev`
+etter forrige sesjons deploy (Pakke G), siden Claude-in-Chrome-extensionen ikke
+var tilkoblet og automatisk browserverifisering derfor ikke kunne gjøres.
+
+**Resultat: bestått.** Hjem, Lær, Felt, Fremgang og Oppslag fungerer. Modul-grid
+i Lær rendrer riktig, låste moduler er ikke-klikkbare. Første tilgjengelige
+modul kan åpnes, og «Neste ▶»-stepperen oppfører seg riktig ved låst progresjon
+(disabled, jf. `nextLocked`-fix fra 6f0fb15). Felt-logg kan opprettes, og
+Fremgang reflekterer loggdata. Data overlever refresh/reload (localStorage-
+persistens bekreftet).
+
+**Konklusjon:** Produksjonsdeployen er nå verifisert både statisk (forrige
+sesjon) og interaktivt (denne notatet). Anses som ferdig.
+
+### 2026-06-20 — Claude Code — Cloudflare deploy (Pakke G) — branch `main`
+
+**Task:** Fullføre Cloudflare-deploy av `main` (82b0b44) som var blokkert i
+forrige sesjon kun pga. manglende Cloudflare-credentials (Pakke G, bevisst
+utelatt da). Per kjørte `npx wrangler login` lokalt før denne sesjonen, men
+`wrangler whoami` viste fortsatt «not authenticated» i dette shell-et —
+re-kjørte `npx wrangler login` (OAuth) i sesjonen, som lyktes
+(`per.marstein.94@gmail.com`).
+
+**Verifisert før deploy:** Repo-identitet (alle nøkkelfiler funnet), branch
+`main`, `main`...`origin/main` 0/0 (oppdatert), `bash build.sh` produserte
+forventet SW-cache `sporlab-e8-e9-bc331926f284`.
+
+**Deploy:** `npx wrangler deploy` feilet først med «More than one account
+available but unable to select one in non-interactive mode» (kontoene
+`Attractive Robin` og `Per.marstein.94@gmail.com's Account`). Løst med
+`CLOUDFLARE_ACCOUNT_ID=99b1593ac7c0c8900c80a4d6ddf3d4e2` (kontoen som matcher
+`*.per-marstein-94.workers.dev`-subdomenet) som engangs env-var — `wrangler.jsonc`
+ble **ikke** endret. Deploy lyktes: 11 filer lastet opp,
+Version ID `3921ecd6-6b24-4e29-be5f-666ba7b1e513`,
+URL `https://sporlab.per-marstein-94.workers.dev`.
+
+**Post-deploy-verifisering:** `curl` av live `service-worker.js` bekrefter
+`CACHE_NAME = "sporlab-e8-e9-bc331926f284"`. Live `index.html` inneholder alle
+fem bunnnav-faner (Hjem, Lær, Felt, Fremgang, Oppslag). Live `js/app.js` er
+byte-for-byte identisk med lokal `js/app.js` (diff tom), inkl. lås-logikken
+(`isModuleLocked`, `disabled aria-disabled` på låste modulkort, og
+`nextLocked`-sjekken på «Neste ▶»-knappen fra forrige sesjons fix). Kunne
+**ikke** kjøre en faktisk klikk-gjennom i nettleser denne sesjonen —
+Claude-in-Chrome-extension var ikke tilkoblet, så lås/stepper-oppførsel er
+verifisert statisk (kildekode-likhet), ikke interaktivt i DOM. Anbefaler en
+rask manuell sjekk i nettleser ved neste anledning.
+
+`.claude/settings.local.json` og `skills-lock.json` rørt ikke (kun lest
+`git status`). Ingen nye commits opprettet, ingen push.
+
 ### 2026-06-20 — Claude Code — Merge PR #11 + stepper-fix — branch `main` / `fix/stepper-next-locked-disable`
 
 **Task 1:** Merget PR #11 (`fix/pilot-readiness-juni2026`, godkjent «Approve with
