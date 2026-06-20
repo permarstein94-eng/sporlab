@@ -108,7 +108,7 @@ export const MAX_LOGS = 2000;
  */
 
 /**
- * Hele den persisterte app-tilstanden (localStorage, schemaVersion 6).
+ * Hele den persisterte app-tilstanden (localStorage, schemaVersion 7).
  * @typedef {Object} State
  * @property {number} schemaVersion
  * @property {string} view

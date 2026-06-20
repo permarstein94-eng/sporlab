@@ -46,6 +46,7 @@ export function shareSnapshot() {
     logs: state.logs.map(({ image, ...rest }) => rest),
     completed: state.completed,
     mastery: state.mastery,
+    gettingStartedAnswers: state.gettingStartedAnswers,
   };
   return snapshot;
 }
@@ -178,6 +179,22 @@ export function importSnapshot(snapshot) {
       if (validModuleIds.has(id)) merged.add(id);
     });
     state.completed = [...merged];
+  }
+  // Kartleggingssvar («Aller første sporøkt»): finnes ikke i eksporter fra før
+  // denne feltet ble lagt til — droppes stille i stedet for å kaste på
+  // undefined. Lokalt svar vinner ved kollisjon, som ellers i denne funksjonen.
+  if (
+    snapshot.gettingStartedAnswers &&
+    typeof snapshot.gettingStartedAnswers === "object" &&
+    !Array.isArray(snapshot.gettingStartedAnswers)
+  ) {
+    Object.entries(snapshot.gettingStartedAnswers).forEach(([id, value]) => {
+      if (!value || typeof value !== "object" || state.gettingStartedAnswers[id]) return;
+      state.gettingStartedAnswers[id] = {
+        ...(Array.isArray(value.options) ? { options: asStringArray(value.options, 20, 200) } : {}),
+        ...(typeof value.note === "string" ? { note: asText(value.note, 2000) } : {}),
+      };
+    });
   }
   if (snapshot.mastery && typeof snapshot.mastery === "object" && !Array.isArray(snapshot.mastery)) {
     Object.entries(snapshot.mastery).forEach(([id, value]) => {
