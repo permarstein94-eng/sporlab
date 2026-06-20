@@ -40,12 +40,12 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current stable baseline
 
-**Last known good branch:** `fix/stepper-next-locked-disable` (avgreinet fra `main` @ `9b7b508`, etter PR #11-merge — se siste handoff)  
-**Last known good commit:** 9b7b508 (main, etter merge av PR #11 `fix/pilot-readiness-juni2026`)  
+**Last known good branch:** `main` (etter PR #13-merge `fix/planner-kjernepunkter-contrast` @ `553d9f0`)  
+**Last known good commit:** 553d9f0 (main, etter merge av PR #13)  
 **Last successful test:** 2026-06-20 — `node --test tests/app.test.js` — 39/39 pass  
 **Last successful typecheck:** 2026-06-20 — `tsc -p jsconfig.json` — exit 0  
-**Last successful build:** 2026-06-20 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-bc331926f284`  
-**Deployment URL:** https://sporlab.per-marstein-94.workers.dev/ (live-cache pr. forrige sesjon: `sporlab-e8-e9-7bd1e9174420` — IKKE oppdatert med PR #11 eller denne sesjonens endringer; ingen deploy kjørt)  
+**Last successful build:** 2026-06-20 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-ce6c7908e859`  
+**Deployment URL:** https://sporlab.per-marstein-94.workers.dev/ (deployet 2026-06-20 etter PR #13-merge — live-cache `sporlab-e8-e9-ce6c7908e859`, Version ID `f54fc4be-c3f8-4fcf-8642-29789832fb09`. Produksjons-CSS verifisert: `.callout` bruker `var(--surface-strong)`/`var(--ink)`, `.wizard-key-points .eyebrow` bruker `var(--ink)`)  
 
 ---
 
@@ -70,9 +70,9 @@ Avoid clever rewrites that do not improve practical use.
 
 **Task title:** Fiks kontrast/lesbarhet for "Kjernepunkter" på planner-siden  
 **Owner/agent:** Claude Code  
-**Branch:** `fix/planner-kjernepunkter-contrast`  
+**Branch:** `fix/planner-kjernepunkter-contrast` (merget til `main` via PR #13, deployet)  
 **Started:** 2026-06-20  
-**Status:** DONE og verifisert, klar for PR-review
+**Status:** DONE, merget og deployet til produksjon
 
 ### Scope
 
@@ -153,7 +153,49 @@ for denne ene komponenten.
 
 ### Recommended next step
 
-Review og merge av `fix/planner-kjernepunkter-contrast`. Ingen deploy kjørt.
+Ingen videre tiltak nødvendig for denne saken — merget og deployet, verifisert i produksjon. Neste session kan starte på nye oppgaver fra `main`.
+
+---
+
+## Merge og deploy (PR #13)
+
+**Date/time:** 2026-06-20  
+**Agent:** Claude Code  
+**Branch:** `fix/planner-kjernepunkter-contrast` → merget til `main`
+
+### What happened
+
+- Branch pushet til origin, PR #13 (`Fix planner core points text contrast`)
+  opprettet og merget manuelt av Per via GitHub.
+- `main` pullet lokalt (fast-forward `e9e35c3..553d9f0`).
+- Checks kjørt på `main` etter merge: `node --test tests/app.test.js` (39/39
+  pass), `tsc -p jsconfig.json` (exit 0), `bash build.sh` (22 filer, SW-cache
+  `sporlab-e8-e9-ce6c7908e859`).
+- `npx wrangler deploy` feilet først med «More than one account available»
+  (samme kjente problem som tidligere sesjon). Løst med
+  `CLOUDFLARE_ACCOUNT_ID=99b1593ac7c0c8900c80a4d6ddf3d4e2 npx wrangler deploy`.
+  Deploy OK: 2 endrede assets (`service-worker.js`, `styles.css`) lastet opp,
+  19 allerede oppdatert. Version ID `f54fc4be-c3f8-4fcf-8642-29789832fb09`.
+
+### Verification i produksjon
+
+- Hentet `https://sporlab.per-marstein-94.workers.dev/styles.css` direkte og
+  bekreftet at `.callout` har `background: var(--surface-strong)` og
+  `color: var(--ink)`, og at `.wizard-key-points .eyebrow { color: var(--ink); }`
+  finnes — dvs. fiksen er live.
+- Ingen unrelated filer ble endret/pushet i denne flyten;
+  `.claude/settings.local.json` og `skills-lock.json` forble urørt
+  lokale/untracked endringer som instruert.
+
+### Known issues
+
+Ingen.
+
+### Recommended next step
+
+Ingen umiddelbar oppfølging. Eventuell fremtidig visuell smoke-test i nettleser
+(ikke bare CSS-inspeksjon) kan gjøres ved anledning, men er ikke
+sikkerhetskritisk siden kontrastregelen er bekreftet på byte-nivå i levert CSS.
 
 ---
 
