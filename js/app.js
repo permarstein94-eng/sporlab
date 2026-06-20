@@ -360,6 +360,17 @@ function moduleProgressState(s, i, activeIndex) {
   return "locked";
 }
 
+// Brukes som vakt før modul-til-modul-navigasjon (stepper-pilene, "fortsett der
+// du var") som ikke selv har en disabled-knapp å lene seg på, slik
+// modul-grid-kortene og kursvei-prikkene har.
+function isModuleLocked(moduleId) {
+  const statuses = homeModuleStatuses();
+  const activeIndex = statuses.findIndex((s) => !s.complete);
+  const i = statuses.findIndex((s) => s.module.id === moduleId);
+  if (i === -1) return false;
+  return moduleProgressState(statuses[i], i, activeIndex) === "locked";
+}
+
 /* Zone 1 — Kursvei-stripe: ett punkt per modul på mørk NRH-bakgrunn.
    Koblende linjer mellom punktene fargelegges blå fram til aktivt tema. */
 function renderKursvei(statuses, activeIndex, doneCount, pct) {
@@ -1026,13 +1037,8 @@ function renderLearn() {
 }
 
 function renderLearnIntro() {
-  const doneCount = state.completed.length;
-  const progress = Math.round((doneCount / modules.length) * 100);
   const logsByModule = computeModuleLogCredit();
   const trainedCount = modules.filter((m) => (logsByModule[m.id] || 0) > 0).length;
-
-  // Myk rekkefølge: neste steg er det første uleste temaet, men alt er åpent.
-  const nextModule = modules.find((m) => !state.completed.includes(m.id));
   const shortTitle = (m) => m.title.replace(/^\d+\.\s*/, "");
 
   // Moduloversikten bruker samme låste-grid-modell som Hjem-kursveien: et
@@ -1042,6 +1048,10 @@ function renderLearnIntro() {
   const gridStatuses = homeModuleStatuses();
   const gridActiveIndex = gridStatuses.findIndex((s) => !s.complete);
   const gridDoneCount = gridStatuses.filter((s) => s.complete).length;
+  // Neste steg i løypa = det aktive (ulåste) temaet, ikke bare "første uleste"
+  // — ellers kan kortet peke på et tema som faktisk er låst (lest, men ikke
+  // quizet/trent ennå på det forrige).
+  const nextModule = gridActiveIndex === -1 ? null : gridStatuses[gridActiveIndex].module;
   const gridPct = Math.round((gridDoneCount / modules.length) * 100);
 
   const cards = gridStatuses
@@ -1099,9 +1109,9 @@ function renderLearnIntro() {
       <p class="eyebrow">Læringsløype · E8 Sporoppsøk og E9 Spor</p>
       <h3>Et kurs du jobber deg gjennom — fra grunnlag til mål</h3>
       <div class="loype-progress-ring">
-        <div class="loype-ring" style="--pct:${progress}"><span>${progress}%</span></div>
+        <div class="loype-ring" style="--pct:${gridPct}"><span>${gridPct}%</span></div>
         <div>
-          <p class="loype-position"><strong>${doneCount} av ${modules.length}</strong> temaer mestret</p>
+          <p class="loype-position"><strong>${gridDoneCount} av ${modules.length}</strong> temaer mestret</p>
           <p class="small">${trainedCount} av ${modules.length} også trent i felt — koblingen til feltmodulen.</p>
         </div>
       </div>
@@ -2986,8 +2996,9 @@ function initEvents() {
         return;
       }
       if (action === "continue-learning") {
-        const firstUnread = modules.find((m) => !state.completed.includes(m.id));
-        state.activeModule = firstUnread ? firstUnread.id : modules[0].id;
+        const statuses = homeModuleStatuses();
+        const nextIncomplete = statuses.find((s) => !s.complete);
+        state.activeModule = nextIncomplete ? nextIncomplete.module.id : modules[0].id;
         state.learnAccordion = "learn";
         saveState();
         setView("learn");
@@ -3070,11 +3081,14 @@ function initEvents() {
 
     const moduleNav = event.target.closest("[data-module-nav]");
     if (moduleNav && moduleNav.dataset.moduleNav) {
-      state.activeModule = moduleNav.dataset.moduleNav;
-      state.learnAccordion = "learn";
-      saveState();
-      renderLearn();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const targetId = moduleNav.dataset.moduleNav;
+      if (!isModuleLocked(targetId)) {
+        state.activeModule = targetId;
+        state.learnAccordion = "learn";
+        saveState();
+        renderLearn();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
 
     const accToggle = event.target.closest("[data-accordion-toggle]");
@@ -3806,8 +3820,6 @@ function openWelcome(event) {
   setIntroStep(0);
   openOverlay($("#welcomeOverlay"));
   requestAnimationFrame(() => $("#introNext")?.focus());
-  // Ambient video — ignorer autoplay-feil (policy-block, manglende fil, etc.)
-  $("#introVideo")?.play?.().catch(() => {});
 }
 
 function setIntroStep(index) {
@@ -3862,7 +3874,6 @@ function closeWelcome() {
     saveState();
   }
   closeOverlay($("#welcomeOverlay"));
-  $("#introVideo")?.pause?.();
   welcomeOpener?.focus?.();
   welcomeOpener = null;
   // Rett etter introen er et naturlig tidspunkt å foreslå installasjon.

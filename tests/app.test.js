@@ -347,6 +347,7 @@ test("shareSnapshot: komplett rundtur eksport → import → eksport", async () 
   ];
   state.completed = ["grunnlag"];
   state.mastery = { [api.quizQuestions[0].id]: { correct: 2, wrong: 1, lastSeen: 10 } };
+  state.gettingStartedAnswers = { "metode-valg": { options: ["frisøk"], note: "Startet med frisøk." } };
   api.setState(state);
 
   const first = api.shareSnapshot();
@@ -354,6 +355,9 @@ test("shareSnapshot: komplett rundtur eksport → import → eksport", async () 
   assert.ok(!Number.isNaN(Date.parse(first.exportedAt)));
   // Bilder skal aldri bli med i delte øyeblikksbilder.
   assert.ok(!("image" in first.logs[0]));
+  assert.deepEqual(first.gettingStartedAnswers, {
+    "metode-valg": { options: ["frisøk"], note: "Startet med frisøk." },
+  });
 
   // Rundtur: serialiser, importer i tom tilstand, eksporter igjen.
   const transported = JSON.parse(JSON.stringify(first));
@@ -365,6 +369,50 @@ test("shareSnapshot: komplett rundtur eksport → import → eksport", async () 
   delete first.exportedAt;
   delete second.exportedAt;
   assert.deepEqual(second, first);
+});
+
+test("importSnapshot: gettingStartedAnswers", async (t) => {
+  await t.test("overlever eksport → import-rundtur", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    state.gettingStartedAnswers = { "metode-valg": { options: ["bil"], note: "Bil-søk først." } };
+    api.setState(state);
+    const exported = api.shareSnapshot();
+
+    api.setState(api.defaultState());
+    api.importSnapshot(JSON.parse(JSON.stringify(exported)));
+    assert.deepEqual(api.getState().gettingStartedAnswers, {
+      "metode-valg": { options: ["bil"], note: "Bil-søk først." },
+    });
+  });
+
+  await t.test("eldre eksport uten feltet kaster ikke og rører ikke lokale svar", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    state.gettingStartedAnswers = { "metode-valg": { note: "Lokalt svar." } };
+    api.setState(state);
+    assert.doesNotThrow(() => api.importSnapshot({ plans: [], logs: [] }));
+    assert.deepEqual(api.getState().gettingStartedAnswers, {
+      "metode-valg": { note: "Lokalt svar." },
+    });
+  });
+
+  await t.test("lokalt svar vinner ved kollisjon, innkommende fyller bare nye nøkler", async () => {
+    const api = await loadApp();
+    const state = api.defaultState();
+    state.gettingStartedAnswers = { "metode-valg": { note: "Lokalt." } };
+    api.setState(state);
+    api.importSnapshot({
+      gettingStartedAnswers: {
+        "metode-valg": { note: "Fra import." },
+        "annet-sporsmal": { options: ["ja"] },
+      },
+    });
+    assert.deepEqual(api.getState().gettingStartedAnswers, {
+      "metode-valg": { note: "Lokalt." },
+      "annet-sporsmal": { options: ["ja"] },
+    });
+  });
 });
 
 test("logsToCsv", async (t) => {

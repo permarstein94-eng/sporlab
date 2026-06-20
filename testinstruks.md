@@ -57,45 +57,46 @@ Gå til samme adresse i Chrome eller Edge. Klikk install-ikonet i adressefeltet 
 3. **Spørsmål:** Forsto du hva du skulle gjøre videre? Var noe forvirrende?
 
 ### Oppgave B: Les en modul (10 min)
-1. Gå til **Lær**
-2. Velg modulen **"Sporoppsøk grunnlag"** (eller en du synes er relevant)
-3. Les gjennom alle delene (Lær, Feltpraksis, Refleksjon, Drill, Teori)
+1. Gå til **Lær** (nederst på mobilen)
+2. Velg temaet **"Grunnlaget"** (tema 1, eller en du synes er relevant)
+3. Gå gjennom alle fire trinnene i steg-visningen (Les, Quiz, Til skogen, Mester)
 4. **Spørsmål:** Var språk og struktur klart? Manglet noe? Var noe overflødig?
 
 ### Oppgave C: Ta en quiz (5 min)
-1. Gå til **Quiz** (nederst på mobilen)
+1. Gå til **Lær** → bla ned til quiz-seksjonen («Aktiv repetisjon»), eller åpne et tema og ta quizen i steg 2 («Ta quiz»)
 2. Svar på 5–10 spørsmål
 3. **Spørsmål:** Var spørsmålene gode? Forsto du forklaringene?
 
 ### Oppgave D: Planlegg en treningsøkt (10 min)
-1. Gå til **Planlegg**
-2. Velg en fokusmodul, sett dato, fyll inn detaljer
-3. Velg en drill (f.eks. "Vinkelrekke")
-4. Generer øktkort
-5. **Bonus:** Skriv ut eller del øktkortet
-6. **Spørsmål:** Var det åpenbart hva du skulle gjøre i hvert steg? Manglet du valg?
+1. Gå til **Felt** (skog-ikonet nederst på mobilen)
+2. Trykk **"Planlegg ny"** under «Mine planer»
+3. Velg en fokusmodul, sett dato, fyll inn detaljer
+4. Velg en drill (f.eks. "Vinkelrekke")
+5. Generer øktkort
+6. **Bonus:** Skriv ut eller del øktkortet
+7. **Spørsmål:** Var det åpenbart hva du skulle gjøre i hvert steg? Manglet du valg?
 
 ### Oppgave E: Bruk feltmodus (10 min)
-1. Åpne planen du nettopp lagde
-2. Trykk på **Feltmodus** (knappen som åpner stort, lest-vennlig visning)
+1. Åpne planen du nettopp lagde under **Felt** → «Mine planer»
+2. Trykk på **"Start feltmodus"** på øktkortet (stor, lett-leselig visning)
 3. Test dette på telefonen din ute (eller simulert hjemme)
 4. **Spørsmål:** Var teksten lesbar i sollys? Var knappene store nok?
 
 ### Oppgave F: Loggfør en treningsøkt (10 min)
-1. Etter en faktisk treningsøkt (eller fiktivt), gå til **Logg**
+1. Etter en faktisk treningsøkt (eller fiktivt), gå til **Felt** → trykk **"Logg en økt"** under «Loggførte økter»
 2. Fyll inn dato, type, hund, fører, alle detaljer
 3. Skriv et "Neste steg"-notat
 4. Lagre
-5. Gå tilbake til **I dag** — sjekk at loggen vises
+5. Gå tilbake til **Felt** — sjekk at loggen vises under «Loggførte økter»
 6. **Spørsmål:** Var skjemaet lett å fylle ut? Var noen felt unødvendige eller manglet noen?
 
-### Oppgave G: Sjekk dashboard og fremgang (5 min)
-1. Gå til **I dag**
-2. Se på eksamensklarhetsmåleren, grafene, statskortene
+### Oppgave G: Sjekk fremgang (5 min)
+1. Gå til **Fremgang** (nederst på mobilen)
+2. Se på oversikten, eksamensklarheten og grafene (når du har nok data til at de vises)
 3. **Spørsmål:** Forsto du hva du så? Var noe overraskende? Manglet noe?
 
-### Oppgave H: Bruk slå-opp (5 min)
-1. Gå til **Slå opp**
+### Oppgave H: Bruk oppslag (5 min)
+1. Gå til **Oppslag** (nederst på mobilen)
 2. Søk etter et begrep du lurer på (f.eks. "vind", "alder", "underlag")
 3. **Spørsmål:** Fant du svar? Var resultatene relevante?
 
@@ -159,7 +160,7 @@ Når feedback fra deg og de andre testbrukerne er bearbeidet, jobber jeg mot å:
 
 - All data lagres **kun på din telefon** (localStorage i nettleseren).
 - Ingenting sendes til en server.
-- Hvis du sletter nettlesarens cache, mister du dataen — derfor bør du **eksportere logg** av og til (under Innstillinger → "Eksport JSON").
+- Hvis du sletter nettleserdataen (localStorage) for siden — f.eks. via "Tøm nettstedsdata", avinstallering av app-ikonet, eller "Slett lokale data" i Innstillinger — mister du dataen. Vanlig cache-tømming i nettleseren rører normalt ikke dette, men vær på den sikre siden: eksporter av og til (under Innstillinger → "Eksporter alt (JSON)").
 
 ---
 

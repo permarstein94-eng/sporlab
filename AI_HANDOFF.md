@@ -40,12 +40,12 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current stable baseline
 
-**Last known good branch:** `fix/grundig-feilretting-juni2026` (avgreinet fra `main` @ `eb7293e`, ingen commits ennå — se siste handoff)  
-**Last known good commit:** eb7293e (main)  
-**Last successful test:** 2026-06-19 — `node --test tests/app.test.js` — 35/35 pass  
-**Last successful typecheck:** 2026-06-19 — `tsc -p jsconfig.json` — exit 0  
-**Last successful build:** 2026-06-19 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-dd3ad5ecd150`  
-**Deployment URL:** TODO (manuell `wrangler deploy` ikke fullført denne sesjonen — se siste handoff)  
+**Last known good branch:** `fix/pilot-readiness-juni2026` (avgreinet fra `main` @ `6ddc77f`, uncommitted i arbeidskopien — se siste handoff)  
+**Last known good commit:** 6ddc77f (main, etter merge av `fix/grundig-feilretting-juni2026`)  
+**Last successful test:** 2026-06-20 — `node --test tests/app.test.js` — 39/39 pass  
+**Last successful typecheck:** 2026-06-20 — `tsc -p jsconfig.json` — exit 0  
+**Last successful build:** 2026-06-20 — `bash build.sh` — 22 filer, SW-cache `sporlab-e8-e9-49a67821f381`  
+**Deployment URL:** https://sporlab.per-marstein-94.workers.dev/ (live-cache pr. forrige sesjon: `sporlab-e8-e9-7bd1e9174420` — IKKE oppdatert med denne sesjonens endringer; ingen deploy kjørt, se Pakke G under)  
 
 ---
 
@@ -68,22 +68,24 @@ Avoid clever rewrites that do not improve practical use.
 
 ## Current task
 
-**Task title:** Grundig feilretting og gjennomgang av hele appen  
+**Task title:** Begrenset HF-pilot-klargjøring (Pakke B–G)  
 **Owner/agent:** Claude Code  
-**Branch:** `fix/grundig-feilretting-juni2026`  
-**Started:** 2026-06-19  
-**Status:** DONE — alle prioriterte funn fikset og verifisert; ikke commitet/merget ennå (venter på Per)
+**Branch:** `fix/pilot-readiness-juni2026`  
+**Started:** 2026-06-20  
+**Status:** Pakke B–F DONE og verifisert (uncommitted); Pakke G venter på Pers eksplisitte godkjenning
 
 ### Scope
 
-Full feilrettingsrunde: `js/state.js`, `js/snapshot.js`, `js/quiz.js`, `js/app.js`,
-`styles.css`. Se siste handoff-oppføring for full funnliste og fikser.
+Pilotklarhet for 5-8 HF-testere: progresjons-/låsingsbugs, pilotinstruks/disclaimer,
+ambient-video-404, schema-dokumentasjon + eksport. `js/app.js`, `js/snapshot.js`,
+`js/state.js`, `index.html`, `styles.css`, `testinstruks.md`, `tests/app.test.js`.
+Se siste handoff-oppføring for full funnliste og fikser.
 
 ### Out of scope
 
-`service-worker.js`-cachestrategi (ingen casual endring per CLAUDE.md), manglende
-`assets/video/ambient.mp4` (krever at Per legger til filen selv), `content.js`,
-deploy-konfig.
+Redesign, nye funksjoner, endring av faginnhold. `service-worker.js`-cachestrategi
+(ingen casual endring per CLAUDE.md). Deploy (Pakke G) uten ny eksplisitt
+godkjenning fra Per.
 
 ---
 
@@ -212,6 +214,97 @@ Use deploy only when explicitly requested.
 ## Session log
 
 Add newest entries at the top.
+
+### 2026-06-20 — Claude Code — HF-pilot-klargjøring (Pakke B–F) — branch `fix/pilot-readiness-juni2026`
+
+**Task:** Fortsettelse av forrige sesjons gjennomgang (PRD + Codex read-only QA,
+begge kun lokalt hos Per, ikke i repoet). Alle funn under var allerede verifisert
+direkte mot koden/live-URL i forrige sesjon og godkjent av Per for implementering,
+i pakker B→G. Denne sesjonen utførte B–F. **Pakke G (deploy) er bevisst ikke
+startet** — krever egen, ny eksplisitt godkjenning fra Per per oppgavebeskrivelsen.
+
+**Pakke B — Progresjon/låsing (`js/app.js`):**
+1. `renderLearnIntro()`s toppheader viste `state.completed.length` («lest»-tallet)
+   merket «X av 8 temaer mestret». Byttet til `gridDoneCount`/`gridPct` (fra
+   `homeModuleStatuses()`, samme tre-lys-modell som resten av skjermen).
+2. Modul-stepperens «◀ Forrige»/«Neste ▶»-knapper (`data-module-nav`) hadde ingen
+   låse-guard — kunne navigere forbi låste temaer. Lagt til ny helper
+   `isModuleLocked(moduleId)` (gjenbruker `homeModuleStatuses()` +
+   `moduleProgressState()`) og en guard i klikk-handleren.
+3. «Fortsett der du var» (`action === "continue-learning"`) valgte neste modul via
+   `state.completed.includes` (lest-only). Rettet til å bruke
+   `homeModuleStatuses()`s `complete`-flagg (tre-lys).
+4. **Funnet under verifisering, ikke i opprinnelig funnliste — flagget til Per,
+   fikset etter godkjenning:** «Neste steg i løypa»-kortet i samme funksjon
+   beregnet `nextModule` med samme lest-only-logikk som punkt 3, og rendret en
+   ikke-låst `data-module-open`-knapp som kunne åpne et faktisk låst tema direkte
+   (bekreftet reproduserbart i browser — modul-gridet under viste samme tema som
+   låst/disabled samtidig). Rettet til å bruke det faktiske aktive temaet fra
+   `gridStatuses`/`gridActiveIndex`.
+
+Alle fire verifisert direkte i browser (port 3000, localStorage manipulert til
+«tema 1 lest, ikke quizet/trent») — håndteringen er nå konsekvent låst på tvers
+av Hjem-kursveien, modul-gridet, stepper-navigasjonen, «Neste steg i løypa»-kortet
+og «Fortsett der du var». **Ikke unit-testbar:** `js/app.js` eksporterer ingenting
+og kjører `init()` (DOM/window/navigator-avhengig) ved import, så testharnessen i
+`tests/helpers/load-app.js` laster aldri `app.js` (kun `state.js`/`utils.js`/
+`snapshot.js`/`quiz.js`/`content.js`) — samme begrensning som forrige sesjons
+`#refSheet`-race-fiks. Å gjøre `app.js`s rendering-/handler-logikk testbar krever
+egen test-infrastruktur (DOM-mocking) og ble vurdert som utenfor denne pakkens
+narrow scope; verifisert manuelt i browser i stedet, som dokumentert presedens.
+
+**Pakke C — Pilotinstruks/disclaimer:**
+- `testinstruks.md`: rettet testoppgavene til faktisk navigasjon (Hjem · Lær ·
+  Felt · Fremgang · Oppslag) — de pekte på faner som ikke finnes («Quiz»,
+  «Planlegg», «Logg», «I dag», «Slå opp»). Også rettet modulnavn-eksempelet
+  («Sporoppsøk grunnlag» → «Grunnlaget», tema 1). Rettet personvern-avsnittet
+  («sletter du cache» → presisert til localStorage/nettleserdata, med konkrete
+  eksempler på hva som faktisk sletter dataen).
+- `index.html`: lagt til en kort instruktør/hefte-disclaimer på siste intro-slide
+  («SporLab er et hjelpeverktøy og erstatter ikke instruktør eller leseheftet»),
+  i tillegg til den som allerede fantes i Innstillinger. Verifisert i browser.
+
+**Pakke D — Ambient-video/404:**
+- Bekreftet 404 på `/assets/video/ambient.mp4` lokalt (filen finnes ikke).
+  Fjernet `<video id="introVideo">` fra `index.html`, `play()`/`pause()`-kallene
+  i `js/app.js` (`openWelcome`/`closeWelcome`), og hele `.intro-ambient-video`
+  CSS-blokken (inkl. `prefers-reduced-motion`-regelen) i `styles.css`. Mørk
+  gradient-fallback (`.welcome-overlay:has(.welcome-intro)`) er urørt og
+  fortsatt aktiv. Verifisert i browser: ingen `ambient.mp4`-request etter fiksen,
+  ingen `#introVideo` i DOM.
+
+**Pakke E — Schema-dokumentasjon + eksport:**
+- `js/state.js`: JSDoc rettet fra «schemaVersion 6» til «schemaVersion 7»
+  (matcher `SCHEMA_VERSION = 7`). Ingen faktisk skjemaendring.
+- `js/snapshot.js`: `shareSnapshot()` eksporterer nå `gettingStartedAnswers`.
+  `importSnapshot()` importerer feltet defensivt — dropper stille hvis feltet
+  mangler (eldre eksporter), saniterer typer, og lar lokalt svar vinne ved
+  nøkkel-kollisjon (samme «lokal vinner»-prinsipp som ellers i funksjonen),
+  innkommende fyller bare nye nøkler.
+- 4 nye tester i `tests/app.test.js` (rundtur, eldre-eksport-uten-felt kaster
+  ikke, lokal-vinner-ved-kollisjon) — alle TDD RED→GREEN.
+
+**Pakke F — Verifikasjon:** `node --test tests/app.test.js` → **39/39 pass** (4
+nye). `tsc -p jsconfig.json` → exit 0. `bash build.sh` → exit 0, 22 filer,
+SW-cache `sporlab-e8-e9-49a67821f381`.
+
+**Pakke G — IKKE startet.** Venter på Pers eksplisitte nye godkjenning før
+deploy-sjekkliste/`wrangler deploy`, per oppgavebeskrivelsen.
+
+**Files changed:** `js/app.js`, `js/snapshot.js`, `js/state.js`, `index.html`,
+`styles.css`, `testinstruks.md`, `tests/app.test.js`.
+
+**Known issues / gjenstående:**
+- Ingenting committet ennå — alt står uncommitted på `fix/pilot-readiness-juni2026`.
+  Per må bestemme commit-strategi (én commit per pakke, eller samlet) før videre.
+- Live deploy-cache (`sporlab-e8-e9-7bd1e9174420`) reflekterer ikke denne
+  sesjonens endringer — uendret fra forrige sesjons kjente issue.
+- `js/app.js`s manglende test-eksport (se Pakke B over) gjelder generelt for all
+  fremtidig logikk i den filen, ikke bare denne sesjonens endringer — vurder om
+  en egen, separat oppgave bør gjøre nøkkelfunksjoner testbare.
+
+**Next step:** Per gjennomgår diffen (8 filer, +127/−67), velger commit-strategi,
+og gir eventuelt ny eksplisitt godkjenning for Pakke G (deploy).
 
 ### 2026-06-19 — Claude Code — Grundig feilretting og gjennomgang — branch `fix/grundig-feilretting-juni2026`
 
