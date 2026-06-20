@@ -3820,8 +3820,6 @@ function openWelcome(event) {
   setIntroStep(0);
   openOverlay($("#welcomeOverlay"));
   requestAnimationFrame(() => $("#introNext")?.focus());
-  // Ambient video — ignorer autoplay-feil (policy-block, manglende fil, etc.)
-  $("#introVideo")?.play?.().catch(() => {});
 }
 
 function setIntroStep(index) {
@@ -3876,7 +3874,6 @@ function closeWelcome() {
     saveState();
   }
   closeOverlay($("#welcomeOverlay"));
-  $("#introVideo")?.pause?.();
   welcomeOpener?.focus?.();
   welcomeOpener = null;
   // Rett etter introen er et naturlig tidspunkt å foreslå installasjon.

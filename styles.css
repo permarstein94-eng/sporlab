@@ -6296,29 +6296,6 @@ body[data-domain="field"] .empty-state {
 }
 
 /* ============================================================
-   Fase 1c — Ambient video-loop i intro-splash.
-   Vises bak glasskortet. Krever assets/video/ambient.mp4
-   (<500 KB, autoplay muted loop). Fallback: mørk gradient.
-   ============================================================ */
-.intro-ambient-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
-  opacity: 0.35;
-  z-index: 0;
-}
-/* Skjul videoen i ikke-intro-kontekst (ingen video-fil = ingen synlig feil) */
-.welcome-overlay:not(:has(.welcome-intro)) .intro-ambient-video {
-  display: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .intro-ambient-video { display: none; }
-}
-
-/* ============================================================
    Fase 1c — Glassmorfisme.
    Glassflatene brukes der kort ligger over mørke bakgrunner:
    intro-splash, fullføring-seremoni og bro-bekreftelse.
